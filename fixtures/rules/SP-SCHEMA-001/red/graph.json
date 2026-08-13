@@ -1,0 +1,26 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "8888888888888888888888888888888888888888888888888888888888888888",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "fieldOperations": [{
+        "listId": "protected-items",
+        "logicalName": "title",
+        "identity": {
+          "source": "display-name-assumption",
+          "internalName": "Synthetic Title",
+          "entityPropertyName": "Synthetic Title"
+        },
+        "uses": [{ "operation": "filter", "fieldName": "Synthetic Title", "source": "display-name" }]
+      }]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

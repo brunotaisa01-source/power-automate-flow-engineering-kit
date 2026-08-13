@@ -1,0 +1,41 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [
+    {
+      "id": "builder:synthetic/browser-probes.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/browser-probes.json",
+      "digest": "4444000044440000444400004444000044440000444400004444000044440000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "permissionProbes": [
+          { "listId": "command-queue", "principalBinding": "BROWSERS", "operations": { "delete": false, "update": false, "create": true, "read": true } },
+          { "listId": "protected-items", "principalBinding": "READERS", "operations": { "delete": false, "update": false, "create": false, "read": true } },
+          { "listId": "audit-log", "principalBinding": "REVIEWERS", "operations": { "delete": false, "update": false, "create": false, "read": true } }
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/processor-probes.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/processor-probes.json",
+      "digest": "4444444400000000444444440000000044444444000000004444444400000000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "permissionProbes": [
+          { "listId": "access-control", "principalBinding": "PROCESSOR", "operations": { "delete": false, "update": false, "create": false, "read": true } },
+          { "listId": "audit-log", "principalBinding": "PROCESSOR", "operations": { "delete": false, "update": false, "create": true, "read": false } },
+          { "listId": "command-queue", "principalBinding": "PROCESSOR", "operations": { "delete": false, "update": true, "create": false, "read": true } },
+          { "listId": "protected-items", "principalBinding": "PROCESSOR", "operations": { "delete": false, "update": true, "create": false, "read": true } }
+        ]
+      },
+      "projections": {}
+    }
+  ],
+  "edges": []
+}

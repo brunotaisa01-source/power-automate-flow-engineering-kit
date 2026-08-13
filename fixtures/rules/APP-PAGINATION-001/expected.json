@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "APP-PAGINATION-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "APP-PAGINATION-001",
+      "artifactPath": "artifacts/wp06-evidence.json#/pagination/<traversal>",
+      "messageContains": "Complete read does not exhaust guarded continuation links."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Change loop handling from fail closed to continue.",
+    "result": "FAIL",
+    "diagnosticCode": "APP-PAGINATION-001"
+  }
+}

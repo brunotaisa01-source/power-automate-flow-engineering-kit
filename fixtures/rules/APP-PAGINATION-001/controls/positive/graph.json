@@ -1,0 +1,64 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [
+    {
+      "id": "frontend:synthetic/export-read.json:wp06-evidence-v1",
+      "kind": "frontend",
+      "relativePath": "synthetic/export-read.json",
+      "digest": "6666000066660000666600006666000066660000666600006666000066660000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "paginationTraversals": [{
+          "completeness": "required",
+          "mode": "exhaust-continuation",
+          "continuation": {
+            "urlParsing": "url-api",
+            "sameOrigin": true,
+            "sitePath": true,
+            "visitedLinks": true,
+            "pageLimit": 12,
+            "onLoop": "fail",
+            "onCrossOrigin": "fail",
+            "onSitePathEscape": "fail",
+            "onPageLimit": "fail"
+          },
+          "accumulation": "append-server-order",
+          "termination": "next-link-absent"
+        }]
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/schema-read.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/schema-read.json",
+      "digest": "6666666600000000666666660000000066666666000000006666666600000000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "paginationTraversals": [{
+          "completeness": "required",
+          "mode": "exhaust-continuation",
+          "continuation": {
+            "urlParsing": "url-api",
+            "sameOrigin": true,
+            "sitePath": true,
+            "visitedLinks": true,
+            "pageLimit": 80,
+            "onLoop": "fail",
+            "onCrossOrigin": "fail",
+            "onSitePathEscape": "fail",
+            "onPageLimit": "fail"
+          },
+          "accumulation": "append-server-order",
+          "termination": "next-link-absent"
+        }]
+      },
+      "projections": {}
+    }
+  ],
+  "edges": []
+}

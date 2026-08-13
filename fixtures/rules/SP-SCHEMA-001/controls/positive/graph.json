@@ -1,0 +1,56 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [
+    {
+      "id": "builder:synthetic/text-field-proof.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/text-field-proof.json",
+      "digest": "8888000088880000888800008888000088880000888800008888000088880000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "fieldOperations": [
+          {
+            "listId": "protected-items",
+            "logicalName": "scope-key",
+            "identity": { "source": "field-readback", "internalName": "ScopeKey", "entityPropertyName": "ScopeKeyEntity" },
+            "uses": [
+              { "operation": "view", "fieldName": "ScopeKeyEntity", "source": "entity-property-name" },
+              { "operation": "filter", "fieldName": "ScopeKeyEntity", "source": "entity-property-name" }
+            ]
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "identity": { "source": "field-readback", "internalName": "Title", "entityPropertyName": "Title" },
+            "uses": [
+              { "operation": "patch", "fieldName": "Title", "source": "entity-property-name" },
+              { "operation": "select", "fieldName": "Title", "source": "entity-property-name" }
+            ]
+          }
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/currency-field-proof.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/currency-field-proof.json",
+      "digest": "8888888800000000888888880000000088888888000000008888888800000000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "fieldOperations": [{
+          "listId": "protected-items",
+          "logicalName": "amount",
+          "identity": { "source": "field-readback", "internalName": "Amount", "entityPropertyName": "Amount" },
+          "uses": [{ "operation": "semantic-readback", "fieldName": "Amount", "source": "entity-property-name" }]
+        }]
+      },
+      "projections": {}
+    }
+  ],
+  "edges": []
+}

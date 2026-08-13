@@ -1,0 +1,6 @@
+{
+  "op": "json-set",
+  "path": "graph.json",
+  "pointer": "/nodes/0/data/permissionModels/1/browserOperations",
+  "value": ["read", "create", "update"]
+}

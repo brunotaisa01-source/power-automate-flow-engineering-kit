@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "SP-SCHEMA-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "SP-SCHEMA-001",
+      "artifactPath": "artifacts/wp06-evidence.json#/schema/<field>/identity",
+      "messageContains": "SharePoint field use is not bound to a confirmed internal name and EntityPropertyName."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Bind a field use to the display name instead of EntityPropertyName.",
+    "result": "FAIL",
+    "diagnosticCode": "SP-SCHEMA-001"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "SP-ODATA-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "SP-ODATA-001",
+      "artifactPath": "artifacts/wp06-evidence.json#/odata/<request>",
+      "messageContains": "OData request accepts raw fragments or lacks structured escaping and encoding."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Allow caller-supplied raw OData fragments.",
+    "result": "FAIL",
+    "diagnosticCode": "SP-ODATA-001"
+  }
+}

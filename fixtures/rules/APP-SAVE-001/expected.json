@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "APP-SAVE-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "APP-SAVE-001",
+      "artifactPath": "artifacts/wp06-evidence.json#/saveTransactions/<transaction>",
+      "messageContains": "Direct patch does not satisfy the explicit Save and conflict-safe transaction contract."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Replace the exact ETag with a wildcard.",
+    "result": "FAIL",
+    "diagnosticCode": "APP-SAVE-001"
+  }
+}

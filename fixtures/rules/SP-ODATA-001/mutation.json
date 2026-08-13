@@ -1,0 +1,6 @@
+{
+  "op": "json-set",
+  "path": "graph.json",
+  "pointer": "/nodes/0/data/odataRequests/0/rawFragmentsAccepted",
+  "value": true
+}

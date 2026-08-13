@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "SP-ACL-002",
+  "title": "Effective permission booleans",
+  "domain": "sharepoint",
+  "severity": "error",
+  "description": "Effective permission evidence does not match the required operation booleans.",
+  "rationale": "Declared roles do not prove effective permissions for a principal.",
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/sharepoint/acl.ts",
+    "exportName": "spAcl002",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/SP-ACL-002/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["SP-ACL-002"]
+  },
+  "green": {
+    "root": "fixtures/rules/SP-ACL-002/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": false, "artifactKinds": [] },
+  "remediation": ["Record explicit effective-operation booleans for every declared principal and reject undeclared allowed operations."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "TENANT_VERIFIED",
+    "description": "Representative identity probes remain authenticated tenant evidence."
+  },
+  "supportedEvidence": ["LOCAL_STATIC"],
+  "tags": ["sharepoint", "acl", "readback", "offline", "synthetic"]
+}

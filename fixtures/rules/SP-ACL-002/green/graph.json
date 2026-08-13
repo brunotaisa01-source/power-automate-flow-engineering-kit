@@ -1,0 +1,25 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "4040404040404040404040404040404040404040404040404040404040404040",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "permissionProbes": [
+        { "listId": "protected-items", "principalBinding": "READERS", "operations": { "read": true, "create": false, "update": false, "delete": false } },
+        { "listId": "protected-items", "principalBinding": "PROCESSOR", "operations": { "read": true, "create": false, "update": true, "delete": false } },
+        { "listId": "command-queue", "principalBinding": "BROWSERS", "operations": { "read": true, "create": true, "update": false, "delete": false } },
+        { "listId": "command-queue", "principalBinding": "PROCESSOR", "operations": { "read": true, "create": false, "update": true, "delete": false } },
+        { "listId": "audit-log", "principalBinding": "PROCESSOR", "operations": { "read": false, "create": true, "update": false, "delete": false } },
+        { "listId": "audit-log", "principalBinding": "REVIEWERS", "operations": { "read": true, "create": false, "update": false, "delete": false } },
+        { "listId": "access-control", "principalBinding": "PROCESSOR", "operations": { "read": true, "create": false, "update": false, "delete": false } }
+      ]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

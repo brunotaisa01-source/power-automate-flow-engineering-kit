@@ -1,0 +1,51 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "fieldOperations": [
+        {
+          "listId": "protected-items",
+          "logicalName": "title",
+          "compatibility": {
+            "response": "FOUND",
+            "comparedProperties": ["logicalName", "internalName", "type", "required", "indexed", "unique", "clientEditable", "serverAuthoritative", "immutableAfterCreate", "sensitive", "maxLength"],
+            "actual": { "logicalName": "title", "internalName": "Title", "type": "Text", "required": true, "indexed": true, "unique": false, "clientEditable": true, "serverAuthoritative": false, "immutableAfterCreate": false, "sensitive": false, "maxLength": 255 },
+            "outcome": "MATCH",
+            "writeAction": "none"
+          }
+        },
+        {
+          "listId": "protected-items",
+          "logicalName": "amount",
+          "compatibility": {
+            "response": "FOUND",
+            "comparedProperties": ["logicalName", "internalName", "type", "required", "indexed", "unique", "clientEditable", "serverAuthoritative", "immutableAfterCreate", "sensitive"],
+            "actual": { "logicalName": "amount", "internalName": "Amount", "type": "Currency", "required": true, "indexed": false, "unique": false, "clientEditable": false, "serverAuthoritative": true, "immutableAfterCreate": false, "sensitive": false },
+            "outcome": "MATCH",
+            "writeAction": "none"
+          }
+        },
+        {
+          "listId": "protected-items",
+          "logicalName": "scope-key",
+          "compatibility": {
+            "response": "FOUND",
+            "comparedProperties": ["logicalName", "internalName", "type", "required", "indexed", "unique", "clientEditable", "serverAuthoritative", "immutableAfterCreate", "sensitive", "maxLength"],
+            "actual": { "logicalName": "scope-key", "internalName": "ScopeKey", "type": "Text", "required": true, "indexed": true, "unique": false, "clientEditable": false, "serverAuthoritative": true, "immutableAfterCreate": true, "sensitive": false, "maxLength": 64 },
+            "outcome": "MATCH",
+            "writeAction": "none"
+          }
+        }
+      ]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

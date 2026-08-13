@@ -1,0 +1,52 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "2020202020202020202020202020202020202020202020202020202020202020",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "authorityChecks": [{
+        "commandType": "apply-change",
+        "targetListId": "protected-items",
+        "sequence": { "identityRead": 1, "capabilityRead": 2, "targetRead": 3, "mutation": 4 },
+        "authoritySources": {
+          "actor": "server-system-identity",
+          "role": "active-access-row",
+          "scope": "active-access-row",
+          "protectedState": "current-target-read",
+          "owner": "current-target-read",
+          "amount": "current-target-read",
+          "approval": "server-contract"
+        },
+        "capability": {
+          "id": "approve-items",
+          "accessListId": "access-control",
+          "activeField": "Active",
+          "principalField": "PrincipalKey",
+          "capabilityField": "Capability",
+          "source": "active-access-row",
+          "activeOnly": true,
+          "matchCardinality": "one",
+          "commandDeclared": true,
+          "stateTransitionDeclared": true
+        },
+        "scope": {
+          "mode": "field-match",
+          "targetField": "ScopeKey",
+          "accessField": "ScopeKey",
+          "targetValueSource": "current-target-read",
+          "capabilityValueSource": "active-access-row",
+          "evaluation": "exact-match",
+          "checkedBeforeMutation": true
+        },
+        "effectiveOperation": { "operation": "update", "allowed": true }
+      }]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "SP-AUTHZ-002",
+  "title": "Current target scope authority",
+  "domain": "sharepoint",
+  "severity": "error",
+  "description": "Protected mutation scope is not checked against current target state and the active capability.",
+  "rationale": "Client scope claims cannot expand an active server-side capability.",
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/sharepoint/authorization.ts",
+    "exportName": "spAuthz002",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/SP-AUTHZ-002/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["SP-AUTHZ-002"]
+  },
+  "green": {
+    "root": "fixtures/rules/SP-AUTHZ-002/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["generated-definition", "zip"] },
+  "remediation": ["Compare the active capability scope with the current target value read immediately before mutation."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Separate-scope and separate-user authorization probes remain external."
+  },
+  "supportedEvidence": ["LOCAL_STATIC", "PACKAGE_ARTIFACT"],
+  "tags": ["sharepoint", "authorization", "scope", "offline", "synthetic"]
+}

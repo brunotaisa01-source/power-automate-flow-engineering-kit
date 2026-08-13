@@ -9,3 +9,4 @@ export * from "./frontend.js";
 export * from "./manifest.js";
 export * from "./schema.js";
 export * from "./zip.js";
+export * from "./wp06-evidence.js";

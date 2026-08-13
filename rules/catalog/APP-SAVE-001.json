@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "APP-SAVE-001",
+  "title": "Conflict-safe explicit Save",
+  "domain": "application",
+  "severity": "error",
+  "description": "Direct patch does not satisfy the explicit Save and conflict-safe transaction contract.",
+  "rationale": "A direct-patch exception must remain allowlisted, concurrency-safe, and GET-reconciled.",
+  "appliesTo": [{ "kind": "frontend", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/application/save.ts",
+    "exportName": "appSave001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/APP-SAVE-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["APP-SAVE-001"]
+  },
+  "green": {
+    "root": "fixtures/rules/APP-SAVE-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["frontend-bundle"] },
+  "remediation": ["Use explicit Save, a minimal clientEditable patch, a fresh digest, exact ETag, 412 conflict handling, GET-only reconciliation, and semantic readback."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Concurrent tenant saves and ambiguous transport outcomes remain external."
+  },
+  "supportedEvidence": ["LOCAL_STATIC"],
+  "tags": ["application", "save", "etag", "offline", "synthetic"]
+}

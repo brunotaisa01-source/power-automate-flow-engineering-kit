@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "SP-SCHEMA-003",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "SP-SCHEMA-003",
+      "artifactPath": "artifacts/wp06-evidence.json#/schema/<field>/compatibility",
+      "messageContains": "Existing SharePoint field compatibility is not classified property by property."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Remove one contracted property from the compatibility comparison.",
+    "result": "FAIL",
+    "diagnosticCode": "SP-SCHEMA-003"
+  }
+}

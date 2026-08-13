@@ -1,0 +1,73 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [
+    {
+      "id": "builder:synthetic/domain-acl.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/domain-acl.json",
+      "digest": "3333000033330000333300003333000033330000333300003333000033330000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "permissionModels": [
+          {
+            "listId": "command-queue",
+            "inheritance": "break-clear",
+            "directUserGrants": "forbidden",
+            "browserOperations": ["create", "read"],
+            "grants": [
+              { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["update", "read"] },
+              { "principalKind": "binding", "principalBinding": "BROWSERS", "role": "contribute-limited", "allowedOperations": ["create", "read"] }
+            ]
+          },
+          {
+            "listId": "protected-items",
+            "inheritance": "break-clear",
+            "directUserGrants": "forbidden",
+            "browserOperations": ["update", "read"],
+            "grants": [
+              { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["update", "read"] },
+              { "principalKind": "binding", "principalBinding": "READERS", "role": "read", "allowedOperations": ["read"] }
+            ]
+          }
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/support-acl.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/support-acl.json",
+      "digest": "3333333300000000333333330000000033333333000000003333333300000000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "permissionModels": [
+          {
+            "listId": "access-control",
+            "inheritance": "break-clear",
+            "directUserGrants": "forbidden",
+            "browserOperations": [],
+            "grants": [
+              { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["read"] }
+            ]
+          },
+          {
+            "listId": "audit-log",
+            "inheritance": "break-clear",
+            "directUserGrants": "forbidden",
+            "browserOperations": [],
+            "grants": [
+              { "principalKind": "binding", "principalBinding": "REVIEWERS", "role": "audit-read", "allowedOperations": ["read"] },
+              { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["create"] }
+            ]
+          }
+        ]
+      },
+      "projections": {}
+    }
+  ],
+  "edges": []
+}

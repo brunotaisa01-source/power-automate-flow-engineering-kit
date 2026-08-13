@@ -1,0 +1,35 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "9090909090909090909090909090909090909090909090909090909090909090",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "fieldOperations": [
+        {
+          "listId": "protected-items",
+          "logicalName": "title",
+          "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldText", "fieldTypeKind": 2 },
+          "indexPayload": { "serialization": "structured-json", "metadataType": "SP.Field" }
+        },
+        {
+          "listId": "protected-items",
+          "logicalName": "amount",
+          "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldCurrency", "fieldTypeKind": 10 }
+        },
+        {
+          "listId": "protected-items",
+          "logicalName": "scope-key",
+          "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldText", "fieldTypeKind": 2 },
+          "indexPayload": { "serialization": "structured-json", "metadataType": "SP.Field" }
+        }
+      ]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

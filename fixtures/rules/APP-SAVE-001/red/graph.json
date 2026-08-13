@@ -1,0 +1,31 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "frontend",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "5555555555555555555555555555555555555555555555555555555555555555",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "saveTransactions": [{
+        "listId": "protected-items",
+        "trigger": "autosave",
+        "patchedFields": ["Title", "Amount"],
+        "request": {
+          "method": "POST",
+          "methodOverride": "MERGE",
+          "serialization": "structured-json",
+          "digest": "shared-session",
+          "ifMatch": "wildcard"
+        },
+        "conflict": { "status": 412, "action": "automatic-replay" },
+        "ambiguousFailure": { "action": "automatic-replay", "writeRetry": true },
+        "readback": { "method": "GET", "semantic": false, "beforeSuccess": false }
+      }]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

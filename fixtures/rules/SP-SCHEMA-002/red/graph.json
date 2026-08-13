@@ -1,0 +1,29 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "9999999999999999999999999999999999999999999999999999999999999999",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "fieldOperations": [{
+        "listId": "protected-items",
+        "logicalName": "title",
+        "createPayload": {
+          "serialization": "string-concatenation",
+          "metadataType": "untyped",
+          "fieldTypeKind": 2
+        },
+        "indexPayload": {
+          "serialization": "string-concatenation",
+          "metadataType": "untyped"
+        }
+      }]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "SP-SCHEMA-002",
+  "title": "Typed field payload",
+  "domain": "sharepoint",
+  "severity": "error",
+  "description": "SharePoint field payload lacks endpoint-required typed metadata or structured serialization.",
+  "rationale": "Typed SP.Field payloads avoid endpoint ambiguity and unsafe JSON interpolation.",
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/sharepoint/schema.ts",
+    "exportName": "spSchema002",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/SP-SCHEMA-002/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["SP-SCHEMA-002"]
+  },
+  "green": {
+    "root": "fixtures/rules/SP-SCHEMA-002/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["generated-definition"] },
+  "remediation": ["Serialize a structured endpoint-compatible payload with the exact SP.Field metadata type and FieldTypeKind."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "TENANT_VERIFIED",
+    "description": "Field creation and typed update acceptance remain tenant readback evidence."
+  },
+  "supportedEvidence": ["LOCAL_STATIC"],
+  "tags": ["sharepoint", "schema", "typed-payload", "offline", "synthetic"]
+}

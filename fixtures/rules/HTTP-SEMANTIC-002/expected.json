@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "HTTP-SEMANTIC-002",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "HTTP-SEMANTIC-002",
+      "artifactPath": "artifacts/wp06-evidence.json#/http/<classification>/phase",
+      "messageContains": "HTTP 404 classification is not restricted to the declared initial Preflight GET."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Reuse CREATE_MISSING classification during Apply.",
+    "result": "FAIL",
+    "diagnosticCode": "HTTP-SEMANTIC-002"
+  }
+}

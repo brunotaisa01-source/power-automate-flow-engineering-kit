@@ -1,0 +1,57 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "3030303030303030303030303030303030303030303030303030303030303030",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "permissionModels": [
+        {
+          "listId": "protected-items",
+          "inheritance": "break-clear",
+          "directUserGrants": "forbidden",
+          "browserOperations": ["read", "update"],
+          "grants": [
+            { "principalKind": "binding", "principalBinding": "READERS", "role": "read", "allowedOperations": ["read"] },
+            { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["read", "update"] }
+          ]
+        },
+        {
+          "listId": "command-queue",
+          "inheritance": "break-clear",
+          "directUserGrants": "forbidden",
+          "browserOperations": ["read", "create"],
+          "grants": [
+            { "principalKind": "binding", "principalBinding": "BROWSERS", "role": "contribute-limited", "allowedOperations": ["read", "create"] },
+            { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["read", "update"] }
+          ]
+        },
+        {
+          "listId": "audit-log",
+          "inheritance": "break-clear",
+          "directUserGrants": "forbidden",
+          "browserOperations": [],
+          "grants": [
+            { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["create"] },
+            { "principalKind": "binding", "principalBinding": "REVIEWERS", "role": "audit-read", "allowedOperations": ["read"] }
+          ]
+        },
+        {
+          "listId": "access-control",
+          "inheritance": "break-clear",
+          "directUserGrants": "forbidden",
+          "browserOperations": [],
+          "grants": [
+            { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["read"] }
+          ]
+        }
+      ]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "APP-PAGINATION-001",
+  "title": "Guarded continuation exhaustion",
+  "domain": "application",
+  "severity": "error",
+  "description": "Complete read does not exhaust guarded continuation links.",
+  "rationale": "First-page-only or unsafe continuation handling produces incomplete or exfiltrated reads.",
+  "appliesTo": [{ "kind": "frontend", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/application/pagination.ts",
+    "exportName": "appPagination001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/APP-PAGINATION-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["APP-PAGINATION-001"]
+  },
+  "green": {
+    "root": "fixtures/rules/APP-PAGINATION-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["frontend-bundle"] },
+  "remediation": ["Follow continuation URLs to exhaustion with URL parsing, origin/site-path checks, visited-link detection, and a fail-closed page limit."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "A large-list tenant pagination scenario remains external."
+  },
+  "supportedEvidence": ["LOCAL_STATIC"],
+  "tags": ["application", "pagination", "offline", "synthetic"]
+}

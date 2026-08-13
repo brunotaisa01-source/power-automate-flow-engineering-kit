@@ -1,0 +1,48 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "frontend:synthetic/save-proof.json:wp06-evidence-v1",
+    "kind": "frontend",
+    "relativePath": "synthetic/save-proof.json",
+    "digest": "5555000055550000555500005555000055550000555500005555000055550000",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "paginationTraversals": [{
+        "completeness": "required",
+        "mode": "exhaust-continuation",
+        "continuation": {
+          "urlParsing": "url-api",
+          "sameOrigin": true,
+          "sitePath": true,
+          "visitedLinks": true,
+          "pageLimit": 25,
+          "onLoop": "fail",
+          "onCrossOrigin": "fail",
+          "onSitePathEscape": "fail",
+          "onPageLimit": "fail"
+        },
+        "accumulation": "append-server-order",
+        "termination": "next-link-absent"
+      }],
+      "saveTransactions": [{
+        "listId": "protected-items",
+        "trigger": "explicit-save",
+        "patchedFields": ["Title"],
+        "request": {
+          "method": "POST",
+          "methodOverride": "MERGE",
+          "serialization": "structured-json",
+          "digest": "fresh-transaction",
+          "ifMatch": "exact-etag"
+        },
+        "conflict": { "status": 412, "action": "surface-conflict" },
+        "ambiguousFailure": { "action": "get-reconcile", "writeRetry": false },
+        "readback": { "method": "GET", "semantic": true, "beforeSuccess": true }
+      }]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

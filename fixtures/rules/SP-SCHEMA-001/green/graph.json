@@ -1,0 +1,36 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "8080808080808080808080808080808080808080808080808080808080808080",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "fieldOperations": [
+        {
+          "listId": "protected-items",
+          "logicalName": "title",
+          "identity": { "source": "field-readback", "internalName": "Title", "entityPropertyName": "Title" },
+          "uses": [{ "operation": "filter", "fieldName": "Title", "source": "entity-property-name" }]
+        },
+        {
+          "listId": "protected-items",
+          "logicalName": "amount",
+          "identity": { "source": "field-readback", "internalName": "Amount", "entityPropertyName": "Amount" },
+          "uses": [{ "operation": "readback", "fieldName": "Amount", "source": "entity-property-name" }]
+        },
+        {
+          "listId": "protected-items",
+          "logicalName": "scope-key",
+          "identity": { "source": "field-readback", "internalName": "ScopeKey", "entityPropertyName": "ScopeKey" },
+          "uses": [{ "operation": "index", "fieldName": "ScopeKey", "source": "entity-property-name" }]
+        }
+      ]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

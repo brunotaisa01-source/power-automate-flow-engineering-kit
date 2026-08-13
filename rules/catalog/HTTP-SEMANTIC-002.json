@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "HTTP-SEMANTIC-002",
+  "title": "Phase-sensitive 404",
+  "domain": "application",
+  "severity": "error",
+  "description": "HTTP 404 classification is not restricted to the declared initial Preflight GET.",
+  "rationale": "Permissive Preflight absence handling must never leak into Apply or Readback.",
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/http/semantic.ts",
+    "exportName": "httpSemantic002",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/HTTP-SEMANTIC-002/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["HTTP-SEMANTIC-002"]
+  },
+  "green": {
+    "root": "fixtures/rules/HTTP-SEMANTIC-002/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["generated-definition"] },
+  "remediation": ["Classify 404 as CREATE_MISSING only for an explicitly allowed initial Preflight GET; all Apply and Readback 404 responses are GET_FAILED."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Preflight and Apply response readback remain external."
+  },
+  "supportedEvidence": ["LOCAL_STATIC", "PACKAGE_ARTIFACT"],
+  "tags": ["application", "http", "preflight", "offline", "synthetic"]
+}

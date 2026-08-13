@@ -1,0 +1,76 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [
+    {
+      "id": "builder:synthetic/scope-proof.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/scope-proof.json",
+      "digest": "2222000022220000222200002222000022220000222200002222000022220000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "authorityChecks": [{
+          "commandType": "apply-change",
+          "targetListId": "protected-items",
+          "sequence": { "identityRead": 3, "capabilityRead": 1, "targetRead": 4, "mutation": 8 },
+          "authoritySources": {
+            "actor": "server-system-identity",
+            "role": "active-access-row",
+            "scope": "active-access-row",
+            "protectedState": "current-target-read",
+            "owner": "current-target-read",
+            "amount": "current-target-read",
+            "approval": "server-contract"
+          },
+          "capability": {
+            "id": "approve-items",
+            "accessListId": "access-control",
+            "activeField": "Active",
+            "principalField": "PrincipalKey",
+            "capabilityField": "Capability",
+            "source": "active-access-row",
+            "activeOnly": true,
+            "matchCardinality": "one",
+            "commandDeclared": true,
+            "stateTransitionDeclared": true
+          },
+          "scope": {
+            "mode": "field-match",
+            "targetField": "ScopeKey",
+            "accessField": "ScopeKey",
+            "targetValueSource": "current-target-read",
+            "capabilityValueSource": "active-access-row",
+            "evaluation": "exact-match",
+            "checkedBeforeMutation": true
+          },
+          "effectiveOperation": { "operation": "update", "allowed": true }
+        }]
+      },
+      "projections": {}
+    },
+    {
+      "id": "frontend:synthetic/query-proof.json:wp06-evidence-v1",
+      "kind": "frontend",
+      "relativePath": "synthetic/query-proof.json",
+      "digest": "2222222200000000222222220000000022222222000000002222222200000000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "odataRequests": [{
+          "listId": "protected-items",
+          "fieldNames": ["ScopeKey"],
+          "fieldSource": "contract-allowlist",
+          "queryConstruction": "url-api",
+          "pathConstruction": "url-api",
+          "stringLiteralEscaping": "double-single-quote-before-encoding",
+          "rawFragmentsAccepted": false,
+          "parameterEncoding": "url-search-params"
+        }]
+      },
+      "projections": {}
+    }
+  ],
+  "edges": []
+}

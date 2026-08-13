@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "SP-INDEX-001",
+  "title": "Serialized remove-before-add index plan",
+  "domain": "sharepoint",
+  "severity": "error",
+  "description": "Index remediation is not a bounded serial remove-before-add plan with fresh digest evidence.",
+  "rationale": "Index budget remediation must remove deterministically before any addition and bind approval to current state.",
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/sharepoint/indexes.ts",
+    "exportName": "spIndex001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/SP-INDEX-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["SP-INDEX-001"]
+  },
+  "green": {
+    "root": "fixtures/rules/SP-INDEX-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["generated-definition", "zip"] },
+  "remediation": ["Recompute a bounded digest-bound plan, remove extra indexes serially with readback, then add required indexes in contract order with typed payloads."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "TENANT_VERIFIED",
+    "description": "Authorized index Apply and current tenant readback remain external."
+  },
+  "supportedEvidence": ["LOCAL_STATIC", "PACKAGE_ARTIFACT"],
+  "tags": ["sharepoint", "index", "apply", "offline", "synthetic"]
+}

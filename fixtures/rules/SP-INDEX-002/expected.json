@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "SP-INDEX-002",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "SP-INDEX-002",
+      "artifactPath": "artifacts/wp06-evidence.json#/indexes/<plan>/readback",
+      "messageContains": "Index Apply does not prove per-step and final readback or a compatible zero-write NO_OP."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Report one write for an already compatible index set.",
+    "result": "FAIL",
+    "diagnosticCode": "SP-INDEX-002"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "SP-SCHEMA-002",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "SP-SCHEMA-002",
+      "artifactPath": "artifacts/wp06-evidence.json#/schema/<field>/payload",
+      "messageContains": "SharePoint field payload lacks endpoint-required typed metadata or structured serialization."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Remove the SP.FieldText metadata type from the create payload.",
+    "result": "FAIL",
+    "diagnosticCode": "SP-SCHEMA-002"
+  }
+}

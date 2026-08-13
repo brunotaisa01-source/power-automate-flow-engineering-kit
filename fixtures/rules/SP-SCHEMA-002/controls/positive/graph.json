@@ -1,0 +1,49 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [
+    {
+      "id": "builder:synthetic/indexed-payloads.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/indexed-payloads.json",
+      "digest": "9999000099990000999900009999000099990000999900009999000099990000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "fieldOperations": [
+          {
+            "listId": "protected-items",
+            "logicalName": "scope-key",
+            "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldText", "fieldTypeKind": 2 },
+            "indexPayload": { "serialization": "structured-json", "metadataType": "SP.Field" }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldText", "fieldTypeKind": 2 },
+            "indexPayload": { "serialization": "structured-json", "metadataType": "SP.Field" }
+          }
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/non-indexed-payload.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/non-indexed-payload.json",
+      "digest": "9999999900000000999999990000000099999999000000009999999900000000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "fieldOperations": [{
+          "listId": "protected-items",
+          "logicalName": "amount",
+          "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldCurrency", "fieldTypeKind": 10 }
+        }]
+      },
+      "projections": {}
+    }
+  ],
+  "edges": []
+}

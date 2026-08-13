@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "SP-INDEX-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "SP-INDEX-001",
+      "artifactPath": "artifacts/wp06-evidence.json#/indexes/<plan>/operations",
+      "messageContains": "Index remediation is not a bounded serial remove-before-add plan with fresh digest evidence."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Change the required first removal into an addition.",
+    "result": "FAIL",
+    "diagnosticCode": "SP-INDEX-001"
+  }
+}

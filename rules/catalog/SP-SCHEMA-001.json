@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "SP-SCHEMA-001",
+  "title": "Confirmed field identity",
+  "domain": "sharepoint",
+  "severity": "error",
+  "description": "SharePoint field use is not bound to a confirmed internal name and EntityPropertyName.",
+  "rationale": "Display names are presentation only and cannot bind REST, view, filter, index, or patch operations.",
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/sharepoint/schema.ts",
+    "exportName": "spSchema001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/SP-SCHEMA-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["SP-SCHEMA-001"]
+  },
+  "green": {
+    "root": "fixtures/rules/SP-SCHEMA-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["generated-definition"] },
+  "remediation": ["Read the field definition and bind every operation to the contract internal name and confirmed EntityPropertyName."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "TENANT_VERIFIED",
+    "description": "Current field identity requires authenticated schema readback."
+  },
+  "supportedEvidence": ["LOCAL_STATIC"],
+  "tags": ["sharepoint", "schema", "field-identity", "offline", "synthetic"]
+}

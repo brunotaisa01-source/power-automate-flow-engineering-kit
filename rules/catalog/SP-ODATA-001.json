@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "SP-ODATA-001",
+  "title": "Structured OData construction",
+  "domain": "sharepoint",
+  "severity": "error",
+  "description": "OData request accepts raw fragments or lacks structured escaping and encoding.",
+  "rationale": "Allowlisted fields and escaped literals must be encoded by a structured URL API.",
+  "appliesTo": [{ "kind": "frontend", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/sharepoint/odata.ts",
+    "exportName": "spOdata001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/SP-ODATA-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["SP-ODATA-001"]
+  },
+  "green": {
+    "root": "fixtures/rules/SP-ODATA-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["frontend-bundle"] },
+  "remediation": ["Construct allowlisted query parameters with a URL API and double single quotes before encoding OData string literals."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Special-character tenant query behavior remains external."
+  },
+  "supportedEvidence": ["LOCAL_STATIC"],
+  "tags": ["sharepoint", "odata", "encoding", "offline", "synthetic"]
+}

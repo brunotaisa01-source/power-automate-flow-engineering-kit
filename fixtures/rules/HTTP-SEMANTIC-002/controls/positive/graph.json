@@ -1,0 +1,34 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:synthetic/http-404-strict.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "synthetic/http-404-strict.json",
+    "digest": "cccccccc00000000cccccccc00000000cccccccc00000000cccccccc00000000",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "httpClassifications": [
+        {
+          "status": 404,
+          "phase": "preflight",
+          "requestKind": "initial-get",
+          "allowCreateMissing404": false,
+          "error": { "platformCode": "NOT_FOUND" },
+          "classification": "GET_FAILED"
+        },
+        {
+          "status": 404,
+          "phase": "preflight",
+          "requestKind": "other-get",
+          "allowCreateMissing404": true,
+          "error": { "messageCategory": "missing-object" },
+          "classification": "GET_FAILED"
+        }
+      ]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

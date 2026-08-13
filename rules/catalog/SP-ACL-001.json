@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "SP-ACL-001",
+  "title": "Minimum permission model",
+  "domain": "sharepoint",
+  "severity": "error",
+  "description": "Declared permission matrix permits a forbidden principal or browser operation.",
+  "rationale": "Reusable templates require contract-exact group bindings and minimum browser writes.",
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/sharepoint/acl.ts",
+    "exportName": "spAcl001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/SP-ACL-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["SP-ACL-001"]
+  },
+  "green": {
+    "root": "fixtures/rules/SP-ACL-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["generated-definition"] },
+  "remediation": ["Use binding-key principals, forbid direct user grants, and match each list role and browser operation to the contract."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "TENANT_VERIFIED",
+    "description": "Current tenant ACL inheritance and role assignments require authenticated readback."
+  },
+  "supportedEvidence": ["LOCAL_STATIC"],
+  "tags": ["sharepoint", "acl", "least-privilege", "offline", "synthetic"]
+}

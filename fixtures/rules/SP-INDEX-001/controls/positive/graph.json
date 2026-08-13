@@ -1,0 +1,28 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:synthetic/compatible-index-plan.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "synthetic/compatible-index-plan.json",
+    "digest": "dddddddd00000000dddddddd00000000dddddddd00000000dddddddd00000000",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "indexPlans": [{
+        "listId": "protected-items",
+        "currentFields": ["ScopeKey", "Title"],
+        "requiredFields": ["Title", "ScopeKey"],
+        "execution": "serial",
+        "digest": { "fresh": true, "bindsCurrent": true, "bindsRequired": true },
+        "result": "NO_OP",
+        "maximumWrites": 0,
+        "writeCount": 0,
+        "operations": [],
+        "finalReadback": ["Title", "ScopeKey"]
+      }]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

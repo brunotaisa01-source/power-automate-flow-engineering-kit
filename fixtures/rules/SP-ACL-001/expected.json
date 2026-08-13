@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "SP-ACL-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "SP-ACL-001",
+      "artifactPath": "artifacts/wp06-evidence.json#/permissions/<list>",
+      "messageContains": "Declared permission matrix permits a forbidden principal or browser operation."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Grant browser update on the command queue.",
+    "result": "FAIL",
+    "diagnosticCode": "SP-ACL-001"
+  }
+}

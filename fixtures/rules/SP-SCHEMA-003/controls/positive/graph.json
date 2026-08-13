@@ -1,0 +1,49 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:synthetic/compatibility-branches.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "synthetic/compatibility-branches.json",
+    "digest": "aaaaaaaa00000000aaaaaaaa00000000aaaaaaaa00000000aaaaaaaa00000000",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "fieldOperations": [
+        {
+          "listId": "protected-items",
+          "logicalName": "scope-key",
+          "compatibility": {
+            "response": "GET_FAILED",
+            "comparedProperties": [],
+            "outcome": "GET_FAILED",
+            "writeAction": "none"
+          }
+        },
+        {
+          "listId": "protected-items",
+          "logicalName": "amount",
+          "compatibility": {
+            "response": "MISSING_OBJECT",
+            "comparedProperties": [],
+            "outcome": "CREATE_MISSING",
+            "writeAction": "create-approved-plan"
+          }
+        },
+        {
+          "listId": "protected-items",
+          "logicalName": "title",
+          "compatibility": {
+            "response": "FOUND",
+            "comparedProperties": ["maxLength", "sensitive", "immutableAfterCreate", "serverAuthoritative", "clientEditable", "unique", "indexed", "required", "type", "internalName", "logicalName"],
+            "actual": { "maxLength": 255, "sensitive": false, "immutableAfterCreate": false, "serverAuthoritative": false, "clientEditable": true, "unique": false, "indexed": true, "required": true, "type": "Text", "internalName": "Title", "logicalName": "title" },
+            "outcome": "MATCH",
+            "writeAction": "none"
+          }
+        }
+      ]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

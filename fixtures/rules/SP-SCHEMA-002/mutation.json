@@ -1,0 +1,6 @@
+{
+  "op": "json-set",
+  "path": "graph.json",
+  "pointer": "/nodes/0/data/fieldOperations/0/createPayload/metadataType",
+  "value": "untyped"
+}

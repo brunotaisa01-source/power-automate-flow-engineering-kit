@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "SP-ACL-002",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "SP-ACL-002",
+      "artifactPath": "artifacts/wp06-evidence.json#/effectivePermissions/<probe>",
+      "messageContains": "Effective permission evidence does not match the required operation booleans."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Allow an undeclared delete operation for a browser principal.",
+    "result": "FAIL",
+    "diagnosticCode": "SP-ACL-002"
+  }
+}

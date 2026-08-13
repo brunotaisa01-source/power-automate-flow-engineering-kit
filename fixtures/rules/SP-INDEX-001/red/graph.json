@@ -1,0 +1,37 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "indexPlans": [{
+        "listId": "protected-items",
+        "currentFields": ["LegacyField", "Title"],
+        "requiredFields": ["Title", "ScopeKey"],
+        "execution": "parallel",
+        "digest": { "fresh": false, "bindsCurrent": false, "bindsRequired": true },
+        "result": "APPLY",
+        "maximumWrites": 2,
+        "writeCount": 2,
+        "operations": [
+          {
+            "sequence": 1,
+            "kind": "add",
+            "field": "ScopeKey",
+            "payloadMetadataType": "SP.Field",
+            "readback": false
+          },
+          { "sequence": 2, "kind": "remove", "field": "LegacyField", "readback": false }
+        ],
+        "finalReadback": ["ScopeKey", "Title"]
+      }]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

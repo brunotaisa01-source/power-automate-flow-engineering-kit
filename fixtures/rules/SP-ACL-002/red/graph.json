@@ -1,0 +1,26 @@
+{
+  "fixtureProfile": "synthetic-wp06-v1",
+  "nodes": [{
+    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+    "kind": "builder",
+    "relativePath": "artifacts/wp06-evidence.json",
+    "digest": "4444444444444444444444444444444444444444444444444444444444444444",
+    "sourceProfile": "wp06-evidence-v1",
+    "data": {
+      "evidenceProfile": "wp06-offline-v1",
+      "contractRevision": 2,
+      "permissionProbes": [{
+        "listId": "command-queue",
+        "principalBinding": "BROWSERS",
+        "operations": {
+          "read": true,
+          "create": true,
+          "update": false,
+          "delete": true
+        }
+      }]
+    },
+    "projections": {}
+  }],
+  "edges": []
+}

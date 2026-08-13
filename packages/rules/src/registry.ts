@@ -2,6 +2,9 @@ import type { Diagnostic } from "@spflow/core/types/diagnostics";
 import type { ProjectContract } from "@spflow/core/types/project-contract";
 import type { RuleAdapterEvidence } from "@spflow/core/types/rule-input";
 
+import { appPagination001 } from "./application/pagination.ts";
+import { appSave001 } from "./application/save.ts";
+import { httpSemantic001, httpSemantic002 } from "./http/semantic.ts";
 import { pkgArchive001 } from "./package/archive-safety.ts";
 import { pkgIntegrity001 } from "./package/integrity.ts";
 import { pkgNative001 } from "./package/native-envelope.ts";
@@ -17,6 +20,11 @@ import { flowRetry001 } from "./power-automate/retry.ts";
 import { paScope001 } from "./power-automate/scope.ts";
 import { flowStatus001 } from "./power-automate/status.ts";
 import { paWdl001 } from "./power-automate/wdl.ts";
+import { spAcl001, spAcl002 } from "./sharepoint/acl.ts";
+import { spAuthz001, spAuthz002 } from "./sharepoint/authorization.ts";
+import { spIndex001, spIndex002 } from "./sharepoint/indexes.ts";
+import { spOdata001 } from "./sharepoint/odata.ts";
+import { spSchema001, spSchema002, spSchema003 } from "./sharepoint/schema.ts";
 
 export interface ArtifactNodeInput {
   readonly id: string;
@@ -64,10 +72,14 @@ function compareDiagnostics(left: Diagnostic, right: Diagnostic): number {
 }
 
 const detectors: readonly RuleDetector[] = [
+  appPagination001,
+  appSave001,
   flowDestructive001,
   flowIdempotency001,
   flowRetry001,
   flowStatus001,
+  httpSemantic001,
+  httpSemantic002,
   paConnection001,
   paConnector001,
   paExpression001,
@@ -79,6 +91,16 @@ const detectors: readonly RuleDetector[] = [
   pkgArchive001,
   pkgIntegrity001,
   pkgNative001,
+  spAcl001,
+  spAcl002,
+  spAuthz001,
+  spAuthz002,
+  spIndex001,
+  spIndex002,
+  spOdata001,
+  spSchema001,
+  spSchema002,
+  spSchema003,
 ].sort((left, right) => compareText(left.id, right.id));
 
 export const ruleRegistry: ReadonlyMap<string, RuleDetector> = new Map(

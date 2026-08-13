@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "HTTP-SEMANTIC-001",
+  "title": "Semantic missing-column 400",
+  "domain": "application",
+  "severity": "error",
+  "description": "HTTP 400 classification is not derived from the approved missing-column semantic signature.",
+  "rationale": "Status 400 alone cannot distinguish a missing field from malformed or unauthorized requests.",
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/http/semantic.ts",
+    "exportName": "httpSemantic001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/HTTP-SEMANTIC-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["HTTP-SEMANTIC-001"]
+  },
+  "green": {
+    "root": "fixtures/rules/HTTP-SEMANTIC-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["generated-definition"] },
+  "remediation": ["Parse status and structured error fields separately; map only the approved missing-column code or normalized semantic message to MISSING_OBJECT."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Connector error-shape readback remains external."
+  },
+  "supportedEvidence": ["LOCAL_STATIC", "PACKAGE_ARTIFACT"],
+  "tags": ["application", "http", "classification", "offline", "synthetic"]
+}

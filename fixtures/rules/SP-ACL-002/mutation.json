@@ -1,0 +1,6 @@
+{
+  "op": "json-set",
+  "path": "graph.json",
+  "pointer": "/nodes/0/data/permissionProbes/2/operations/delete",
+  "value": true
+}

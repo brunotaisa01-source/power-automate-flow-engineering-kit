@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "SP-AUTHZ-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [{
+      "code": "SP-AUTHZ-001",
+      "artifactPath": "artifacts/wp06-evidence.json#/authority/<check>",
+      "messageContains": "Protected mutation is not preceded by server identity and active capability re-read."
+    }]
+  },
+  "green": { "result": "PASS", "diagnostics": [] },
+  "positiveControl": { "result": "PASS", "diagnostics": [] },
+  "mutation": {
+    "source": "green",
+    "recipe": "Replace the server system identity source with a client claim.",
+    "result": "FAIL",
+    "diagnosticCode": "SP-AUTHZ-001"
+  }
+}

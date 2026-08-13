@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "SP-INDEX-002",
+  "title": "Index Apply readback and NO_OP",
+  "domain": "sharepoint",
+  "severity": "error",
+  "description": "Index Apply does not prove per-step and final readback or a compatible zero-write NO_OP.",
+  "rationale": "Apply completion requires exact final state and repeated compatible execution must perform no writes.",
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/sharepoint/indexes.ts",
+    "exportName": "spIndex002",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/SP-INDEX-002/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["SP-INDEX-002"]
+  },
+  "green": {
+    "root": "fixtures/rules/SP-INDEX-002/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["generated-definition", "zip"] },
+  "remediation": ["Read back every index write, require exact final equality, and return NO_OP with zero writes when current and required sets already match."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "TENANT_VERIFIED",
+    "description": "Repeated compatible Apply and final tenant index readback remain external."
+  },
+  "supportedEvidence": ["LOCAL_STATIC", "PACKAGE_ARTIFACT"],
+  "tags": ["sharepoint", "index", "readback", "idempotency", "offline", "synthetic"]
+}

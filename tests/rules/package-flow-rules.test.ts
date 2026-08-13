@@ -874,9 +874,12 @@ describe("package and flow rules", () => {
     }
   });
 
-  test("registry contains every Wave 1 detector", async () => {
+  test("registry retains every Wave 1 detector", async () => {
     const { ruleRegistry } = await loadRegistry();
-    assert.deepEqual([...ruleRegistry.keys()], [...RULE_IDS]);
+    assert.deepEqual(
+      RULE_IDS.filter((ruleId) => ruleRegistry.has(ruleId)),
+      [...RULE_IDS],
+    );
   });
 
   test("positive controls have a structurally independent semantic topology", async () => {

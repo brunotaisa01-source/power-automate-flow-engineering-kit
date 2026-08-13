@@ -1,0 +1,37 @@
+{
+  "schemaVersion": "1.0",
+  "id": "SP-SCHEMA-003",
+  "title": "Property-by-property field compatibility",
+  "domain": "sharepoint",
+  "severity": "error",
+  "description": "Existing SharePoint field compatibility is not classified property by property.",
+  "rationale": "A successful GET does not prove a field matches every contracted property.",
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "detector": {
+    "implementation": "packages/rules/src/sharepoint/schema.ts",
+    "exportName": "spSchema003",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/SP-SCHEMA-003/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": ["SP-SCHEMA-003"]
+  },
+  "green": {
+    "root": "fixtures/rules/SP-SCHEMA-003/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": { "required": true, "artifactKinds": ["generated-definition"] },
+  "remediation": ["Compare every contracted field property and classify MATCH, CREATE_MISSING, INCOMPATIBLE, or GET_FAILED without in-place coercion."],
+  "residualGate": {
+    "required": true,
+    "claimClass": "TENANT_VERIFIED",
+    "description": "Current field properties and any approved migration remain tenant evidence."
+  },
+  "supportedEvidence": ["LOCAL_STATIC"],
+  "tags": ["sharepoint", "schema", "compatibility", "offline", "synthetic"]
+}
