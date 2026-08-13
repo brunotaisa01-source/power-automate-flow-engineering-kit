@@ -200,6 +200,9 @@ function expectedEntries(context: ValidationContext): ManifestEntry[] | undefine
   }
 
   for (const packaged of packageEvidence(context)) {
+    if (packaged.contract === undefined) {
+      return undefined;
+    }
     const declaredFlowIds = packaged.contract.flowIds;
     const contractFlowIds = context.contract.flows
       .filter(({ packageId }) => packageId === packaged.packageId)
@@ -217,15 +220,13 @@ function expectedEntries(context: ValidationContext): ManifestEntry[] | undefine
     const graphNodes = context.graph.nodes.filter((node) =>
       node.relativePath === packaged.relativePath && node.kind === "zip"
     );
-    if (graphNodes.length > 0) {
-      if (
-        graphNodes.length !== 1
-        || graphNodes[0]?.digest !== packaged.sha256
-        || graphNodes[0]?.byteLength !== packaged.bytes
-        || graphNodes[0]?.sourceProfile !== "package-bytes-v1"
-      ) {
-        return undefined;
-      }
+    if (
+      graphNodes.length !== 1
+      || graphNodes[0]?.digest !== packaged.sha256
+      || graphNodes[0]?.byteLength !== packaged.bytes
+      || graphNodes[0]?.sourceProfile !== "package-bytes-v1"
+    ) {
+      return undefined;
     }
     expected.push({
       path: packaged.relativePath,

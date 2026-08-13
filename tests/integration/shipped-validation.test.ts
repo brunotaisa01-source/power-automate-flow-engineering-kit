@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { spawn } from "node:child_process";
 import { describe, test } from "node:test";
+import { pathToFileURL } from "node:url";
 
 import {
   syntheticSolution,
@@ -106,6 +107,10 @@ function connector(
 function semanticProcessorActions(
   readbackOperationId: string,
   readbackTarget: ConnectorTarget = {},
+  predicates: {
+    readonly emptyGuard?: string;
+    readonly zeroCardinality?: string;
+  } = {},
 ): Readonly<Record<string, RawAction>> {
   return {
     DeriveKey: {
@@ -116,13 +121,14 @@ function semanticProcessorActions(
     GuardEmpty: {
       type: "If",
       runAfter: runAfter("DeriveKey", "Succeeded"),
-      expression: "@not(empty(outputs('DeriveKey')))",
+      expression: predicates.emptyGuard ?? "@not(empty(outputs('DeriveKey')))",
       actions: {
         Lookup: connector("GET", "GetItems"),
         HandleZero: {
           type: "If",
           runAfter: runAfter("Lookup", "Succeeded"),
-          expression: "@equals(length(body('Lookup')?['value']), 0)",
+          expression: predicates.zeroCardinality
+            ?? "@equals(length(body('Lookup')?['value']), 0)",
           actions: {
             MutationGate: {
               type: "If",
@@ -151,6 +157,143 @@ function semanticProcessorActions(
                   type: "Terminate",
                   runAfter: {},
                   inputs: { status: "Succeeded" },
+                },
+              },
+            },
+          },
+        },
+        HandleOne: {
+          type: "If",
+          runAfter: runAfter("Lookup", "Succeeded"),
+          expression: "@equals(length(body('Lookup')?['value']), 1)",
+          actions: { ReturnExisting: { type: "Response", runAfter: {} } },
+        },
+        HandleMany: {
+          type: "If",
+          runAfter: runAfter("Lookup", "Succeeded"),
+          expression: "@greater(length(body('Lookup')?['value']), 1)",
+          actions: {
+            FailReconciliation: {
+              type: "Terminate",
+              runAfter: {},
+              inputs: { status: "Failed" },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function destructiveProcessorActions(
+  approvalExpression: string,
+): Readonly<Record<string, RawAction>> {
+  return {
+    DeriveKey: {
+      type: "Compose",
+      runAfter: {},
+      inputs: "@concat(triggerBody()?['TargetId'], ':', triggerBody()?['CommandType'])",
+    },
+    GuardEmpty: {
+      type: "If",
+      runAfter: runAfter("DeriveKey", "Succeeded"),
+      expression: "@not(empty(outputs('DeriveKey')))",
+      actions: {
+        Lookup: connector("GET", "GetItems"),
+        HandleZero: {
+          type: "If",
+          runAfter: runAfter("Lookup", "Succeeded"),
+          expression: "@equals(length(body('Lookup')?['value']), 0)",
+          actions: {
+            DryRun: {
+              type: "If",
+              runAfter: {},
+              expression: "@equals(triggerBody()?['DryRun'], true)",
+              actions: {},
+              else: {
+                actions: {
+                  Allowlist: {
+                    type: "If",
+                    runAfter: {},
+                    expression: "@contains(createArray('DeleteItem'), triggerBody()?['Operation'])",
+                    actions: {
+                      PlanDigest: {
+                        type: "Compose",
+                        runAfter: {},
+                        inputs: "@sha256(string(triggerBody()?['Plan']))",
+                      },
+                      Approval: {
+                        type: "If",
+                        runAfter: runAfter("PlanDigest", "Succeeded"),
+                        expression: approvalExpression,
+                        actions: {
+                          WriteLimit: {
+                            type: "If",
+                            runAfter: {},
+                            expression: "@lessOrEquals(triggerBody()?['WriteCount'], 10)",
+                            actions: {
+                              StateReread: connector("GET", "GetItem"),
+                              StopUnexpected: {
+                                type: "If",
+                                runAfter: runAfter("StateReread", "Succeeded"),
+                                expression: "@equals(body('StateReread')?['Unexpected'], false)",
+                                actions: {
+                                  Delete: connector("DELETE", "DeleteItem"),
+                                  Readback: connector(
+                                    "GET",
+                                    "GetItem",
+                                    runAfter("Delete", "Succeeded"),
+                                  ),
+                                  ReconcileDelete: connector(
+                                    "GET",
+                                    "GetItem",
+                                    runAfter("Delete", "Failed", "TimedOut"),
+                                  ),
+                                  AssertReadback: {
+                                    type: "If",
+                                    runAfter: runAfter("Readback", "Succeeded"),
+                                    expression: "@equals(body('Readback')?['Status'], 'Applied')",
+                                    actions: {
+                                      Complete: {
+                                        type: "Terminate",
+                                        runAfter: {},
+                                        inputs: { status: "Succeeded" },
+                                      },
+                                    },
+                                  },
+                                  FailureAudit: connector(
+                                    "POST",
+                                    "CreateAudit",
+                                    runAfter("Delete", "Failed", "TimedOut"),
+                                  ),
+                                  ReconcileFailureAudit: connector(
+                                    "GET",
+                                    "GetAuditRecord",
+                                    runAfter("FailureAudit", "Failed", "TimedOut"),
+                                  ),
+                                  Compensate: connector(
+                                    "POST",
+                                    "CreateCompensation",
+                                    runAfter("FailureAudit", "Succeeded"),
+                                  ),
+                                  ReconcileCompensation: connector(
+                                    "GET",
+                                    "GetCompensation",
+                                    runAfter("Compensate", "Failed", "TimedOut"),
+                                  ),
+                                  Fail: {
+                                    type: "Terminate",
+                                    runAfter: runAfter("Compensate", "Succeeded"),
+                                    inputs: { status: "Failed" },
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
                 },
               },
             },
@@ -537,9 +680,12 @@ async function createProject(options: ProjectOptions): Promise<SyntheticProject>
   return { root, contractPath, packagePath };
 }
 
-async function runCli(args: readonly string[]): Promise<CliResult> {
+async function runCli(
+  args: readonly string[],
+  nodeArgs: readonly string[] = [],
+): Promise<CliResult> {
   return new Promise((resolveResult, reject) => {
-    const child = spawn(process.execPath, [CLI, ...args], {
+    const child = spawn(process.execPath, [...nodeArgs, CLI, ...args], {
       cwd: ROOT,
       env: { ...process.env },
       stdio: ["ignore", "pipe", "pipe"],
@@ -566,6 +712,40 @@ async function runCli(args: readonly string[]): Promise<CliResult> {
       }
     });
   });
+}
+
+async function zipOmissionLoader(root: string): Promise<string> {
+  const loaderPath = join(root, "omit-zip-graph-node-loader.mjs");
+  const artifactGraphUrl = pathToFileURL(
+    resolve(ROOT, "packages/core/dist/artifact-graph.js"),
+  ).href;
+  const proxySource = [
+    `export * from ${JSON.stringify(artifactGraphUrl)};`,
+    `import { buildArtifactGraph as buildRealArtifactGraph } from ${JSON.stringify(artifactGraphUrl)};`,
+    "export async function buildArtifactGraph(root, contract) {",
+    "  const graph = await buildRealArtifactGraph(root, contract);",
+    "  return {",
+    "    toJSON() {",
+    "      const value = graph.toJSON();",
+    "      const omitted = new Set(value.nodes.filter((node) => node.kind === 'zip').map((node) => node.id));",
+    "      return {",
+    "        nodes: value.nodes.filter((node) => !omitted.has(node.id)),",
+    "        edges: value.edges.filter((edge) => !omitted.has(edge.from) && !omitted.has(edge.to)),",
+    "      };",
+    "    },",
+    "  };",
+    "}",
+  ].join("\n");
+  const proxyUrl = `data:text/javascript,${encodeURIComponent(proxySource)}`;
+  await writeFile(loaderPath, [
+    "export async function resolve(specifier, context, nextResolve) {",
+    "  if (specifier === '@spflow/core/artifact-graph') {",
+    `    return { shortCircuit: true, url: ${JSON.stringify(proxyUrl)} };`,
+    "  }",
+    "  return nextResolve(specifier, context);",
+    "}",
+  ].join("\n"), "utf8");
+  return loaderPath;
 }
 
 async function withProject(
@@ -848,6 +1028,21 @@ describe("WP-05S shipped offline validation", () => {
     });
   });
 
+  test("WP-05L RED: built validation rejects package evidence without its ZIP graph node", async () => {
+    await withProject({
+      actions: { Inspect: { type: "Compose", runAfter: {}, inputs: "synthetic" } },
+    }, async (project) => {
+      const loaderPath = await zipOmissionLoader(project.root);
+      const result = await runCli(
+        ["validate", "rules", "--root", project.root, "--format", "json"],
+        ["--experimental-loader", pathToFileURL(loaderPath).href],
+      );
+
+      assert.equal(result.exitCode, 1, result.stdout);
+      assertDiagnosticCodes(result, ["PKG-INTEGRITY-001"]);
+    });
+  });
+
   test("WP-05I RED: idempotency rejects empty and disconnected cardinality branches", async () => {
     const privateFlowId = "sensitive-empty-cardinality-branches";
     await withProject({
@@ -898,6 +1093,54 @@ describe("WP-05S shipped offline validation", () => {
 
       assert.equal(result.exitCode, 1, result.stdout);
       assert.ok(diagnosticCodes(result).includes("FLOW-IDEMPOTENCY-001"), result.stdout);
+      assert.equal(result.stdout.includes(privateFlowId), false);
+    });
+  });
+
+  for (const [scenario, predicates] of [
+    ["non-empty key", {
+      emptyGuard: "@and(equals(outputs('DeriveKey'), outputs('DeriveKey')), not(empty(triggerBody()?['Unrelated'])))",
+    }],
+    ["lookup cardinality", {
+      zeroCardinality: "@and(equals(body('Lookup')?['value'], body('Lookup')?['value']), equals(length(triggerBody()?['Unrelated']), 0))",
+    }],
+  ] as const) {
+    test(`WP-05L RED: built validation rejects an irrelevant-runtime ${scenario} predicate`, async () => {
+      const privateFlowId = `sensitive-lexical-${scenario.replaceAll(" ", "-")}`;
+      await withProject({
+        flowId: privateFlowId,
+        processor: true,
+        connectionReference: true,
+        actions: semanticProcessorActions("GetItem", {}, predicates),
+      }, async (project) => {
+        const result = await runCli([
+          "validate", "rules", "--root", project.root, "--format", "json",
+        ]);
+
+        assert.equal(result.exitCode, 1, result.stdout);
+        assertDiagnosticCodes(result, ["FLOW-IDEMPOTENCY-001"]);
+        assert.equal(result.stdout.includes(privateFlowId), false);
+      });
+    });
+  }
+
+  test("WP-05L RED: built validation rejects a tautological approval label with an irrelevant runtime reference", async () => {
+    const privateFlowId = "sensitive-lexical-destructive-approval";
+    await withProject({
+      flowId: privateFlowId,
+      processor: true,
+      destructive: true,
+      connectionReference: true,
+      actions: destructiveProcessorActions(
+        "@and(equals(triggerBody()?['Unrelated'], triggerBody()?['Unrelated']), equals('approval', 'approval'))",
+      ),
+    }, async (project) => {
+      const result = await runCli([
+        "validate", "rules", "--root", project.root, "--format", "json",
+      ]);
+
+      assert.equal(result.exitCode, 1, result.stdout);
+      assert.ok(diagnosticCodes(result).includes("FLOW-DESTRUCTIVE-001"), result.stdout);
       assert.equal(result.stdout.includes(privateFlowId), false);
     });
   });

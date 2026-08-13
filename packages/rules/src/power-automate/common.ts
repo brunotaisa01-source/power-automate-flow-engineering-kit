@@ -9,7 +9,9 @@ import type {
 import type {
   FlowRuleEvidence,
   NormalizedAction,
+  NormalizedDataReference,
   NormalizedExpression,
+  NormalizedExpressionNode,
   NormalizedFlow,
   NormalizedReadbackAssertion,
 } from "@spflow/core/types/rule-input";
@@ -268,6 +270,71 @@ export function allExpressions(flow: NormalizedFlow): FlowExpression[] {
     compareText(left.actionId ?? "", right.actionId ?? "")
     || compareText(left.expression.pointer, right.expression.pointer)
   );
+}
+
+export function expressionRoots(action: NormalizedAction): readonly NormalizedExpressionNode[] {
+  return action.expressions.flatMap((expression) =>
+    expression.valid && expression.root !== undefined ? [expression.root] : []
+  );
+}
+
+export function walkExpression(
+  root: NormalizedExpressionNode,
+): readonly NormalizedExpressionNode[] {
+  switch (root.kind) {
+    case "literal":
+      return [root];
+    case "access":
+      return [root, ...walkExpression(root.target)];
+    case "call":
+      return [root, ...root.arguments.flatMap(walkExpression)];
+  }
+}
+
+export function expressionDataReference(
+  node: NormalizedExpressionNode,
+): NormalizedDataReference | undefined {
+  const path: Array<string | number> = [];
+  let current = node;
+  while (current.kind === "access") {
+    path.unshift(current.key);
+    current = current.target;
+  }
+  if (current.kind !== "call") {
+    return undefined;
+  }
+
+  const functionName = current.name.toLowerCase();
+  if (
+    ["triggerbody", "triggeroutputs"].includes(functionName)
+    && current.arguments.length === 0
+  ) {
+    const normalizedPath = functionName === "triggeroutputs" && path[0] === "body"
+      ? path.slice(1)
+      : path;
+    return normalizedPath.length === 0
+      ? undefined
+      : Object.freeze({ source: "trigger", path: Object.freeze(normalizedPath) });
+  }
+  if (
+    ["action", "actions", "body", "outputs", "result"].includes(functionName)
+    && current.arguments.length === 1
+  ) {
+    const action = current.arguments[0];
+    if (action?.kind !== "literal" || typeof action.value !== "string") {
+      return undefined;
+    }
+    const normalizedPath = ["action", "actions", "outputs", "result"].includes(functionName)
+        && path[0] === "body"
+      ? path.slice(1)
+      : path;
+    return Object.freeze({
+      source: "action",
+      actionId: action.value,
+      path: Object.freeze(normalizedPath),
+    });
+  }
+  return undefined;
 }
 
 export function isCondition(action: NormalizedAction): boolean {

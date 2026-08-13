@@ -8,6 +8,19 @@ export interface NormalizedReadbackAssertion {
   readonly expected: unknown;
 }
 
+export type NormalizedExpressionNode =
+  | { readonly kind: "literal"; readonly value: string | number | boolean | null }
+  | {
+      readonly kind: "call";
+      readonly name: string;
+      readonly arguments: readonly NormalizedExpressionNode[];
+    }
+  | {
+      readonly kind: "access";
+      readonly target: NormalizedExpressionNode;
+      readonly key: string | number;
+    };
+
 export interface NormalizedExpression {
   readonly pointer: string;
   readonly source: string;
@@ -15,6 +28,7 @@ export interface NormalizedExpression {
   readonly functions: readonly string[];
   readonly actionReferences: readonly string[];
   readonly readbackAssertions: readonly NormalizedReadbackAssertion[];
+  readonly root?: NormalizedExpressionNode;
 }
 
 export interface NormalizedTrigger {

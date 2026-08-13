@@ -269,6 +269,7 @@ function semanticExpression(reference: string): NormalizedExpression {
     functions: parsed.functions,
     actionReferences: parsed.actionReferences,
     readbackAssertions: parsed.readbackAssertions,
+    root: parsed.root,
   });
 }
 
@@ -281,6 +282,7 @@ function fixtureExpression(source: string, _references: readonly string[] = []):
     functions: parsed.functions,
     actionReferences: parsed.actionReferences,
     readbackAssertions: parsed.readbackAssertions,
+    root: parsed.root,
   });
 }
 
@@ -312,6 +314,13 @@ function normalizedFixtureFlow(value: unknown): NormalizedFlow | undefined {
   const idempotencyKeyId = isRecord(declaredKey) && typeof declaredKey.id === "string"
     ? declaredKey.id
     : "MissingIdempotencyKey";
+  const declaredStateReread = value.actions.find((item) =>
+    isRecord(item) && item.role === "state-reread" && typeof item.id === "string"
+  );
+  const stateRereadId = isRecord(declaredStateReread)
+      && typeof declaredStateReread.id === "string"
+    ? declaredStateReread.id
+    : "MissingStateReread";
   const actions = new Map<string, FixtureAction>();
   for (const item of value.actions) {
     if (!isRecord(item) || typeof item.id !== "string" || typeof item.type !== "string") {
@@ -435,7 +444,10 @@ function normalizedFixtureFlow(value: unknown): NormalizedFlow | undefined {
     }
     if (role === "stop-unexpected") {
       type = "If";
-      expressions.push(fixtureExpression("@equals(body('Readback')?['Unexpected'], false)", ["Readback"]));
+      expressions.push(fixtureExpression(
+        `@equals(body('${stateRereadId}')?['Unexpected'], false)`,
+        [stateRereadId],
+      ));
     }
     const retryType = isRecord(item.retryPolicy) && typeof item.retryPolicy.type === "string"
       ? item.retryPolicy.type

@@ -194,6 +194,18 @@ describe("package adapter action graph", () => {
         functions: ["equals", "outputs"],
         actionReferences: ["Authorize"],
         readbackAssertions: [],
+        root: {
+          kind: "call",
+          name: "equals",
+          arguments: [
+            {
+              kind: "call",
+              name: "outputs",
+              arguments: [{ kind: "literal", value: "Authorize" }],
+            },
+            { kind: "literal", value: "Synthetic" },
+          ],
+        },
       },
     );
     assert.throws(

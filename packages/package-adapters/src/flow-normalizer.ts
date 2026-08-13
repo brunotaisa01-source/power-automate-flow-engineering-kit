@@ -74,6 +74,7 @@ function collectExpressions(value: unknown, pointer = ""): NormalizedExpression[
           functions: parsed.functions,
           actionReferences: parsed.actionReferences,
           readbackAssertions: parsed.readbackAssertions,
+          root: parsed.root,
         })];
       } catch (error) {
         if (!(error instanceof WdlParseError)) {

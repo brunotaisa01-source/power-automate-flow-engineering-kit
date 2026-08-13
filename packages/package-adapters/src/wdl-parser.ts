@@ -16,14 +16,12 @@ export interface ParsedWdlExpression {
   readonly actionReferences: readonly string[];
   readonly readbackAssertions: readonly ParsedWdlAssertion[];
   readonly directDataReference?: ParsedWdlDataReference;
+  readonly root: NormalizedExpressionNode;
 }
 
 type WdlLiteral = string | number | boolean | null;
 
-type WdlValue =
-  | { readonly kind: "literal"; readonly value: WdlLiteral }
-  | { readonly kind: "call"; readonly name: string; readonly arguments: readonly WdlValue[] }
-  | { readonly kind: "access"; readonly target: WdlValue; readonly key: string | number };
+type WdlValue = NormalizedExpressionNode;
 
 export class WdlParseError extends Error {
   readonly code = "PA-WDL-001" as const;
@@ -63,6 +61,7 @@ class Parser {
       functions: Object.freeze(uniqueInOrder(this.functions)),
       actionReferences: Object.freeze(uniqueInOrder(this.actionReferences)),
       readbackAssertions: Object.freeze(readbackAssertions(root)),
+      root,
       ...(dataReference === undefined ? {} : { directDataReference: dataReference }),
     });
   }
@@ -72,9 +71,9 @@ class Parser {
     const character = this.source[this.index];
     let value: WdlValue;
     if (character === "'") {
-      value = { kind: "literal", value: this.parseString() };
+      value = Object.freeze({ kind: "literal", value: this.parseString() });
     } else if (character !== undefined && /[-0-9]/.test(character)) {
-      value = { kind: "literal", value: this.parseNumber() };
+      value = Object.freeze({ kind: "literal", value: this.parseNumber() });
     } else if (character !== undefined && /[A-Za-z_]/.test(character)) {
       value = this.parseIdentifierValue();
     } else {
@@ -91,10 +90,10 @@ class Parser {
       if (!["false", "null", "true"].includes(literal)) {
         throw new WdlParseError();
       }
-      return {
+      return Object.freeze({
         kind: "literal",
         value: literal === "null" ? null : literal === "true",
-      };
+      });
     }
 
     this.functions.push(name);
@@ -380,3 +379,4 @@ function readbackAssertions(value: WdlValue): ParsedWdlAssertion[] {
 export function parseWdlExpression(expression: string): ParsedWdlExpression {
   return new Parser(expression).parse();
 }
+import type { NormalizedExpressionNode } from "@spflow/core/types/rule-input";

@@ -94,6 +94,135 @@ function connector(
   };
 }
 
+function idempotencyActions(options: {
+  readonly emptyGuardExpression?: string;
+  readonly zeroCardinalityExpression?: string;
+} = {}): Readonly<Record<string, RawAction>> {
+  return {
+    DeriveKey: {
+      type: "Compose",
+      runAfter: {},
+      inputs: "@concat(triggerBody()?['TargetId'], ':', triggerBody()?['CommandType'])",
+    },
+    GuardEmpty: {
+      type: "If",
+      runAfter: runAfter("DeriveKey", "Succeeded"),
+      expression: options.emptyGuardExpression
+        ?? "@not(empty(outputs('DeriveKey')))",
+      actions: {
+        Lookup: connector("GET", "GetItems"),
+        HandleZero: {
+          type: "If",
+          runAfter: runAfter("Lookup", "Succeeded"),
+          expression: options.zeroCardinalityExpression
+            ?? "@equals(length(body('Lookup')?['value']), 0)",
+          actions: {
+            Create: connector("POST", "CreateItem"),
+          },
+        },
+        HandleOne: {
+          type: "If",
+          runAfter: runAfter("Lookup", "Succeeded"),
+          expression: "@equals(length(body('Lookup')?['value']), 1)",
+          actions: {
+            ReturnExisting: { type: "Response", runAfter: {} },
+          },
+        },
+        HandleMany: {
+          type: "If",
+          runAfter: runAfter("Lookup", "Succeeded"),
+          expression: "@greater(length(body('Lookup')?['value']), 1)",
+          actions: {
+            FailReconciliation: {
+              type: "Terminate",
+              runAfter: {},
+              inputs: { status: "Failed" },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
+function destructiveActions(approvalExpression: string): Readonly<Record<string, RawAction>> {
+  return {
+    DryRun: {
+      type: "If",
+      runAfter: {},
+      expression: "@equals(triggerBody()?['DryRun'], true)",
+      actions: {},
+      else: {
+        actions: {
+          Allowlist: {
+            type: "If",
+            runAfter: {},
+            expression: "@contains(createArray('DeleteItem'), triggerBody()?['Operation'])",
+            actions: {
+              PlanDigest: {
+                type: "Compose",
+                runAfter: {},
+                inputs: "@sha256(string(triggerBody()?['Plan']))",
+              },
+              Approval: {
+                type: "If",
+                runAfter: runAfter("PlanDigest", "Succeeded"),
+                expression: approvalExpression,
+                actions: {
+                  WriteLimit: {
+                    type: "If",
+                    runAfter: {},
+                    expression: "@lessOrEquals(triggerBody()?['WriteCount'], 10)",
+                    actions: {
+                      StateReread: connector("GET", "GetItem"),
+                      StopUnexpected: {
+                        type: "If",
+                        runAfter: runAfter("StateReread", "Succeeded"),
+                        expression: "@equals(body('StateReread')?['Unexpected'], false)",
+                        actions: {
+                          Delete: connector("DELETE", "DeleteItem"),
+                          Readback: connector("GET", "GetItem", runAfter("Delete", "Succeeded")),
+                          Assert: {
+                            type: "If",
+                            runAfter: runAfter("Readback", "Succeeded"),
+                            expression: "@equals(body('Readback')?['Status'], 'Applied')",
+                            actions: {
+                              Complete: {
+                                type: "Terminate",
+                                runAfter: {},
+                                inputs: { status: "Succeeded" },
+                              },
+                            },
+                          },
+                          FailureAudit: connector(
+                            "POST",
+                            "CreateAudit",
+                            runAfter("Delete", "Failed", "TimedOut"),
+                          ),
+                          Compensate: connector(
+                            "POST",
+                            "CreateCompensation",
+                            runAfter("FailureAudit", "Succeeded"),
+                          ),
+                          Fail: {
+                            type: "Terminate",
+                            runAfter: runAfter("Compensate", "Succeeded"),
+                            inputs: { status: "Failed" },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
+
 function projectContract(actionBudget: number): ProjectContract {
   return {
     flows: [{
@@ -345,52 +474,35 @@ describe("WP-05R real adapter boundary counterexamples", () => {
   });
 
   test("FLOW-IDEMPOTENCY-001 accepts structurally derived key and cardinality operations", async () => {
-    const context = await inspectedContext(flowDefinition({
-      DeriveKey: {
-        type: "Compose",
-        runAfter: {},
-        inputs: "@concat(triggerBody()?['TargetId'], ':', triggerBody()?['CommandType'])",
-      },
-      GuardEmpty: {
-        type: "If",
-        runAfter: runAfter("DeriveKey", "Succeeded"),
-        expression: "@not(empty(outputs('DeriveKey')))",
-        actions: {
-          Lookup: connector("GET", "GetItems"),
-          HandleZero: {
-            type: "If",
-            runAfter: runAfter("Lookup", "Succeeded"),
-            expression: "@equals(length(body('Lookup')?['value']), 0)",
-            actions: {
-              Create: connector("POST", "CreateItem"),
-            },
-          },
-          HandleOne: {
-            type: "If",
-            runAfter: runAfter("Lookup", "Succeeded"),
-            expression: "@equals(length(body('Lookup')?['value']), 1)",
-            actions: {
-              ReturnExisting: { type: "Response", runAfter: {} },
-            },
-          },
-          HandleMany: {
-            type: "If",
-            runAfter: runAfter("Lookup", "Succeeded"),
-            expression: "@greater(length(body('Lookup')?['value']), 1)",
-            actions: {
-              FailReconciliation: {
-                type: "Terminate",
-                runAfter: {},
-                inputs: { status: "Failed" },
-              },
-            },
-          },
-        },
-      },
-    }, ["synthetic_connection"]));
+    const context = await inspectedContext(flowDefinition(
+      idempotencyActions(),
+      ["synthetic_connection"],
+    ));
 
     assert.deepEqual(await diagnostics("FLOW-IDEMPOTENCY-001", context), []);
   });
+
+  for (const [scenario, options] of [
+    ["non-empty key", {
+      emptyGuardExpression: "@and(equals(outputs('DeriveKey'), outputs('DeriveKey')), not(empty(triggerBody()?['Unrelated'])))",
+    }],
+    ["lookup cardinality", {
+      zeroCardinalityExpression: "@and(equals(body('Lookup')?['value'], body('Lookup')?['value']), equals(length(triggerBody()?['Unrelated']), 0))",
+    }],
+  ] as const) {
+    test(`FLOW-IDEMPOTENCY-001 rejects an irrelevant-runtime ${scenario} predicate`, async () => {
+      const context = await inspectedContext(flowDefinition(
+        idempotencyActions(options),
+        ["synthetic_connection"],
+      ));
+
+      assert.deepEqual(await diagnostics("FLOW-IDEMPOTENCY-001", context), [{
+        code: "FLOW-IDEMPOTENCY-001",
+        path: `${PACKAGE_PATH}#/flows/<flow>/idempotency`,
+        message: "Flow does not provide a deterministic non-empty key with explicit zero, one, and many handling.",
+      }]);
+    });
+  }
 
   test("FLOW-DESTRUCTIVE-001 rejects label-only gate operations", async () => {
     const labeled = (
@@ -444,83 +556,25 @@ describe("WP-05R real adapter boundary counterexamples", () => {
   });
 
   test("FLOW-DESTRUCTIVE-001 accepts structurally derived bounded operations", async () => {
-    const context = await inspectedContext(flowDefinition({
-      DryRun: {
-        type: "If",
-        runAfter: {},
-        expression: "@equals(triggerBody()?['DryRun'], true)",
-        actions: {},
-        else: {
-          actions: {
-            Allowlist: {
-              type: "If",
-              runAfter: {},
-              expression: "@contains(createArray('DeleteItem'), triggerBody()?['Operation'])",
-              actions: {
-                PlanDigest: {
-                  type: "Compose",
-                  runAfter: {},
-                  inputs: "@sha256(string(triggerBody()?['Plan']))",
-                },
-                Approval: {
-                  type: "If",
-                  runAfter: runAfter("PlanDigest", "Succeeded"),
-                  expression: "@equals(triggerBody()?['ApprovalToken'], triggerBody()?['PlanDigest'])",
-                  actions: {
-                    WriteLimit: {
-                      type: "If",
-                      runAfter: {},
-                      expression: "@lessOrEquals(triggerBody()?['WriteCount'], 10)",
-                      actions: {
-                        StateReread: connector("GET", "GetItem"),
-                        StopUnexpected: {
-                          type: "If",
-                          runAfter: runAfter("StateReread", "Succeeded"),
-                          expression: "@equals(body('StateReread')?['Unexpected'], false)",
-                          actions: {
-                            Delete: connector("DELETE", "DeleteItem"),
-                            Readback: connector("GET", "GetItem", runAfter("Delete", "Succeeded")),
-                            Assert: {
-                              type: "If",
-                              runAfter: runAfter("Readback", "Succeeded"),
-                              expression: "@equals(body('Readback')?['Status'], 'Applied')",
-                              actions: {
-                                Complete: {
-                                  type: "Terminate",
-                                  runAfter: {},
-                                  inputs: { status: "Succeeded" },
-                                },
-                              },
-                            },
-                            FailureAudit: connector(
-                              "POST",
-                              "CreateAudit",
-                              runAfter("Delete", "Failed", "TimedOut"),
-                            ),
-                            Compensate: connector(
-                              "POST",
-                              "CreateCompensation",
-                              runAfter("FailureAudit", "Succeeded"),
-                            ),
-                            Fail: {
-                              type: "Terminate",
-                              runAfter: runAfter("Compensate", "Succeeded"),
-                              inputs: { status: "Failed" },
-                            },
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-    }, ["synthetic_connection"]));
+    const context = await inspectedContext(flowDefinition(
+      destructiveActions("@equals(triggerBody()?['ApprovalToken'], triggerBody()?['PlanDigest'])"),
+      ["synthetic_connection"],
+    ));
 
     assert.deepEqual(await diagnostics("FLOW-DESTRUCTIVE-001", context), []);
+  });
+
+  test("FLOW-DESTRUCTIVE-001 rejects a tautological approval label with an irrelevant runtime reference", async () => {
+    const context = await inspectedContext(flowDefinition(
+      destructiveActions("@and(equals(triggerBody()?['Unrelated'], triggerBody()?['Unrelated']), equals('approval', 'approval'))"),
+      ["synthetic_connection"],
+    ));
+
+    assert.deepEqual(await diagnostics("FLOW-DESTRUCTIVE-001", context), [{
+      code: "FLOW-DESTRUCTIVE-001",
+      path: `${PACKAGE_PATH}#/flows/<flow>/destructiveGates`,
+      message: "Destructive flow lacks required authorization, audit, readback, or compensation evidence.",
+    }]);
   });
 
   test("FLOW-DESTRUCTIVE-001 derives an unlabeled destructive operation", async () => {
@@ -753,5 +807,82 @@ describe("WP-05R real adapter boundary counterexamples", () => {
       path: `${MANIFEST_PATH}#/files`,
       message: "Artifact manifest inventory does not exactly match final release artifacts.",
     }]);
+  });
+
+  test("PKG-INTEGRITY-001 rejects adapter and manifest evidence without a ZIP artifact node", async () => {
+    const rawFlow = flowDefinition({
+      OnlyAction: { type: "Compose", runAfter: {}, inputs: "synthetic" },
+    });
+    const base = await inspectedContext(rawFlow);
+    const packaged = base.adapterEvidence.packages[0]!;
+    const contractDigest = "a".repeat(64);
+    const definitionDigest = "b".repeat(64);
+    const graph: ArtifactGraphInput = {
+      nodes: [
+        {
+          id: "contract:project.contract.json:project-contract-v1",
+          kind: "contract",
+          relativePath: "project.contract.json",
+          digest: contractDigest,
+          byteLength: 100,
+          sourceProfile: "project-contract-v1",
+          data: {},
+          projections: {},
+        },
+        {
+          id: "definition:definitions/synthetic-flow.json:normalized-flow-v1",
+          kind: "definition",
+          relativePath: "definitions/synthetic-flow.json",
+          digest: definitionDigest,
+          byteLength: 200,
+          sourceProfile: "normalized-flow-v1",
+          data: { id: FLOW_ID },
+          projections: {},
+        },
+        {
+          id: "manifest:artifacts/manifest.json:artifact-manifest-v1",
+          kind: "manifest",
+          relativePath: MANIFEST_PATH,
+          digest: "c".repeat(64),
+          sourceProfile: "artifact-manifest-v1",
+          data: {
+            files: [
+              {
+                path: "project.contract.json",
+                mediaType: "application/json",
+                bytes: 100,
+                sha256: contractDigest,
+                role: "contract",
+              },
+              {
+                path: "definitions/synthetic-flow.json",
+                mediaType: "application/json",
+                bytes: 200,
+                sha256: definitionDigest,
+                role: "definition",
+              },
+              {
+                path: PACKAGE_PATH,
+                mediaType: "application/zip",
+                bytes: packaged.bytes,
+                sha256: packaged.sha256,
+                role: "package",
+              },
+            ],
+          },
+          projections: {},
+        },
+      ],
+      edges: [],
+    };
+
+    assert.deepEqual(
+      await diagnostics("PKG-INTEGRITY-001", { ...base, graph }),
+      [{
+        code: "PKG-INTEGRITY-001",
+        path: `${MANIFEST_PATH}#/files`,
+        message: "Artifact manifest inventory does not exactly match final release artifacts.",
+      }],
+    );
   });
 });
