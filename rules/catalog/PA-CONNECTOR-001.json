@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "id": "PA-CONNECTOR-001",
+  "title": "SharePoint REST mutation shape",
+  "domain": "power-automate",
+  "severity": "error",
+  "description": "SharePoint REST mutation does not use the required POST override and exact ETag shape.",
+  "rationale": "The inspected final artifact must preserve the declared offline safety contract.",
+  "appliesTo": [
+    {
+      "kind": "definition"
+    },
+    {
+      "kind": "zip",
+      "profile": "power-platform-solution-v1"
+    }
+  ],
+  "detector": {
+    "implementation": "packages/rules/src/power-automate/connector-shape.ts",
+    "exportName": "paConnector001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/PA-CONNECTOR-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": [
+      "PA-CONNECTOR-001"
+    ]
+  },
+  "green": {
+    "root": "fixtures/rules/PA-CONNECTOR-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": {
+    "required": true,
+    "artifactKinds": [
+      "generated-definition",
+      "zip"
+    ]
+  },
+  "remediation": [
+    "Set the request method to POST, set X-HTTP-Method to MERGE, and supply a non-wildcard exact IF-MATCH value from the current item state."
+  ],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Controlled tenant mutation remains external."
+  },
+  "supportedEvidence": [
+    "LOCAL_STATIC",
+    "PACKAGE_ARTIFACT"
+  ],
+  "tags": [
+    "power-automate",
+    "offline",
+    "synthetic"
+  ]
+}

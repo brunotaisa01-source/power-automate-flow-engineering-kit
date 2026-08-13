@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "PKG-INTEGRITY-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "PKG-INTEGRITY-001",
+        "artifactPath": "artifacts/manifest.json#/files",
+        "messageContains": "Artifact manifest inventory does not exactly match final release artifacts."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Replace the final package digest recorded by the manifest.",
+    "result": "FAIL",
+    "diagnosticCode": "PKG-INTEGRITY-001"
+  }
+}

@@ -1,0 +1,14 @@
+node_modules/
+**/dist/
+**/dist.pre-*/
+*.tsbuildinfo
+coverage/
+.env
+.env.*
+!.env.example
+*.zip
+*.7z
+*.rar
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spflow.dev/schemas/flow-contract.schema.json",
+  "title": "Flow Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "definitionPath",
+    "trigger",
+    "processorForCommandTypes",
+    "connectionReferences",
+    "actionBudget",
+    "concurrency",
+    "packageId"
+  ],
+  "properties": {
+    "id": { "$ref": "#/$defs/identifier" },
+    "definitionPath": { "$ref": "#/$defs/repositoryPath" },
+    "trigger": {
+      "enum": ["sharepoint-created", "sharepoint-modified", "recurrence", "manual"]
+    },
+    "processorForCommandTypes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/identifier" },
+      "uniqueItems": true
+    },
+    "connectionReferences": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/bindingKey" },
+      "uniqueItems": true
+    },
+    "actionBudget": { "type": "integer", "minimum": 1 },
+    "concurrency": { "$ref": "#/$defs/concurrency" },
+    "packageId": { "$ref": "#/$defs/identifier" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "bindingKey": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "repositoryPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*\\\\)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+    },
+    "concurrency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enabled", "degree"],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "degree": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

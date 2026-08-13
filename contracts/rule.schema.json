@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spflow.dev/schemas/rule.schema.json",
+  "title": "Rule Definition",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "title",
+    "domain",
+    "severity",
+    "description",
+    "rationale",
+    "appliesTo",
+    "detector",
+    "red",
+    "green",
+    "finalArtifact",
+    "remediation",
+    "residualGate",
+    "supportedEvidence",
+    "tags"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "id": { "$ref": "#/$defs/ruleId" },
+    "title": { "type": "string", "minLength": 1 },
+    "domain": {
+      "enum": ["application", "sharepoint", "power-automate", "package", "release", "data"]
+    },
+    "severity": { "enum": ["error", "warning"] },
+    "description": { "type": "string", "minLength": 1 },
+    "rationale": { "type": "string", "minLength": 1 },
+    "appliesTo": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/artifactSelector" },
+      "minItems": 1
+    },
+    "detector": { "$ref": "#/$defs/detectorContract" },
+    "red": { "$ref": "#/$defs/fixtureExpectation" },
+    "green": { "$ref": "#/$defs/fixtureExpectation" },
+    "finalArtifact": { "$ref": "#/$defs/finalArtifactRequirement" },
+    "remediation": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "residualGate": { "$ref": "#/$defs/residualGate" },
+    "supportedEvidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidenceClass" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "tags": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/identifier" },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "ruleId": {
+      "type": "string",
+      "pattern": "^[A-Z]+(?:-[A-Z]+)*-[0-9]{3}$"
+    },
+    "repositoryPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*\\\\)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+    },
+    "evidenceClass": {
+      "enum": [
+        "LOCAL_STATIC",
+        "LOCAL_RUNTIME",
+        "PACKAGE_ARTIFACT",
+        "IMPORTED",
+        "REBOUND",
+        "ENABLED",
+        "LIVE_SMOKE",
+        "TENANT_VERIFIED",
+        "PUBLISHED"
+      ]
+    },
+    "artifactSelector": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "contract",
+            "schema",
+            "frontend",
+            "builder",
+            "definition",
+            "zip",
+            "manifest",
+            "documentation",
+            "evidence"
+          ]
+        },
+        "profile": { "type": "string", "minLength": 1 },
+        "pathPattern": { "type": "string", "minLength": 1 }
+      }
+    },
+    "detectorContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implementation", "exportName", "input", "deterministic", "network", "parameters"],
+      "properties": {
+        "implementation": {
+          "type": "string",
+          "pattern": "^packages/rules/src/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*\\.ts$"
+        },
+        "exportName": {
+          "type": "string",
+          "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"
+        },
+        "input": { "enum": ["artifact-node", "artifact-graph"] },
+        "deterministic": { "const": true },
+        "network": { "const": "forbidden" },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z][A-Za-z0-9]*$": {
+              "anyOf": [
+                { "type": "string" },
+                { "type": "number" },
+                { "type": "boolean" }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "fixtureExpectation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "expectedResult", "expectedDiagnosticCodes"],
+      "properties": {
+        "root": { "$ref": "#/$defs/repositoryPath" },
+        "expectedResult": { "enum": ["PASS", "FAIL"] },
+        "expectedDiagnosticCodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ruleId" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "finalArtifactRequirement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "artifactKinds"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "artifactKinds": {
+          "type": "array",
+          "items": { "enum": ["generated-definition", "zip", "frontend-bundle", "manifest"] },
+          "uniqueItems": true
+        }
+      }
+    },
+    "residualGate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required"],
+      "properties": {
+        "required": { "type": "boolean" },
+        "claimClass": { "$ref": "#/$defs/evidenceClass" },
+        "description": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

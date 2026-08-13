@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "PA-LIMIT-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "PA-LIMIT-001",
+        "artifactPath": "artifacts/synthetic-solution.zip#/flows/<flow>/actionCount",
+        "messageContains": "Flow action count exceeds its project contract or platform budget."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Lower the final package flow action budget below its action count.",
+    "result": "FAIL",
+    "diagnosticCode": "PA-LIMIT-001"
+  }
+}

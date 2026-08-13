@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0",
+  "id": "PKG-ARCHIVE-001",
+  "title": "Bounded archive safety",
+  "domain": "package",
+  "severity": "error",
+  "description": "Final package archive failed bounded safety inspection.",
+  "rationale": "The inspected final artifact must preserve the declared offline safety contract.",
+  "appliesTo": [
+    {
+      "kind": "zip",
+      "profile": "power-platform-solution-v1"
+    }
+  ],
+  "detector": {
+    "implementation": "packages/rules/src/package/archive-safety.ts",
+    "exportName": "pkgArchive001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/PKG-ARCHIVE-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": [
+      "PKG-ARCHIVE-001"
+    ]
+  },
+  "green": {
+    "root": "fixtures/rules/PKG-ARCHIVE-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": {
+    "required": true,
+    "artifactKinds": [
+      "zip"
+    ]
+  },
+  "remediation": [
+    "Regenerate the archive with normalized relative entries, no duplicates or nested archives, safe XML, and sizes within the approved limits."
+  ],
+  "residualGate": {
+    "required": false
+  },
+  "supportedEvidence": [
+    "LOCAL_STATIC",
+    "PACKAGE_ARTIFACT"
+  ],
+  "tags": [
+    "package",
+    "offline",
+    "synthetic"
+  ]
+}

@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "id": "PA-GRAPH-001",
+  "title": "Reachable action graph",
+  "domain": "power-automate",
+  "severity": "error",
+  "description": "Flow action graph contains a missing predecessor or unreachable required action.",
+  "rationale": "The inspected final artifact must preserve the declared offline safety contract.",
+  "appliesTo": [
+    {
+      "kind": "definition"
+    },
+    {
+      "kind": "zip",
+      "profile": "power-platform-solution-v1"
+    }
+  ],
+  "detector": {
+    "implementation": "packages/rules/src/power-automate/graph-reachability.ts",
+    "exportName": "paGraph001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/PA-GRAPH-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": [
+      "PA-GRAPH-001"
+    ]
+  },
+  "green": {
+    "root": "fixtures/rules/PA-GRAPH-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": {
+    "required": true,
+    "artifactKinds": [
+      "generated-definition",
+      "zip"
+    ]
+  },
+  "remediation": [
+    "Reference an existing predecessor in the same action container and reconnect every required action to a trigger-reachable, authorization-guarded path."
+  ],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Controlled failure-path execution remains external."
+  },
+  "supportedEvidence": [
+    "LOCAL_STATIC",
+    "PACKAGE_ARTIFACT"
+  ],
+  "tags": [
+    "power-automate",
+    "offline",
+    "synthetic"
+  ]
+}

@@ -1,0 +1,111 @@
+{
+  "fixtureProfile": "synthetic-rule-v1",
+  "nodes": [
+    {
+      "id": "definition:definitions/synthetic-flow.json:power-automate-definition-v1",
+      "kind": "definition",
+      "relativePath": "definitions/synthetic-flow.json",
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceProfile": "power-automate-definition-v1",
+      "data": {
+        "profile": "power-platform-solution-v1",
+        "flows": [
+          {
+            "id": "synthetic-flow",
+            "actionBudget": 5,
+            "platformActionBudget": 500,
+            "declaredConnectionReferences": [],
+            "actions": [
+              {
+                "id": "ProcessItems",
+                "type": "Foreach",
+                "role": "audit",
+                "runAfter": []
+              },
+              {
+                "id": "Stop",
+                "type": "Terminate",
+                "role": "failure",
+                "runAfter": [
+                  {
+                    "actionId": "ProcessItems",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "expressions": []
+          }
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "zip:artifacts/synthetic-solution.zip:power-platform-solution-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/synthetic-solution.zip",
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sourceProfile": "power-platform-solution-v1",
+      "data": {
+        "profile": "power-platform-solution-v1",
+        "archiveSafety": {
+          "valid": true
+        },
+        "inventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "expectedInventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "flows": [
+          {
+            "id": "synthetic-flow",
+            "actionBudget": 5,
+            "platformActionBudget": 500,
+            "declaredConnectionReferences": [],
+            "actions": [
+              {
+                "id": "ProcessItems",
+                "type": "Foreach",
+                "role": "audit",
+                "runAfter": []
+              },
+              {
+                "id": "Stop",
+                "type": "Terminate",
+                "role": "failure",
+                "runAfter": [
+                  {
+                    "actionId": "ProcessItems",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ],
+                "parentId": "ProcessItems"
+              }
+            ],
+            "expressions": []
+          }
+        ],
+        "matchedContent": "SYNTHETIC_MATCH_VALUE"
+      },
+      "projections": {}
+    }
+  ],
+  "edges": [
+    {
+      "from": "definition:definitions/synthetic-flow.json:power-automate-definition-v1",
+      "to": "zip:artifacts/synthetic-solution.zip:power-platform-solution-v1",
+      "relation": "packages"
+    }
+  ]
+}

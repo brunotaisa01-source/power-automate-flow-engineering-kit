@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "PKG-ARCHIVE-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "PKG-ARCHIVE-001",
+        "artifactPath": "artifacts/synthetic-solution.zip#/archiveSafety",
+        "messageContains": "Final package archive failed bounded safety inspection."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Mark final package archive safety inspection invalid.",
+    "result": "FAIL",
+    "diagnosticCode": "PKG-ARCHIVE-001"
+  }
+}

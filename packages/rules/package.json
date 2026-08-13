@@ -1,0 +1,16 @@
+{
+  "name": "@spflow/rules",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./dist/registry.js",
+    "./registry": "./dist/registry.js"
+  },
+  "scripts": {
+    "build": "tsc --target ES2022 --module NodeNext --moduleResolution NodeNext --rootDir src --outDir dist --declaration --declarationMap --sourceMap --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --noImplicitOverride --noFallthroughCasesInSwitch --noImplicitReturns --noUnusedLocals --noUnusedParameters --forceConsistentCasingInFileNames --esModuleInterop --skipLibCheck false --rewriteRelativeImportExtensions src/registry.ts"
+  },
+  "dependencies": {
+    "@spflow/core": "0.0.0"
+  }
+}

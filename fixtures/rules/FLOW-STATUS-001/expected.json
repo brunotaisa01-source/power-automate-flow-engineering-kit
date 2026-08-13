@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "FLOW-STATUS-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "FLOW-STATUS-001",
+        "artifactPath": "artifacts/synthetic-solution.zip#/flows/<flow>/actions/<action>",
+        "messageContains": "Succeeded completion is not guarded by successful semantic readback."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Bypass semantic readback on the final package completion path.",
+    "result": "FAIL",
+    "diagnosticCode": "FLOW-STATUS-001"
+  }
+}

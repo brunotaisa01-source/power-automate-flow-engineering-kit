@@ -1,0 +1,370 @@
+{
+  "fixtureProfile": "synthetic-rule-v1",
+  "nodes": [
+    {
+      "id": "definition:definitions/synthetic-flow.json:power-automate-definition-v1",
+      "kind": "definition",
+      "relativePath": "definitions/synthetic-flow.json",
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceProfile": "power-automate-definition-v1",
+      "data": {
+        "profile": "power-platform-solution-v1",
+        "flows": [
+          {
+            "id": "alternate-flow",
+            "actionBudget": 20,
+            "platformActionBudget": 500,
+            "declaredConnectionReferences": [],
+            "destructive": true,
+            "actions": [
+              {
+                "id": "Control00",
+                "type": "Compose",
+                "role": "dry-run",
+                "runAfter": []
+              },
+              {
+                "id": "Control01",
+                "type": "Compose",
+                "role": "target-allowlist",
+                "runAfter": [
+                  {
+                    "actionId": "Control00",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control02",
+                "type": "Compose",
+                "role": "plan-digest",
+                "runAfter": [
+                  {
+                    "actionId": "Control01",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control03",
+                "type": "Compose",
+                "role": "approval",
+                "runAfter": [
+                  {
+                    "actionId": "Control02",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control04",
+                "type": "Compose",
+                "role": "write-limit",
+                "runAfter": [
+                  {
+                    "actionId": "Control03",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control05",
+                "type": "Compose",
+                "role": "state-reread",
+                "runAfter": [
+                  {
+                    "actionId": "Control04",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control06",
+                "type": "Compose",
+                "role": "mutation",
+                "runAfter": [
+                  {
+                    "actionId": "Control05",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control07",
+                "type": "Compose",
+                "role": "readback",
+                "runAfter": [
+                  {
+                    "actionId": "Control06",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control08",
+                "type": "Compose",
+                "role": "stop-unexpected",
+                "runAfter": [
+                  {
+                    "actionId": "Control07",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control09",
+                "type": "Compose",
+                "role": "failure-audit",
+                "runAfter": [
+                  {
+                    "actionId": "Control08",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control10",
+                "type": "Compose",
+                "role": "compensation",
+                "runAfter": [
+                  {
+                    "actionId": "Control09",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "IndependentControl",
+                "type": "Compose",
+                "runAfter": [
+                  {
+                    "actionId": "Control00",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "expressions": []
+          }
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "zip:artifacts/synthetic-solution.zip:power-platform-solution-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/synthetic-solution.zip",
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sourceProfile": "power-platform-solution-v1",
+      "data": {
+        "profile": "power-platform-solution-v1",
+        "archiveSafety": {
+          "valid": true
+        },
+        "inventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "expectedInventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "flows": [
+          {
+            "id": "alternate-flow",
+            "actionBudget": 20,
+            "platformActionBudget": 500,
+            "declaredConnectionReferences": [],
+            "destructive": true,
+            "actions": [
+              {
+                "id": "Control00",
+                "type": "Compose",
+                "role": "dry-run",
+                "runAfter": []
+              },
+              {
+                "id": "Control01",
+                "type": "Compose",
+                "role": "target-allowlist",
+                "runAfter": [
+                  {
+                    "actionId": "Control00",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control02",
+                "type": "Compose",
+                "role": "plan-digest",
+                "runAfter": [
+                  {
+                    "actionId": "Control01",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control03",
+                "type": "Compose",
+                "role": "approval",
+                "runAfter": [
+                  {
+                    "actionId": "Control02",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control04",
+                "type": "Compose",
+                "role": "write-limit",
+                "runAfter": [
+                  {
+                    "actionId": "Control03",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control05",
+                "type": "Compose",
+                "role": "state-reread",
+                "runAfter": [
+                  {
+                    "actionId": "Control04",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control06",
+                "type": "Compose",
+                "role": "mutation",
+                "runAfter": [
+                  {
+                    "actionId": "Control05",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control07",
+                "type": "Compose",
+                "role": "readback",
+                "runAfter": [
+                  {
+                    "actionId": "Control06",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control08",
+                "type": "Compose",
+                "role": "stop-unexpected",
+                "runAfter": [
+                  {
+                    "actionId": "Control07",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control09",
+                "type": "Compose",
+                "role": "failure-audit",
+                "runAfter": [
+                  {
+                    "actionId": "Control08",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Control10",
+                "type": "Compose",
+                "role": "compensation",
+                "runAfter": [
+                  {
+                    "actionId": "Control09",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "IndependentControl",
+                "type": "Compose",
+                "runAfter": [
+                  {
+                    "actionId": "Control00",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "expressions": []
+          }
+        ],
+        "matchedContent": "SYNTHETIC_MATCH_VALUE"
+      },
+      "projections": {}
+    }
+  ],
+  "edges": [
+    {
+      "from": "definition:definitions/synthetic-flow.json:power-automate-definition-v1",
+      "to": "zip:artifacts/synthetic-solution.zip:power-platform-solution-v1",
+      "relation": "packages"
+    }
+  ]
+}

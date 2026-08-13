@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "PA-EXPRESSION-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "PA-EXPRESSION-001",
+        "artifactPath": "artifacts/synthetic-solution.zip#/flows/<flow>/expressions/trigger/inputs/body",
+        "messageContains": "Flow uses unsafe raw interpolation in a structured payload."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Replace serializer-owned output with raw interpolation.",
+    "result": "FAIL",
+    "diagnosticCode": "PA-EXPRESSION-001"
+  }
+}

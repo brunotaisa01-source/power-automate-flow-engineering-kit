@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "id": "PA-GRAPH-002",
+  "title": "Acyclic satisfiable action graph",
+  "domain": "power-automate",
+  "severity": "error",
+  "description": "Flow action graph contains a cycle or unsatisfiable dependency.",
+  "rationale": "The inspected final artifact must preserve the declared offline safety contract.",
+  "appliesTo": [
+    {
+      "kind": "definition"
+    },
+    {
+      "kind": "zip",
+      "profile": "power-platform-solution-v1"
+    }
+  ],
+  "detector": {
+    "implementation": "packages/rules/src/power-automate/graph-cycle.ts",
+    "exportName": "paGraph002",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/PA-GRAPH-002/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": [
+      "PA-GRAPH-002"
+    ]
+  },
+  "green": {
+    "root": "fixtures/rules/PA-GRAPH-002/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": {
+    "required": true,
+    "artifactKinds": [
+      "generated-definition",
+      "zip"
+    ]
+  },
+  "remediation": [
+    "Remove cyclic runAfter edges and assign at least one supported predecessor status to every dependency path."
+  ],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Controlled success and failure paths remain external."
+  },
+  "supportedEvidence": [
+    "LOCAL_STATIC",
+    "PACKAGE_ARTIFACT"
+  ],
+  "tags": [
+    "power-automate",
+    "offline",
+    "synthetic"
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "fixtureProfile": "synthetic-rule-v1",
+  "nodes": [
+    {
+      "id": "zip:artifacts/synthetic-solution.zip:power-platform-solution-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/synthetic-solution.zip",
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "byteLength": 512,
+      "sourceProfile": "package-bytes-v1",
+      "data": {
+        "profile": "power-platform-solution-v1",
+        "archiveSafety": {
+          "valid": true
+        },
+        "inventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "expectedInventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "flows": [],
+        "bytes": 512,
+        "matchedContent": "SYNTHETIC_MATCH_VALUE"
+      },
+      "projections": {}
+    },
+    {
+      "id": "manifest:artifacts/manifest.json:artifact-manifest-v1",
+      "kind": "manifest",
+      "relativePath": "artifacts/manifest.json",
+      "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "sourceProfile": "artifact-manifest-v1",
+      "data": {
+        "files": [
+          {
+            "path": "artifacts/synthetic-solution.zip",
+            "mediaType": "application/zip",
+            "bytes": 512,
+            "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "role": "package"
+          }
+        ]
+      },
+      "projections": {}
+    }
+  ],
+  "edges": []
+}

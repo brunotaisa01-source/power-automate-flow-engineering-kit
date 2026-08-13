@@ -1,0 +1,12 @@
+{
+  "op": "json-set",
+  "path": "graph.json",
+  "pointer": "/nodes/0/data/inventory",
+  "value": [
+    "Workflows/SyntheticFlow.json",
+    "[Content_Types].xml",
+    "customizations.xml",
+    "solution.xml",
+    "unexpected.txt"
+  ]
+}

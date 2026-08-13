@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "id": "FLOW-IDEMPOTENCY-001",
+  "title": "Deterministic idempotency cardinality",
+  "domain": "power-automate",
+  "severity": "error",
+  "description": "Flow does not provide a deterministic non-empty key with explicit zero, one, and many handling.",
+  "rationale": "The inspected final artifact must preserve the declared offline safety contract.",
+  "appliesTo": [
+    {
+      "kind": "definition"
+    },
+    {
+      "kind": "zip",
+      "profile": "power-platform-solution-v1"
+    }
+  ],
+  "detector": {
+    "implementation": "packages/rules/src/power-automate/idempotency.ts",
+    "exportName": "flowIdempotency001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/FLOW-IDEMPOTENCY-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": [
+      "FLOW-IDEMPOTENCY-001"
+    ]
+  },
+  "green": {
+    "root": "fixtures/rules/FLOW-IDEMPOTENCY-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": {
+    "required": true,
+    "artifactKinds": [
+      "generated-definition",
+      "zip"
+    ]
+  },
+  "remediation": [
+    "Derive the contract key, reject an empty key, and add explicit zero, one, and many reconciliation branches before mutation."
+  ],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Duplicate-trigger and multiple-match execution remain external."
+  },
+  "supportedEvidence": [
+    "LOCAL_STATIC",
+    "PACKAGE_ARTIFACT"
+  ],
+  "tags": [
+    "power-automate",
+    "offline",
+    "synthetic"
+  ]
+}

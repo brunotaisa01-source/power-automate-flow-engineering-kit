@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "FLOW-DESTRUCTIVE-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "FLOW-DESTRUCTIVE-001",
+        "artifactPath": "artifacts/synthetic-solution.zip#/flows/<flow>/destructiveGates",
+        "messageContains": "Destructive flow lacks required authorization, audit, readback, or compensation evidence."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Remove explicit approval from the final package destructive gates.",
+    "result": "FAIL",
+    "diagnosticCode": "FLOW-DESTRUCTIVE-001"
+  }
+}

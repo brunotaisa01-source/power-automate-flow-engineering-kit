@@ -1,0 +1,35 @@
+{
+  "fixtureProfile": "synthetic-rule-v1",
+  "mutationControl": "alternate-archive-failure",
+  "nodes": [
+    {
+      "id": "zip:artifacts/synthetic-solution.zip:power-platform-solution-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/synthetic-solution.zip",
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sourceProfile": "power-platform-solution-v1",
+      "data": {
+        "profile": "power-platform-solution-v1",
+        "archiveSafety": {
+          "valid": true
+        },
+        "inventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "expectedInventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "flows": [],
+        "matchedContent": "SYNTHETIC_MATCH_VALUE"
+      },
+      "projections": {}
+    }
+  ],
+  "edges": []
+}

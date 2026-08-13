@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spflow.dev/schemas/package-profile.schema.json",
+  "title": "Package Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "path",
+    "profile",
+    "manifestPath",
+    "flowIds",
+    "importMode",
+    "nestedArchives"
+  ],
+  "properties": {
+    "id": { "$ref": "#/$defs/identifier" },
+    "path": { "$ref": "#/$defs/repositoryPath" },
+    "profile": { "const": "power-platform-solution-v1" },
+    "manifestPath": { "$ref": "#/$defs/repositoryPath" },
+    "flowIds": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/identifier" },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "importMode": { "const": "disabled" },
+    "nestedArchives": { "const": "forbidden" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "repositoryPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*\\\\)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+    }
+  }
+}

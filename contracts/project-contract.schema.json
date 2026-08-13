@@ -1,0 +1,511 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spflow.dev/schemas/project-contract.schema.json",
+  "title": "Project Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "project",
+    "runtime",
+    "environmentBindings",
+    "sharePoint",
+    "stateMachines",
+    "capabilities",
+    "commands",
+    "flows",
+    "packages",
+    "frontend",
+    "security",
+    "verification",
+    "evidencePolicy"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "project": { "$ref": "#/$defs/projectIdentity" },
+    "runtime": { "$ref": "#/$defs/runtimeContract" },
+    "environmentBindings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/environmentBinding" },
+      "minItems": 1
+    },
+    "sharePoint": { "$ref": "https://spflow.dev/schemas/sharepoint-schema.schema.json" },
+    "stateMachines": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/stateMachine" }
+    },
+    "capabilities": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/capability" }
+    },
+    "commands": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/commandContract" }
+    },
+    "flows": {
+      "type": "array",
+      "items": { "$ref": "https://spflow.dev/schemas/flow-contract.schema.json" }
+    },
+    "packages": {
+      "type": "array",
+      "items": { "$ref": "https://spflow.dev/schemas/package-profile.schema.json" }
+    },
+    "frontend": { "$ref": "#/$defs/frontendContract" },
+    "security": { "$ref": "#/$defs/securityContract" },
+    "verification": { "$ref": "#/$defs/verificationContract" },
+    "evidencePolicy": { "$ref": "#/$defs/evidencePolicy" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "bindingKey": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "fieldName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "repositoryPath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))(?!.*\\\\)[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+    },
+    "ruleId": {
+      "type": "string",
+      "pattern": "^[A-Z]+(?:-[A-Z]+)*-[0-9]{3}$"
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidenceClass": {
+      "enum": [
+        "LOCAL_STATIC",
+        "LOCAL_RUNTIME",
+        "PACKAGE_ARTIFACT",
+        "IMPORTED",
+        "REBOUND",
+        "ENABLED",
+        "LIVE_SMOKE",
+        "TENANT_VERIFIED",
+        "PUBLISHED"
+      ]
+    },
+    "projectIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "description", "contractRevision", "dataClassification"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "displayName": { "$ref": "#/$defs/nonEmptyString" },
+        "description": { "$ref": "#/$defs/nonEmptyString" },
+        "contractRevision": { "type": "integer", "minimum": 1 },
+        "dataClassification": { "const": "synthetic-public" }
+      }
+    },
+    "runtimeContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node", "npm", "moduleFormat", "locale", "timeZone", "networkDuringOfflineVerify"],
+      "properties": {
+        "node": { "const": ">=22.0.0 <23.0.0" },
+        "npm": { "const": ">=10.0.0 <11.0.0" },
+        "moduleFormat": { "const": "esm" },
+        "locale": { "const": "en" },
+        "timeZone": { "const": "UTC" },
+        "networkDuringOfflineVerify": { "const": "forbidden" }
+      }
+    },
+    "environmentBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "requiredFor", "sensitive", "example"],
+      "properties": {
+        "key": { "$ref": "#/$defs/bindingKey" },
+        "kind": {
+          "enum": [
+            "site-url",
+            "list-title",
+            "mailbox-upn",
+            "connection-reference",
+            "environment-id",
+            "solution-id"
+          ]
+        },
+        "requiredFor": {
+          "type": "array",
+          "items": { "enum": ["generate", "tenant-preflight", "tenant-apply", "tenant-readback"] },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "sensitive": { "type": "boolean" },
+        "example": {
+          "type": "string",
+          "pattern": "^(?:\\{[A-Z][A-Z0-9_]*\\}|[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[A-Za-z0-9-]+\\.)*example\\.test|https://(?:[a-z0-9-]+\\.)*example\\.test(?:/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*)?)$"
+        }
+      }
+    },
+    "stateMachine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "listId", "field", "initial", "terminal", "states", "transitions"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "listId": { "$ref": "#/$defs/identifier" },
+        "field": { "$ref": "#/$defs/fieldName" },
+        "initial": { "$ref": "#/$defs/nonEmptyString" },
+        "terminal": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "uniqueItems": true
+        },
+        "states": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "transitions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/transition" }
+        }
+      }
+    },
+    "transition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "from", "to", "commandType", "requiredCapability", "serverGuards"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "from": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "to": { "$ref": "#/$defs/nonEmptyString" },
+        "commandType": { "$ref": "#/$defs/identifier" },
+        "requiredCapability": { "$ref": "#/$defs/identifier" },
+        "serverGuards": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identifier" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "accessListId",
+        "activeField",
+        "principalField",
+        "capabilityField",
+        "scope",
+        "allowedCommands"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "accessListId": { "$ref": "#/$defs/identifier" },
+        "activeField": { "$ref": "#/$defs/fieldName" },
+        "principalField": { "$ref": "#/$defs/fieldName" },
+        "capabilityField": { "$ref": "#/$defs/fieldName" },
+        "scope": { "$ref": "#/$defs/scopeContract" },
+        "allowedCommands": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identifier" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "scopeContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode"],
+      "properties": {
+        "mode": { "enum": ["global", "field-match", "lookup-membership"] },
+        "targetField": { "$ref": "#/$defs/fieldName" },
+        "accessField": { "$ref": "#/$defs/fieldName" },
+        "lookupListId": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "commandContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "queueListId",
+        "targetListId",
+        "targetIdField",
+        "requestedFields",
+        "serverReadFields",
+        "requiredCapability",
+        "transitionId",
+        "idempotency",
+        "claim",
+        "readback"
+      ],
+      "properties": {
+        "type": { "$ref": "#/$defs/identifier" },
+        "queueListId": { "$ref": "#/$defs/identifier" },
+        "targetListId": { "$ref": "#/$defs/identifier" },
+        "targetIdField": { "$ref": "#/$defs/fieldName" },
+        "requestedFields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/commandField" }
+        },
+        "serverReadFields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fieldName" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "requiredCapability": { "$ref": "#/$defs/identifier" },
+        "transitionId": { "$ref": "#/$defs/identifier" },
+        "idempotency": { "$ref": "#/$defs/idempotencyContract" },
+        "claim": { "$ref": "#/$defs/claimContract" },
+        "readback": { "$ref": "#/$defs/readbackContract" }
+      }
+    },
+    "commandField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type", "required", "authority"],
+      "properties": {
+        "name": { "$ref": "#/$defs/fieldName" },
+        "type": { "enum": ["string", "number", "boolean", "date-time", "guid"] },
+        "required": { "type": "boolean" },
+        "maxLength": { "type": "integer", "minimum": 1 },
+        "enum": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/nonEmptyString" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "authority": { "enum": ["request", "trace-only"] }
+      }
+    },
+    "idempotencyContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["keyFields", "emptyKey", "zeroMatches", "oneMatch", "manyMatches", "ambiguousWrite"],
+      "properties": {
+        "keyFields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fieldName" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "emptyKey": { "const": "reject" },
+        "zeroMatches": { "const": "create-or-execute" },
+        "oneMatch": { "const": "return-existing-or-continue" },
+        "manyMatches": { "const": "fail-reconciliation" },
+        "ambiguousWrite": { "const": "get-reconcile-no-blind-retry" }
+      }
+    },
+    "claimContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pendingState",
+        "processingState",
+        "succeededState",
+        "failedState",
+        "exactEtagRequired"
+      ],
+      "properties": {
+        "pendingState": { "const": "Pending" },
+        "processingState": { "const": "Processing" },
+        "succeededState": { "const": "Succeeded" },
+        "failedState": { "const": "Failed" },
+        "exactEtagRequired": { "const": true }
+      }
+    },
+    "readbackContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required", "fields", "assertions"],
+      "properties": {
+        "required": { "const": true },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fieldName" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "assertions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/readbackAssertion" },
+          "minItems": 1
+        }
+      }
+    },
+    "readbackAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "operator", "expected"],
+      "properties": {
+        "field": { "$ref": "#/$defs/fieldName" },
+        "operator": { "enum": ["equals", "not-equals", "exists"] },
+        "expected": {}
+      }
+    },
+    "frontendContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "authModel", "secrets", "protectedWriteModel", "directPatch", "pagination"],
+      "properties": {
+        "root": { "$ref": "#/$defs/repositoryPath" },
+        "authModel": { "const": "existing-m365-session" },
+        "secrets": { "const": "forbidden" },
+        "protectedWriteModel": { "const": "typed-command-queue" },
+        "directPatch": { "$ref": "#/$defs/directPatchContract" },
+        "pagination": { "$ref": "#/$defs/paginationContract" }
+      }
+    },
+    "directPatchContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "listIds",
+        "explicitSave",
+        "digestPerTransaction",
+        "method",
+        "methodOverride",
+        "exactIfMatch",
+        "conflictStatus",
+        "ambiguousWrite",
+        "semanticReadback"
+      ],
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "listIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identifier" },
+          "uniqueItems": true
+        },
+        "explicitSave": { "const": true },
+        "digestPerTransaction": { "const": true },
+        "method": { "const": "POST" },
+        "methodOverride": { "const": "MERGE" },
+        "exactIfMatch": { "const": true },
+        "conflictStatus": { "const": 412 },
+        "ambiguousWrite": { "const": "get-reconcile-no-blind-retry" },
+        "semanticReadback": { "const": true }
+      }
+    },
+    "paginationContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "sameOriginOnly"],
+      "properties": {
+        "mode": { "const": "exhaust-continuation" },
+        "sameOriginOnly": { "const": true }
+      }
+    },
+    "securityContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "minimumPrivilege",
+        "clientActorAuthority",
+        "protectedClientWrites",
+        "allowlistedFieldsOnly",
+        "destructiveOperations",
+        "httpClassification"
+      ],
+      "properties": {
+        "minimumPrivilege": { "const": true },
+        "clientActorAuthority": { "const": "forbidden" },
+        "protectedClientWrites": { "const": "forbidden" },
+        "allowlistedFieldsOnly": { "const": true },
+        "destructiveOperations": { "$ref": "#/$defs/destructiveOperations" },
+        "httpClassification": { "$ref": "#/$defs/httpClassification" }
+      }
+    },
+    "destructiveOperations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dryRun",
+        "planDigest",
+        "humanApproval",
+        "itemLimit",
+        "writeLimit",
+        "stopOnUnexpected",
+        "semanticReadback"
+      ],
+      "properties": {
+        "dryRun": { "const": true },
+        "planDigest": { "const": true },
+        "humanApproval": { "const": true },
+        "itemLimit": { "type": "integer", "minimum": 1 },
+        "writeLimit": { "type": "integer", "minimum": 1 },
+        "stopOnUnexpected": { "const": true },
+        "semanticReadback": { "const": true }
+      }
+    },
+    "httpClassification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["missingColumn400", "other400", "initialPreflight404", "applyOrReadback404"],
+      "properties": {
+        "missingColumn400": { "const": "semantic-signature-only" },
+        "other400": { "const": "GET_FAILED" },
+        "initialPreflight404": { "const": "explicit-create-missing-only" },
+        "applyOrReadback404": { "const": "strict-failure" }
+      }
+    },
+    "verificationContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "globalCommand",
+        "requiredRuleIds",
+        "finalZipInspection",
+        "recursivePublicDataScan",
+        "mutationControls"
+      ],
+      "properties": {
+        "globalCommand": { "const": "spflow verify --root . --offline --format json" },
+        "requiredRuleIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ruleId" },
+          "uniqueItems": true
+        },
+        "finalZipInspection": { "const": true },
+        "recursivePublicDataScan": { "const": true },
+        "mutationControls": { "const": true }
+      }
+    },
+    "evidencePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "permittedClaimClasses",
+        "localPromotionToTenant",
+        "exactArtifactBinding",
+        "synchronizedFolderIsPublication",
+        "successfulRunIsSemanticEffect"
+      ],
+      "properties": {
+        "permittedClaimClasses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidenceClass" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "localPromotionToTenant": { "const": "forbidden" },
+        "exactArtifactBinding": { "const": true },
+        "synchronizedFolderIsPublication": { "const": false },
+        "successfulRunIsSemanticEffect": { "const": false }
+      }
+    }
+  }
+}

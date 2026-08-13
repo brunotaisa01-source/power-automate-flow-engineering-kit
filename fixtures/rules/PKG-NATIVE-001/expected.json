@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "PKG-NATIVE-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "PKG-NATIVE-001",
+        "artifactPath": "artifacts/synthetic-solution.zip#/inventory",
+        "messageContains": "Final package inventory does not match the profile-derived inventory."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Remove one required root entry from the final package inventory.",
+    "result": "FAIL",
+    "diagnosticCode": "PKG-NATIVE-001"
+  }
+}

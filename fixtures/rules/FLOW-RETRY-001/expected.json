@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "FLOW-RETRY-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "FLOW-RETRY-001",
+        "artifactPath": "artifacts/synthetic-solution.zip#/flows/<flow>/actions/<action>/retryPolicy",
+        "messageContains": "Mutating action can retry an ambiguous result without GET reconciliation."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Enable an implicit retry policy on the final package mutation.",
+    "result": "FAIL",
+    "diagnosticCode": "FLOW-RETRY-001"
+  }
+}

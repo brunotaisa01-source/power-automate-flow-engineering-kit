@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "PA-WDL-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "PA-WDL-001",
+        "artifactPath": "artifacts/synthetic-solution.zip#/flows/<flow>/trigger/actions/<action>/inputs",
+        "messageContains": "Flow contains a malformed or path-invalid workflow expression."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Mark a final package workflow expression parse result invalid.",
+    "result": "FAIL",
+    "diagnosticCode": "PA-WDL-001"
+  }
+}

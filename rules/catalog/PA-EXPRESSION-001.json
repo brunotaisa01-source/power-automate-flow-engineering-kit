@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "id": "PA-EXPRESSION-001",
+  "title": "Expression-safe structured payloads",
+  "domain": "power-automate",
+  "severity": "error",
+  "description": "Flow uses unsafe raw interpolation in a structured payload.",
+  "rationale": "The inspected final artifact must preserve the declared offline safety contract.",
+  "appliesTo": [
+    {
+      "kind": "definition"
+    },
+    {
+      "kind": "zip",
+      "profile": "power-platform-solution-v1"
+    }
+  ],
+  "detector": {
+    "implementation": "packages/rules/src/power-automate/expression-safety.ts",
+    "exportName": "paExpression001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/PA-EXPRESSION-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": [
+      "PA-EXPRESSION-001"
+    ]
+  },
+  "green": {
+    "root": "fixtures/rules/PA-EXPRESSION-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": {
+    "required": true,
+    "artifactKinds": [
+      "generated-definition",
+      "zip"
+    ]
+  },
+  "remediation": [
+    "Build a structured object and let the workflow serializer encode it; remove concat-based JSON or query-body interpolation."
+  ],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Controlled special-character execution remains external."
+  },
+  "supportedEvidence": [
+    "LOCAL_STATIC",
+    "PACKAGE_ARTIFACT"
+  ],
+  "tags": [
+    "power-automate",
+    "offline",
+    "synthetic"
+  ]
+}

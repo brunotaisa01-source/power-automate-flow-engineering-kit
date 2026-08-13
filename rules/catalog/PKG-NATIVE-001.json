@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "id": "PKG-NATIVE-001",
+  "title": "Native solution inventory",
+  "domain": "package",
+  "severity": "error",
+  "description": "Final package inventory does not match the profile-derived inventory.",
+  "rationale": "The final package must preserve the declared offline safety contract.",
+  "appliesTo": [
+    {
+      "kind": "zip",
+      "profile": "power-platform-solution-v1"
+    }
+  ],
+  "detector": {
+    "implementation": "packages/rules/src/package/native-envelope.ts",
+    "exportName": "pkgNative001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/PKG-NATIVE-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": [
+      "PKG-NATIVE-001"
+    ]
+  },
+  "green": {
+    "root": "fixtures/rules/PKG-NATIVE-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": {
+    "required": true,
+    "artifactKinds": [
+      "zip"
+    ]
+  },
+  "remediation": [
+    "Regenerate the solution so its normalized entries exactly match the metadata-derived profile inventory with no missing, extra, duplicate, or misplaced path."
+  ],
+  "residualGate": {
+    "required": true,
+    "claimClass": "IMPORTED",
+    "description": "Disabled tenant import remains an external gate."
+  },
+  "supportedEvidence": [
+    "LOCAL_STATIC",
+    "PACKAGE_ARTIFACT"
+  ],
+  "tags": [
+    "package",
+    "offline",
+    "synthetic"
+  ]
+}

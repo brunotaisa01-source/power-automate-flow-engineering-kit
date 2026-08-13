@@ -1,0 +1,13 @@
+{
+  "op": "json-set",
+  "path": "graph.json",
+  "pointer": "/nodes/1/data/flows/0/actions/0/runAfter",
+  "value": [
+    {
+      "actionId": "Alpha",
+      "statuses": [
+        "Failed"
+      ]
+    }
+  ]
+}

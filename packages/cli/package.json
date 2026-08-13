@@ -1,0 +1,20 @@
+{
+  "name": "@spflow/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "spflow": "./dist/bin/spflow.js"
+  },
+  "exports": {
+    "./parse-args": "./dist/parse-args.js"
+  },
+  "scripts": {
+    "build": "tsc --target ES2022 --module NodeNext --moduleResolution NodeNext --rootDir src --outDir dist --declaration --declarationMap --sourceMap --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --noImplicitOverride --noFallthroughCasesInSwitch --noImplicitReturns --noUnusedLocals --noUnusedParameters --forceConsistentCasingInFileNames --esModuleInterop --skipLibCheck false --rewriteRelativeImportExtensions src/bin/spflow.ts src/parse-args.ts src/commands/offline-validation.ts src/commands/validate-contract.ts src/commands/validate-rules.ts src/commands/validate-artifact.ts src/commands/validate-evidence.ts src/commands/scan-public-data.ts src/commands/verify.ts src/reporters/json.ts src/reporters/text.ts"
+  },
+  "dependencies": {
+    "@spflow/core": "0.0.0",
+    "@spflow/package-adapters": "0.0.0",
+    "@spflow/rules": "0.0.0"
+  }
+}

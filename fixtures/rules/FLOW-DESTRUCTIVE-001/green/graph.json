@@ -1,0 +1,346 @@
+{
+  "fixtureProfile": "synthetic-rule-v1",
+  "nodes": [
+    {
+      "id": "definition:definitions/synthetic-flow.json:power-automate-definition-v1",
+      "kind": "definition",
+      "relativePath": "definitions/synthetic-flow.json",
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceProfile": "power-automate-definition-v1",
+      "data": {
+        "profile": "power-platform-solution-v1",
+        "flows": [
+          {
+            "id": "synthetic-flow",
+            "actionBudget": 20,
+            "platformActionBudget": 500,
+            "declaredConnectionReferences": [],
+            "destructive": true,
+            "actions": [
+              {
+                "id": "Gate00",
+                "type": "Compose",
+                "role": "dry-run",
+                "runAfter": []
+              },
+              {
+                "id": "Gate01",
+                "type": "Compose",
+                "role": "target-allowlist",
+                "runAfter": [
+                  {
+                    "actionId": "Gate00",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate02",
+                "type": "Compose",
+                "role": "plan-digest",
+                "runAfter": [
+                  {
+                    "actionId": "Gate01",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate03",
+                "type": "Compose",
+                "role": "approval",
+                "runAfter": [
+                  {
+                    "actionId": "Gate02",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate04",
+                "type": "Compose",
+                "role": "write-limit",
+                "runAfter": [
+                  {
+                    "actionId": "Gate03",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate05",
+                "type": "Compose",
+                "role": "state-reread",
+                "runAfter": [
+                  {
+                    "actionId": "Gate04",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate06",
+                "type": "Compose",
+                "role": "mutation",
+                "runAfter": [
+                  {
+                    "actionId": "Gate05",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate07",
+                "type": "Compose",
+                "role": "readback",
+                "runAfter": [
+                  {
+                    "actionId": "Gate06",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate08",
+                "type": "Compose",
+                "role": "stop-unexpected",
+                "runAfter": [
+                  {
+                    "actionId": "Gate07",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate09",
+                "type": "Compose",
+                "role": "failure-audit",
+                "runAfter": [
+                  {
+                    "actionId": "Gate08",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate10",
+                "type": "Compose",
+                "role": "compensation",
+                "runAfter": [
+                  {
+                    "actionId": "Gate09",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "expressions": []
+          }
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "zip:artifacts/synthetic-solution.zip:power-platform-solution-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/synthetic-solution.zip",
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sourceProfile": "power-platform-solution-v1",
+      "data": {
+        "profile": "power-platform-solution-v1",
+        "archiveSafety": {
+          "valid": true
+        },
+        "inventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "expectedInventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "flows": [
+          {
+            "id": "synthetic-flow",
+            "actionBudget": 20,
+            "platformActionBudget": 500,
+            "declaredConnectionReferences": [],
+            "destructive": true,
+            "actions": [
+              {
+                "id": "Gate00",
+                "type": "Compose",
+                "role": "dry-run",
+                "runAfter": []
+              },
+              {
+                "id": "Gate01",
+                "type": "Compose",
+                "role": "target-allowlist",
+                "runAfter": [
+                  {
+                    "actionId": "Gate00",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate02",
+                "type": "Compose",
+                "role": "plan-digest",
+                "runAfter": [
+                  {
+                    "actionId": "Gate01",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate03",
+                "type": "Compose",
+                "role": "approval",
+                "runAfter": [
+                  {
+                    "actionId": "Gate02",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate04",
+                "type": "Compose",
+                "role": "write-limit",
+                "runAfter": [
+                  {
+                    "actionId": "Gate03",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate05",
+                "type": "Compose",
+                "role": "state-reread",
+                "runAfter": [
+                  {
+                    "actionId": "Gate04",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate06",
+                "type": "Compose",
+                "role": "mutation",
+                "runAfter": [
+                  {
+                    "actionId": "Gate05",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate07",
+                "type": "Compose",
+                "role": "readback",
+                "runAfter": [
+                  {
+                    "actionId": "Gate06",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate08",
+                "type": "Compose",
+                "role": "stop-unexpected",
+                "runAfter": [
+                  {
+                    "actionId": "Gate07",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate09",
+                "type": "Compose",
+                "role": "failure-audit",
+                "runAfter": [
+                  {
+                    "actionId": "Gate08",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "Gate10",
+                "type": "Compose",
+                "role": "compensation",
+                "runAfter": [
+                  {
+                    "actionId": "Gate09",
+                    "statuses": [
+                      "Succeeded"
+                    ]
+                  }
+                ]
+              }
+            ],
+            "expressions": []
+          }
+        ],
+        "matchedContent": "SYNTHETIC_MATCH_VALUE"
+      },
+      "projections": {}
+    }
+  ],
+  "edges": [
+    {
+      "from": "definition:definitions/synthetic-flow.json:power-automate-definition-v1",
+      "to": "zip:artifacts/synthetic-solution.zip:power-platform-solution-v1",
+      "relation": "packages"
+    }
+  ]
+}

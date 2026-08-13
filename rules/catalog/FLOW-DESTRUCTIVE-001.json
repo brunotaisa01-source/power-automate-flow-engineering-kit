@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0",
+  "id": "FLOW-DESTRUCTIVE-001",
+  "title": "Bounded approved destructive flow",
+  "domain": "power-automate",
+  "severity": "error",
+  "description": "Destructive flow is missing a required bounded and approved execution gate.",
+  "rationale": "The inspected final artifact must preserve the declared offline safety contract.",
+  "appliesTo": [
+    {
+      "kind": "definition"
+    },
+    {
+      "kind": "zip",
+      "profile": "power-platform-solution-v1"
+    }
+  ],
+  "detector": {
+    "implementation": "packages/rules/src/power-automate/destructive.ts",
+    "exportName": "flowDestructive001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/FLOW-DESTRUCTIVE-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": [
+      "FLOW-DESTRUCTIVE-001"
+    ]
+  },
+  "green": {
+    "root": "fixtures/rules/FLOW-DESTRUCTIVE-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": {
+    "required": true,
+    "artifactKinds": [
+      "generated-definition",
+      "zip"
+    ]
+  },
+  "remediation": [
+    "Add contract-bounded pre-mutation gates, successful semantic readback, failure audit, compensation, and a terminal failure path, then connect them with status-specific runAfter edges."
+  ],
+  "residualGate": {
+    "required": true,
+    "claimClass": "LIVE_SMOKE",
+    "description": "Separately authorized canary execution remains external."
+  },
+  "supportedEvidence": [
+    "LOCAL_STATIC",
+    "PACKAGE_ARTIFACT"
+  ],
+  "tags": [
+    "power-automate",
+    "offline",
+    "synthetic"
+  ]
+}

@@ -1,0 +1,208 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spflow.dev/schemas/sharepoint-schema.schema.json",
+  "title": "SharePoint Contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["siteUrlBinding", "lists"],
+  "properties": {
+    "siteUrlBinding": { "$ref": "#/$defs/bindingKey" },
+    "lists": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/listContract" },
+      "minItems": 1
+    }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "bindingKey": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]*$"
+    },
+    "fieldName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "listContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "titleBinding",
+        "role",
+        "writeModel",
+        "readAllowlist",
+        "createAllowlist",
+        "patchAllowlist",
+        "fields",
+        "indexes",
+        "permissions",
+        "views"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "titleBinding": { "$ref": "#/$defs/bindingKey" },
+        "role": {
+          "enum": [
+            "protected-domain",
+            "command-queue",
+            "audit",
+            "access-control",
+            "reference",
+            "outbox"
+          ]
+        },
+        "writeModel": {
+          "enum": [
+            "server-only",
+            "append-command",
+            "append-only",
+            "direct-patch",
+            "read-only"
+          ]
+        },
+        "readAllowlist": { "$ref": "#/$defs/fieldNameArray" },
+        "createAllowlist": { "$ref": "#/$defs/fieldNameArray" },
+        "patchAllowlist": { "$ref": "#/$defs/fieldNameArray" },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fieldContract" },
+          "minItems": 1
+        },
+        "indexes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/indexContract" },
+          "maxItems": 20
+        },
+        "permissions": { "$ref": "#/$defs/permissionContract" },
+        "views": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/viewContract" }
+        }
+      }
+    },
+    "fieldNameArray": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/fieldName" },
+      "uniqueItems": true
+    },
+    "fieldContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "logicalName",
+        "internalName",
+        "type",
+        "required",
+        "indexed",
+        "unique",
+        "clientEditable",
+        "serverAuthoritative",
+        "immutableAfterCreate",
+        "sensitive"
+      ],
+      "properties": {
+        "logicalName": { "$ref": "#/$defs/identifier" },
+        "internalName": { "$ref": "#/$defs/fieldName" },
+        "type": {
+          "enum": [
+            "Text",
+            "Note",
+            "Number",
+            "Currency",
+            "Boolean",
+            "DateTime",
+            "Choice",
+            "User",
+            "Lookup",
+            "Guid"
+          ]
+        },
+        "required": { "type": "boolean" },
+        "indexed": { "type": "boolean" },
+        "unique": { "type": "boolean" },
+        "clientEditable": { "type": "boolean" },
+        "serverAuthoritative": { "type": "boolean" },
+        "immutableAfterCreate": { "type": "boolean" },
+        "sensitive": { "type": "boolean" },
+        "maxLength": { "type": "integer", "minimum": 1 },
+        "dateTimeMode": { "enum": ["DateOnly", "DateTime"] },
+        "choices": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "lookupListId": { "$ref": "#/$defs/identifier" },
+        "lookupField": { "$ref": "#/$defs/fieldName" }
+      }
+    },
+    "indexContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field", "order", "required"],
+      "properties": {
+        "field": { "$ref": "#/$defs/fieldName" },
+        "order": { "type": "integer", "minimum": 1 },
+        "required": { "type": "boolean" }
+      }
+    },
+    "viewContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "fields", "rowLimit", "paged"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/fieldName" },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "rowLimit": { "type": "integer", "minimum": 1 },
+        "paged": { "const": true },
+        "filterContract": { "$ref": "#/$defs/identifier" }
+      }
+    },
+    "permissionContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inheritance",
+        "minimumRoles",
+        "directUserGrants",
+        "effectivePermissionReadback"
+      ],
+      "properties": {
+        "inheritance": { "enum": ["inherit", "break-copy", "break-clear"] },
+        "minimumRoles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/permissionRole" },
+          "minItems": 1
+        },
+        "directUserGrants": { "const": "forbidden" },
+        "effectivePermissionReadback": { "const": "required" }
+      }
+    },
+    "permissionRole": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principalBinding", "role", "allowedOperations"],
+      "properties": {
+        "principalBinding": { "$ref": "#/$defs/bindingKey" },
+        "role": {
+          "enum": ["read", "contribute-limited", "processor", "audit-read", "owner"]
+        },
+        "allowedOperations": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

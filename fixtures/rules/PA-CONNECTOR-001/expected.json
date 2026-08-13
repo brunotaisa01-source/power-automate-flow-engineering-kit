@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "PA-CONNECTOR-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "PA-CONNECTOR-001",
+        "artifactPath": "artifacts/synthetic-solution.zip#/flows/<flow>/actions/<action>/connector",
+        "messageContains": "SharePoint REST mutation does not use POST with a MERGE override and exact ETag."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Replace POST with the unsupported MERGE connector method.",
+    "result": "FAIL",
+    "diagnosticCode": "PA-CONNECTOR-001"
+  }
+}

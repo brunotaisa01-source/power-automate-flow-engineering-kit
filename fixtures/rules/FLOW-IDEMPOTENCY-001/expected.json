@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1.0",
+  "ruleId": "FLOW-IDEMPOTENCY-001",
+  "red": {
+    "result": "FAIL",
+    "diagnostics": [
+      {
+        "code": "FLOW-IDEMPOTENCY-001",
+        "artifactPath": "artifacts/synthetic-solution.zip#/flows/<flow>/idempotency",
+        "messageContains": "Flow does not provide a deterministic non-empty key with explicit zero, one, and many handling."
+      }
+    ]
+  },
+  "green": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "positiveControl": {
+    "result": "PASS",
+    "diagnostics": []
+  },
+  "mutation": {
+    "source": "green",
+    "recipe": "Remove explicit many-match handling from the final package flow.",
+    "result": "FAIL",
+    "diagnosticCode": "FLOW-IDEMPOTENCY-001"
+  }
+}

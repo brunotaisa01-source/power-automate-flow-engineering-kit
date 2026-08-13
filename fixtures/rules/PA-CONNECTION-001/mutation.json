@@ -1,0 +1,8 @@
+{
+  "op": "json-set",
+  "path": "graph.json",
+  "pointer": "/nodes/1/data/flows/0/declaredConnectionReferences",
+  "value": [
+    "synthetic_other_connection"
+  ]
+}

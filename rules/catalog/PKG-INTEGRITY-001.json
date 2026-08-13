@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.0",
+  "id": "PKG-INTEGRITY-001",
+  "title": "Exact package manifest integrity",
+  "domain": "package",
+  "severity": "error",
+  "description": "Artifact manifest does not match the exact final package bytes.",
+  "rationale": "The inspected final artifact must preserve the declared offline safety contract.",
+  "appliesTo": [
+    {
+      "kind": "zip",
+      "profile": "power-platform-solution-v1"
+    },
+    {
+      "kind": "manifest"
+    }
+  ],
+  "detector": {
+    "implementation": "packages/rules/src/package/integrity.ts",
+    "exportName": "pkgIntegrity001",
+    "input": "artifact-graph",
+    "deterministic": true,
+    "network": "forbidden",
+    "parameters": {}
+  },
+  "red": {
+    "root": "fixtures/rules/PKG-INTEGRITY-001/red",
+    "expectedResult": "FAIL",
+    "expectedDiagnosticCodes": [
+      "PKG-INTEGRITY-001"
+    ]
+  },
+  "green": {
+    "root": "fixtures/rules/PKG-INTEGRITY-001/green",
+    "expectedResult": "PASS",
+    "expectedDiagnosticCodes": []
+  },
+  "finalArtifact": {
+    "required": true,
+    "artifactKinds": [
+      "zip",
+      "manifest"
+    ]
+  },
+  "remediation": [
+    "Rebuild a sorted, duplicate-free manifest from the exact release inventory and recompute every byte count and SHA-256 digest, excluding the manifest itself."
+  ],
+  "residualGate": {
+    "required": false
+  },
+  "supportedEvidence": [
+    "LOCAL_STATIC",
+    "PACKAGE_ARTIFACT"
+  ],
+  "tags": [
+    "package",
+    "offline",
+    "synthetic"
+  ]
+}

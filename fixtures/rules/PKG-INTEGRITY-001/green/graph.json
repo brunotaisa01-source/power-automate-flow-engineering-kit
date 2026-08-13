@@ -1,0 +1,72 @@
+{
+  "fixtureProfile": "synthetic-rule-v1",
+  "nodes": [
+    {
+      "id": "zip:artifacts/synthetic-solution.zip:power-platform-solution-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/synthetic-solution.zip",
+      "digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "byteLength": 512,
+      "sourceProfile": "package-bytes-v1",
+      "data": {
+        "profile": "power-platform-solution-v1",
+        "archiveSafety": {
+          "valid": true
+        },
+        "inventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "expectedInventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "flows": [],
+        "bytes": 512,
+        "matchedContent": "SYNTHETIC_MATCH_VALUE"
+      },
+      "projections": {}
+    },
+    {
+      "id": "manifest:artifacts/manifest.json:artifact-manifest-v1",
+      "kind": "manifest",
+      "relativePath": "artifacts/manifest.json",
+      "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "sourceProfile": "artifact-manifest-v1",
+      "data": {
+        "files": [
+          {
+            "path": "artifacts/synthetic-solution.zip",
+            "mediaType": "application/zip",
+            "bytes": 512,
+            "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "role": "package"
+          },
+          {
+            "path": "project.contract.json",
+            "mediaType": "application/json",
+            "bytes": 256,
+            "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+            "role": "contract"
+          }
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 256,
+      "sourceProfile": "project-contract-v1",
+      "data": {},
+      "projections": {}
+    }
+  ],
+  "edges": []
+}

@@ -1,0 +1,77 @@
+{
+  "fixtureProfile": "synthetic-rule-v1",
+  "nodes": [
+    {
+      "id": "zip:artifacts/alternate-solution.zip:power-platform-solution-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/alternate-solution.zip",
+      "digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "byteLength": 768,
+      "sourceProfile": "package-bytes-v1",
+      "data": {
+        "profile": "power-platform-solution-v1",
+        "archiveSafety": {
+          "valid": true
+        },
+        "inventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "expectedInventory": [
+          "Workflows/SyntheticFlow.json",
+          "[Content_Types].xml",
+          "customizations.xml",
+          "solution.xml"
+        ],
+        "flows": [],
+        "bytes": 768
+      },
+      "projections": {}
+    },
+    {
+      "id": "manifest:artifacts/alternate-manifest.json:artifact-manifest-v1",
+      "kind": "manifest",
+      "relativePath": "artifacts/alternate-manifest.json",
+      "digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "sourceProfile": "artifact-manifest-v1",
+      "data": {
+        "files": [
+          {
+            "path": "artifacts/alternate-solution.zip",
+            "mediaType": "application/zip",
+            "bytes": 768,
+            "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "role": "package"
+          },
+          {
+            "path": "project.contract.json",
+            "mediaType": "application/json",
+            "bytes": 384,
+            "sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+            "role": "contract"
+          }
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "2222222222222222222222222222222222222222222222222222222222222222",
+      "byteLength": 384,
+      "sourceProfile": "project-contract-v1",
+      "data": {},
+      "projections": {}
+    }
+  ],
+  "edges": [
+    {
+      "from": "manifest:artifacts/alternate-manifest.json:artifact-manifest-v1",
+      "to": "zip:artifacts/alternate-solution.zip:power-platform-solution-v1",
+      "relation": "hashes"
+    }
+  ]
+}
