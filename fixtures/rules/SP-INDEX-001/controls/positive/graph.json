@@ -1,28 +1,78 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:synthetic/compatible-index-plan.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "synthetic/compatible-index-plan.json",
-    "digest": "dddddddd00000000dddddddd00000000dddddddd00000000dddddddd00000000",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "indexPlans": [{
-        "listId": "protected-items",
-        "currentFields": ["ScopeKey", "Title"],
-        "requiredFields": ["Title", "ScopeKey"],
-        "execution": "serial",
-        "digest": { "fresh": true, "bindsCurrent": true, "bindsRequired": true },
-        "result": "NO_OP",
-        "maximumWrites": 0,
-        "writeCount": 0,
-        "operations": [],
-        "finalReadback": ["Title", "ScopeKey"]
-      }]
+  "nodes": [
+    {
+      "id": "builder:synthetic/compatible-index-plan.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/compatible-index-plan.json",
+      "digest": "dddddddd00000000dddddddd00000000dddddddd00000000dddddddd00000000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "indexPlans": [
+          {
+            "listId": "protected-items",
+            "currentFields": [
+              "ScopeKey",
+              "Title"
+            ],
+            "requiredFields": [
+              "Title",
+              "ScopeKey"
+            ],
+            "execution": "serial",
+            "digest": {
+              "fresh": true,
+              "bindsCurrent": true,
+              "bindsRequired": true
+            },
+            "result": "NO_OP",
+            "maximumWrites": 0,
+            "writeCount": 0,
+            "operations": [],
+            "finalReadback": [
+              "Title",
+              "ScopeKey"
+            ]
+          }
+        ],
+        "binding": {
+          "section": "indexPlans",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "synthetic/compatible-index-plan-source.json",
+          "sourceArtifactSha256": "ed7ff883bd068fdd7109d8f96162e6bb12e6988f4e4d3f1f6292d2836e299104",
+          "sourceArtifactBytes": 553,
+          "sourceArtifactKind": "builder"
+        }
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/compatible-index-plan-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/compatible-index-plan-source.json",
+      "digest": "ed7ff883bd068fdd7109d8f96162e6bb12e6988f4e4d3f1f6292d2836e299104",
+      "byteLength": 553,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

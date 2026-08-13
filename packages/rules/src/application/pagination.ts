@@ -34,11 +34,13 @@ export const appPagination001: RuleDetector = Object.freeze({
       context,
       this.id,
       "paginationTraversals",
+      "frontend",
     );
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
 
-    const invalid = selection.items.find(({ value }) =>
+    const invalid = selection.items.length === 1
+      ? selection.items.find(({ value }) =>
       !isTraversal(value)
       || value.completeness !== "required"
       || value.mode !== context.contract.frontend.pagination.mode
@@ -54,7 +56,8 @@ export const appPagination001: RuleDetector = Object.freeze({
       || value.continuation.onPageLimit !== "fail"
       || value.accumulation !== "append-server-order"
       || value.termination !== "next-link-absent"
-    );
+      )
+      : selection.items[0];
     return invalid === undefined
       ? []
       : [wp06Diagnostic(this.id, invalid.artifact, "/pagination/<traversal>", MESSAGE)];

@@ -57,6 +57,36 @@ function grantKey(grant: { principalBinding: string; role: string }): string {
   return `${grant.principalBinding}\0${grant.role}`;
 }
 
+function modelOwnership(
+  context: ValidationContext,
+  models: readonly NormalizedPermissionModel[],
+): boolean {
+  const expected = context.contract.sharePoint.lists.map(({ id }) => id).sort(compareText);
+  const actual = models.map(({ listId }) => listId).sort(compareText);
+  return actual.length === expected.length
+    && new Set(actual).size === actual.length
+    && actual.every((listId, index) => listId === expected[index]);
+}
+
+function probeKey(probe: { listId: string; principalBinding: string }): string {
+  return `${probe.listId}\0${probe.principalBinding}`;
+}
+
+function probeOwnership(
+  context: ValidationContext,
+  probes: readonly NormalizedPermissionProbe[],
+): boolean {
+  const expected = context.contract.sharePoint.lists
+    .flatMap((list) => list.permissions.minimumRoles.map((role) =>
+      probeKey({ listId: list.id, principalBinding: role.principalBinding })
+    ))
+    .sort(compareText);
+  const actual = probes.map(probeKey).sort(compareText);
+  return actual.length === expected.length
+    && new Set(actual).size === actual.length
+    && actual.every((key, index) => key === expected[index]);
+}
+
 export const spAcl001: RuleDetector = Object.freeze({
   id: "SP-ACL-001",
   async validate(context: ValidationContext) {
@@ -64,9 +94,18 @@ export const spAcl001: RuleDetector = Object.freeze({
       context,
       this.id,
       "permissionModels",
+      "builder",
     );
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
+
+    const models = selection.items.filter(({ value }) => isModel(value)).map(({ value }) => value);
+    if (models.length !== selection.items.length || !modelOwnership(context, models)) {
+      const first = selection.items[0];
+      return first === undefined
+        ? []
+        : [wp06Diagnostic(this.id, first.artifact, "/permissions/<list>", MODEL_MESSAGE)];
+    }
 
     for (const list of [...context.contract.sharePoint.lists].sort((left, right) =>
       compareText(left.id, right.id)
@@ -115,9 +154,18 @@ export const spAcl002: RuleDetector = Object.freeze({
       context,
       this.id,
       "permissionProbes",
+      "builder",
     );
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
+
+    const probes = selection.items.filter(({ value }) => isProbe(value)).map(({ value }) => value);
+    if (probes.length !== selection.items.length || !probeOwnership(context, probes)) {
+      const first = selection.items[0];
+      return first === undefined
+        ? []
+        : [wp06Diagnostic(this.id, first.artifact, "/effectivePermissions/<probe>", PROBE_MESSAGE)];
+    }
 
     for (const list of [...context.contract.sharePoint.lists].sort((left, right) =>
       compareText(left.id, right.id)
@@ -134,12 +182,13 @@ export const spAcl002: RuleDetector = Object.freeze({
         const probe = matches[0]?.value;
         const operations = isProbe(probe) ? probe.operations : {};
         const valid = matches.length === 1
+          && sameStringSet(Object.keys(operations), OPERATION_UNIVERSE)
           && OPERATION_UNIVERSE.every((operation) =>
             Object.hasOwn(operations, operation)
             && operations[operation] === role.allowedOperations.includes(operation)
           )
           && Object.entries(operations).every(([operation, allowed]) =>
-            !allowed || role.allowedOperations.includes(operation)
+            allowed === role.allowedOperations.includes(operation)
           );
         if (!valid && fallback !== undefined) {
           return [wp06Diagnostic(

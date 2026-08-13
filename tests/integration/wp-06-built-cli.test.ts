@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -7,7 +8,16 @@ import { describe, test } from "node:test";
 
 import type { ProjectContract } from "../../packages/core/src/types/project-contract.ts";
 import type { FieldContract, ListContract } from "../../packages/core/src/types/sharepoint.ts";
-import type { NormalizedWp06Evidence } from "../../packages/core/src/types/wp06-evidence.ts";
+import type {
+  NormalizedWp06Evidence,
+  Wp06EvidenceSection,
+  Wp06SourceArtifactKind,
+} from "../../packages/core/src/types/wp06-evidence.ts";
+import { validateRules as validateBuiltRules } from "../../packages/rules/dist/registry.js";
+import type {
+  ArtifactGraphInput,
+  ValidationContext,
+} from "../../packages/rules/src/registry.ts";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const CLI = resolve(ROOT, "packages/cli/dist/bin/spflow.js");
@@ -27,6 +37,7 @@ const RULE_IDS = [
   "SP-SCHEMA-002",
   "SP-SCHEMA-003",
 ] as const;
+const FRONTEND_RULE_IDS = ["APP-PAGINATION-001", "APP-SAVE-001", "SP-ODATA-001"] as const;
 
 interface CliResult {
   readonly exitCode: number;
@@ -60,7 +71,7 @@ function field(
   };
 }
 
-function projectContract(): ProjectContract {
+function projectContract(requiredRuleIds: readonly string[] = RULE_IDS): ProjectContract {
   const bindings = [
     ["SITE_URL", "site-url"],
     ["PROTECTED_LIST", "list-title"],
@@ -316,7 +327,7 @@ function projectContract(): ProjectContract {
     },
     verification: {
       globalCommand: "spflow verify --root . --offline --format json",
-      requiredRuleIds: [...RULE_IDS],
+      requiredRuleIds: [...requiredRuleIds],
       finalZipInspection: true,
       recursivePublicDataScan: true,
       mutationControls: true,
@@ -376,7 +387,7 @@ function compatibility(fieldContract: FieldContract): Record<string, unknown> {
   };
 }
 
-function wp06Evidence(contract: ProjectContract): NormalizedWp06Evidence {
+function wp06Evidence(contract: ProjectContract): Omit<NormalizedWp06Evidence, "binding"> {
   const lists = contract.sharePoint.lists;
   return {
     evidenceProfile: "wp06-offline-v1",
@@ -550,7 +561,7 @@ function wp06Evidence(contract: ProjectContract): NormalizedWp06Evidence {
         classification: "GET_FAILED",
       },
     ],
-    indexPlans: lists.map((list) => {
+    indexPlans: lists.filter(({ indexes }) => indexes.length > 0).map((list) => {
       const requiredFields = [...list.indexes]
         .filter(({ required }) => required)
         .sort((left, right) => left.order - right.order)
@@ -571,9 +582,57 @@ function wp06Evidence(contract: ProjectContract): NormalizedWp06Evidence {
   };
 }
 
-async function writeJson(path: string, value: unknown): Promise<void> {
+async function writeJson(path: string, value: unknown): Promise<Uint8Array> {
   await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+  const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`, "utf8");
+  await writeFile(path, bytes);
+  return bytes;
+}
+
+function sha256(bytes: Uint8Array): string {
+  return createHash("sha256").update(bytes).digest("hex");
+}
+
+const SECTION_KINDS: Readonly<Record<Wp06EvidenceSection, Wp06SourceArtifactKind>> = {
+  authorityChecks: "builder",
+  permissionModels: "builder",
+  permissionProbes: "builder",
+  saveTransactions: "frontend",
+  paginationTraversals: "frontend",
+  odataRequests: "frontend",
+  fieldOperations: "builder",
+  httpClassifications: "builder",
+  indexPlans: "builder",
+};
+
+interface BoundSource {
+  readonly path: string;
+  readonly bytes: Uint8Array;
+}
+
+function evidencePayload(
+  evidence: Omit<NormalizedWp06Evidence, "binding">,
+  section: Wp06EvidenceSection,
+  contractDigest: string,
+  source: BoundSource,
+): NormalizedWp06Evidence {
+  const values = evidence[section];
+  assert.ok(Array.isArray(values) && values.length > 0, section);
+  const kind = SECTION_KINDS[section];
+  return {
+    evidenceProfile: evidence.evidenceProfile,
+    contractRevision: evidence.contractRevision,
+    binding: {
+      section,
+      contractArtifactPath: "project.contract.json",
+      contractArtifactSha256: contractDigest,
+      sourceArtifactPath: source.path,
+      sourceArtifactSha256: sha256(source.bytes),
+      sourceArtifactBytes: source.bytes.byteLength,
+      sourceArtifactKind: kind,
+    },
+    [section]: values,
+  } as NormalizedWp06Evidence;
 }
 
 async function runCli(args: readonly string[]): Promise<CliResult> {
@@ -603,14 +662,31 @@ async function runCli(args: readonly string[]): Promise<CliResult> {
 }
 
 describe("WP-06 built CLI", () => {
-  test("all Wave-2 rules run on normalized GREEN evidence and reject a structural mutation", async () => {
+  test("frontend Wave-2 rules use split bound evidence and reject a structural mutation", async () => {
     const root = await mkdtemp(join(tmpdir(), "spflow-wp06-"));
-    const contract = projectContract();
-    const evidencePath = join(root, "frontend", "wp06-evidence.json");
+    const contract = projectContract(FRONTEND_RULE_IDS);
     try {
-      await writeJson(join(root, "project.contract.json"), contract);
+      const contractBytes = await writeJson(join(root, "project.contract.json"), contract);
+      const frontendSourcePath = "frontend/source.json";
+      const frontendSourceBytes = await writeJson(join(root, frontendSourcePath), {
+        sourceProfile: "synthetic-frontend-source-v1",
+        protectedWriteModel: "typed-command-queue",
+      });
       const evidence = wp06Evidence(contract);
-      await writeJson(evidencePath, evidence);
+      const evidenceBySection = new Map<Wp06EvidenceSection, NormalizedWp06Evidence>();
+      const evidencePathBySection = new Map<Wp06EvidenceSection, string>();
+      const frontendSource = { path: frontendSourcePath, bytes: frontendSourceBytes };
+      for (const section of [
+        "paginationTraversals",
+        "saveTransactions",
+        "odataRequests",
+      ] as const) {
+        const relativePath = `frontend/evidence-${section}.json`;
+        const payload = evidencePayload(evidence, section, sha256(contractBytes), frontendSource);
+        await writeJson(join(root, relativePath), payload);
+        evidenceBySection.set(section, payload);
+        evidencePathBySection.set(section, relativePath);
+      }
 
       const green = await runCli(["validate", "rules", "--root", root, "--format", "json"]);
       assert.equal(green.exitCode, 0, green.stdout);
@@ -618,17 +694,96 @@ describe("WP-06 built CLI", () => {
       assert.equal(green.report.summary.notRun, 0, green.stdout);
       assert.deepEqual(green.report.diagnostics, []);
 
-      const mutated = structuredClone(evidence);
-      mutated.authorityChecks![0]!.authoritySources.actor = "client-claim";
-      await writeJson(evidencePath, mutated);
+      const mutated = structuredClone(evidenceBySection.get("saveTransactions")!);
+      mutated.saveTransactions![0]!.trigger = "implicit-save";
+      await writeJson(join(root, evidencePathBySection.get("saveTransactions")!), mutated);
       const red = await runCli(["validate", "rules", "--root", root, "--format", "json"]);
 
       assert.equal(red.exitCode, 1, red.stdout);
-      assert.deepEqual(red.report.diagnostics.map(({ code }) => code), ["SP-AUTHZ-001"]);
-      assert.equal(red.stdout.includes("client-claim"), false);
+      assert.deepEqual(red.report.diagnostics.map(({ code }) => code), ["APP-SAVE-001"]);
+      assert.equal(red.stdout.includes("implicit-save"), false);
       assert.equal(`${green.stderr}${red.stderr}`, "");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  test("compiled Wave-2 registry validates all bound sections and catches authority mutation", async () => {
+    const contract = projectContract();
+    const contractDigest = "c".repeat(64);
+    const sources: Record<Wp06SourceArtifactKind, BoundSource> = {
+      frontend: {
+        path: "artifacts/frontend-source.json",
+        bytes: Buffer.from('{"source":"frontend"}\n', "utf8"),
+      },
+      builder: {
+        path: "artifacts/builder-source.json",
+        bytes: Buffer.from('{"source":"builder"}\n', "utf8"),
+      },
+    };
+    const evidence = wp06Evidence(contract);
+    const graph: ArtifactGraphInput = {
+      nodes: [
+        {
+          id: "contract:project.contract.json:project-contract-v1",
+          kind: "contract",
+          relativePath: "project.contract.json",
+          digest: contractDigest,
+          byteLength: 2048,
+          sourceProfile: "project-contract-v1",
+          data: contract,
+          projections: {},
+        },
+        ...(["frontend", "builder"] as const).map((kind) => ({
+          id: `${kind}:${sources[kind].path}:synthetic-source-v1`,
+          kind,
+          relativePath: sources[kind].path,
+          digest: sha256(sources[kind].bytes),
+          byteLength: sources[kind].bytes.byteLength,
+          sourceProfile: "synthetic-source-v1",
+          data: { synthetic: true },
+          projections: {},
+        })),
+        ...(Object.keys(SECTION_KINDS) as Wp06EvidenceSection[]).map((section) => {
+          const kind = SECTION_KINDS[section];
+          const relativePath = `artifacts/${kind}-evidence-${section}.json`;
+          const payload = evidencePayload(evidence, section, contractDigest, sources[kind]);
+          const bytes = Buffer.from(`${JSON.stringify(payload)}\n`, "utf8");
+          return {
+            id: `${kind}:${relativePath}:wp06-evidence-v1`,
+            kind,
+            relativePath,
+            digest: sha256(bytes),
+            byteLength: bytes.byteLength,
+            sourceProfile: "wp06-evidence-v1",
+            data: payload,
+            projections: {},
+          };
+        }),
+      ],
+      edges: [],
+    };
+    const context: ValidationContext = {
+      root: ".",
+      offline: true,
+      contract,
+      graph,
+      adapterEvidence: { packages: [], flows: [] },
+    };
+
+    assert.deepEqual(await validateBuiltRules(context, RULE_IDS), []);
+
+    const mutated = structuredClone(graph) as ArtifactGraphInput & {
+      nodes: Array<{ sourceProfile: string; data: Record<string, unknown> }>;
+    };
+    const authority = mutated.nodes.find(({ data }) => data.binding !== undefined
+      && (data.binding as { section?: unknown }).section === "authorityChecks")!;
+    const check = (authority.data.authorityChecks as Array<{
+      authoritySources: { actor: string };
+    }>)[0]!;
+    check.authoritySources.actor = "client-claim";
+    const mutatedContext: ValidationContext = { ...context, graph: mutated };
+    const diagnostics = await validateBuiltRules(mutatedContext, RULE_IDS);
+    assert.deepEqual(diagnostics.map(({ code }) => code), ["SP-AUTHZ-001"]);
   });
 });

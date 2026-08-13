@@ -14,33 +14,72 @@
           {
             "listId": "protected-items",
             "logicalName": "scope-key",
-            "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldText", "fieldTypeKind": 2 },
-            "indexPayload": { "serialization": "structured-json", "metadataType": "SP.Field" }
+            "createPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.FieldText",
+              "fieldTypeKind": 2
+            },
+            "indexPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.Field"
+            }
           },
           {
             "listId": "protected-items",
             "logicalName": "title",
-            "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldText", "fieldTypeKind": 2 },
-            "indexPayload": { "serialization": "structured-json", "metadataType": "SP.Field" }
+            "createPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.FieldText",
+              "fieldTypeKind": 2
+            },
+            "indexPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.Field"
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "amount",
+            "createPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.FieldCurrency",
+              "fieldTypeKind": 10
+            }
           }
-        ]
+        ],
+        "binding": {
+          "section": "fieldOperations",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "synthetic/indexed-payloads-source.json",
+          "sourceArtifactSha256": "d3de3d240482f56fc85ea2706c6de2bafd1d82ce35202f3b690350a8494200e9",
+          "sourceArtifactBytes": 554,
+          "sourceArtifactKind": "builder"
+        }
       },
       "projections": {}
     },
     {
-      "id": "builder:synthetic/non-indexed-payload.json:wp06-evidence-v1",
-      "kind": "builder",
-      "relativePath": "synthetic/non-indexed-payload.json",
-      "digest": "9999999900000000999999990000000099999999000000009999999900000000",
-      "sourceProfile": "wp06-evidence-v1",
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
       "data": {
-        "evidenceProfile": "wp06-offline-v1",
-        "contractRevision": 2,
-        "fieldOperations": [{
-          "listId": "protected-items",
-          "logicalName": "amount",
-          "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldCurrency", "fieldTypeKind": 10 }
-        }]
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/indexed-payloads-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/indexed-payloads-source.json",
+      "digest": "d3de3d240482f56fc85ea2706c6de2bafd1d82ce35202f3b690350a8494200e9",
+      "byteLength": 554,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
       },
       "projections": {}
     }

@@ -1,34 +1,73 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "fieldOperations": [{
-        "listId": "protected-items",
-        "logicalName": "title",
-        "compatibility": {
-          "response": "FOUND",
-          "comparedProperties": ["type"],
-          "actual": {
-            "internalName": "Title",
-            "type": "Text",
-            "required": false,
-            "indexed": true,
-            "unique": false,
-            "maxLength": 255
-          },
-          "outcome": "MATCH",
-          "writeAction": "in-place-change"
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "fieldOperations": [
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "compatibility": {
+              "response": "FOUND",
+              "comparedProperties": [
+                "type"
+              ],
+              "actual": {
+                "internalName": "Title",
+                "type": "Text",
+                "required": false,
+                "indexed": true,
+                "unique": false,
+                "maxLength": 255
+              },
+              "outcome": "MATCH",
+              "writeAction": "in-place-change"
+            }
+          }
+        ],
+        "binding": {
+          "section": "fieldOperations",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "64abb226012884cfc2ec88b7dd3f654fc260c66b3741997da4af5d3b712b1b8c",
+          "sourceArtifactBytes": 540,
+          "sourceArtifactKind": "builder"
         }
-      }]
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "64abb226012884cfc2ec88b7dd3f654fc260c66b3741997da4af5d3b712b1b8c",
+      "byteLength": 540,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

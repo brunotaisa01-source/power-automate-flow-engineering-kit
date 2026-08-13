@@ -1,48 +1,80 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "frontend:synthetic/save-proof.json:wp06-evidence-v1",
-    "kind": "frontend",
-    "relativePath": "synthetic/save-proof.json",
-    "digest": "5555000055550000555500005555000055550000555500005555000055550000",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "paginationTraversals": [{
-        "completeness": "required",
-        "mode": "exhaust-continuation",
-        "continuation": {
-          "urlParsing": "url-api",
-          "sameOrigin": true,
-          "sitePath": true,
-          "visitedLinks": true,
-          "pageLimit": 25,
-          "onLoop": "fail",
-          "onCrossOrigin": "fail",
-          "onSitePathEscape": "fail",
-          "onPageLimit": "fail"
-        },
-        "accumulation": "append-server-order",
-        "termination": "next-link-absent"
-      }],
-      "saveTransactions": [{
-        "listId": "protected-items",
-        "trigger": "explicit-save",
-        "patchedFields": ["Title"],
-        "request": {
-          "method": "POST",
-          "methodOverride": "MERGE",
-          "serialization": "structured-json",
-          "digest": "fresh-transaction",
-          "ifMatch": "exact-etag"
-        },
-        "conflict": { "status": 412, "action": "surface-conflict" },
-        "ambiguousFailure": { "action": "get-reconcile", "writeRetry": false },
-        "readback": { "method": "GET", "semantic": true, "beforeSuccess": true }
-      }]
+  "nodes": [
+    {
+      "id": "frontend:synthetic/save-proof.json:wp06-evidence-v1",
+      "kind": "frontend",
+      "relativePath": "synthetic/save-proof.json",
+      "digest": "5555000055550000555500005555000055550000555500005555000055550000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "saveTransactions": [
+          {
+            "listId": "protected-items",
+            "trigger": "explicit-save",
+            "patchedFields": [
+              "Title"
+            ],
+            "request": {
+              "method": "POST",
+              "methodOverride": "MERGE",
+              "serialization": "structured-json",
+              "digest": "fresh-transaction",
+              "ifMatch": "exact-etag"
+            },
+            "conflict": {
+              "status": 412,
+              "action": "surface-conflict"
+            },
+            "ambiguousFailure": {
+              "action": "get-reconcile",
+              "writeRetry": false
+            },
+            "readback": {
+              "method": "GET",
+              "semantic": true,
+              "beforeSuccess": true
+            }
+          }
+        ],
+        "binding": {
+          "section": "saveTransactions",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "synthetic/save-proof-source.json",
+          "sourceArtifactSha256": "73a2e87449ff663303354a4ae33d0a3dbb90d70eb83463644c1c05f64850f296",
+          "sourceArtifactBytes": 553,
+          "sourceArtifactKind": "frontend"
+        }
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "frontend:synthetic/save-proof-source.json:synthetic-source-v1",
+      "kind": "frontend",
+      "relativePath": "synthetic/save-proof-source.json",
+      "digest": "73a2e87449ff663303354a4ae33d0a3dbb90d70eb83463644c1c05f64850f296",
+      "byteLength": 553,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

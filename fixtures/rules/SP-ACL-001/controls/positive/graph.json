@@ -15,43 +15,73 @@
             "listId": "command-queue",
             "inheritance": "break-clear",
             "directUserGrants": "forbidden",
-            "browserOperations": ["create", "read"],
+            "browserOperations": [
+              "create",
+              "read"
+            ],
             "grants": [
-              { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["update", "read"] },
-              { "principalKind": "binding", "principalBinding": "BROWSERS", "role": "contribute-limited", "allowedOperations": ["create", "read"] }
+              {
+                "principalKind": "binding",
+                "principalBinding": "PROCESSOR",
+                "role": "processor",
+                "allowedOperations": [
+                  "update",
+                  "read"
+                ]
+              },
+              {
+                "principalKind": "binding",
+                "principalBinding": "BROWSERS",
+                "role": "contribute-limited",
+                "allowedOperations": [
+                  "create",
+                  "read"
+                ]
+              }
             ]
           },
           {
             "listId": "protected-items",
             "inheritance": "break-clear",
             "directUserGrants": "forbidden",
-            "browserOperations": ["update", "read"],
+            "browserOperations": [
+              "update",
+              "read"
+            ],
             "grants": [
-              { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["update", "read"] },
-              { "principalKind": "binding", "principalBinding": "READERS", "role": "read", "allowedOperations": ["read"] }
+              {
+                "principalKind": "binding",
+                "principalBinding": "PROCESSOR",
+                "role": "processor",
+                "allowedOperations": [
+                  "update",
+                  "read"
+                ]
+              },
+              {
+                "principalKind": "binding",
+                "principalBinding": "READERS",
+                "role": "read",
+                "allowedOperations": [
+                  "read"
+                ]
+              }
             ]
-          }
-        ]
-      },
-      "projections": {}
-    },
-    {
-      "id": "builder:synthetic/support-acl.json:wp06-evidence-v1",
-      "kind": "builder",
-      "relativePath": "synthetic/support-acl.json",
-      "digest": "3333333300000000333333330000000033333333000000003333333300000000",
-      "sourceProfile": "wp06-evidence-v1",
-      "data": {
-        "evidenceProfile": "wp06-offline-v1",
-        "contractRevision": 2,
-        "permissionModels": [
+          },
           {
             "listId": "access-control",
             "inheritance": "break-clear",
             "directUserGrants": "forbidden",
             "browserOperations": [],
             "grants": [
-              { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["read"] }
+              {
+                "principalKind": "binding",
+                "principalBinding": "PROCESSOR",
+                "role": "processor",
+                "allowedOperations": [
+                  "read"
+                ]
+              }
             ]
           },
           {
@@ -60,11 +90,58 @@
             "directUserGrants": "forbidden",
             "browserOperations": [],
             "grants": [
-              { "principalKind": "binding", "principalBinding": "REVIEWERS", "role": "audit-read", "allowedOperations": ["read"] },
-              { "principalKind": "binding", "principalBinding": "PROCESSOR", "role": "processor", "allowedOperations": ["create"] }
+              {
+                "principalKind": "binding",
+                "principalBinding": "REVIEWERS",
+                "role": "audit-read",
+                "allowedOperations": [
+                  "read"
+                ]
+              },
+              {
+                "principalKind": "binding",
+                "principalBinding": "PROCESSOR",
+                "role": "processor",
+                "allowedOperations": [
+                  "create"
+                ]
+              }
             ]
           }
-        ]
+        ],
+        "binding": {
+          "section": "permissionModels",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "synthetic/domain-acl-source.json",
+          "sourceArtifactSha256": "03b0b886f193d8a07d393e2e7c14fd5aee121028665bc387060b803314d7cf38",
+          "sourceArtifactBytes": 551,
+          "sourceArtifactKind": "builder"
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/domain-acl-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/domain-acl-source.json",
+      "digest": "03b0b886f193d8a07d393e2e7c14fd5aee121028665bc387060b803314d7cf38",
+      "byteLength": 551,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
       },
       "projections": {}
     }

@@ -25,6 +25,46 @@ function isClassification(value: unknown): value is NormalizedHttpClassification
     && typeof value.classification === "string";
 }
 
+function expectedClassification(value: NormalizedHttpClassification): string {
+  if (value.status >= 200 && value.status <= 299) return "FOUND";
+  if (value.status === 400) {
+    return value.error.platformCode === MISSING_COLUMN_CODE
+        || value.error.messageCategory === "column-does-not-exist"
+      ? "MISSING_OBJECT"
+      : "GET_FAILED";
+  }
+  if (value.status === 404) {
+    return value.phase === "preflight"
+        && value.requestKind === "initial-get"
+        && value.allowCreateMissing404
+      ? "CREATE_MISSING"
+      : "GET_FAILED";
+  }
+  return "GET_FAILED";
+}
+
+function isValidClassification(value: unknown): value is NormalizedHttpClassification {
+  return isClassification(value) && value.classification === expectedClassification(value);
+}
+
+function classificationKey(value: NormalizedHttpClassification): string {
+  return JSON.stringify([
+    value.status,
+    value.phase,
+    value.requestKind,
+    value.allowCreateMissing404,
+    value.error.platformCode ?? null,
+    value.error.messageCategory ?? null,
+    value.classification,
+  ]);
+}
+
+function hasUniqueClassifications(values: readonly unknown[]): boolean {
+  if (!values.every(isClassification)) return false;
+  const keys = values.map((value) => classificationKey(value as NormalizedHttpClassification));
+  return new Set(keys).size === keys.length;
+}
+
 export const httpSemantic001: RuleDetector = Object.freeze({
   id: "HTTP-SEMANTIC-001",
   async validate(context: ValidationContext) {
@@ -32,19 +72,19 @@ export const httpSemantic001: RuleDetector = Object.freeze({
       context,
       this.id,
       "httpClassifications",
+      "builder",
     );
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
 
-    const invalid = selection.items.find(({ value }) => {
-      if (!isClassification(value) || value.status !== 400) return !isClassification(value);
-      const missingSignature = value.error.platformCode === MISSING_COLUMN_CODE
-        || value.error.messageCategory === "column-does-not-exist";
-      return value.classification !== (missingSignature ? "MISSING_OBJECT" : "GET_FAILED");
-    });
-    return invalid === undefined
+    const invalid = selection.items.find(({ value }) => !isValidClassification(value));
+    const duplicate = !hasUniqueClassifications(selection.items.map(({ value }) => value));
+    const artifact = invalid?.artifact ?? selection.items[0]?.artifact;
+    return invalid === undefined && !duplicate
       ? []
-      : [wp06Diagnostic(this.id, invalid.artifact, "/http/<classification>", HTTP_400_MESSAGE)];
+      : artifact === undefined
+      ? []
+      : [wp06Diagnostic(this.id, artifact, "/http/<classification>", HTTP_400_MESSAGE)];
   },
 });
 
@@ -55,22 +95,21 @@ export const httpSemantic002: RuleDetector = Object.freeze({
       context,
       this.id,
       "httpClassifications",
+      "builder",
     );
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
 
-    const invalid = selection.items.find(({ value }) => {
-      if (!isClassification(value) || value.status !== 404) return !isClassification(value);
-      const mayCreate = value.phase === "preflight"
-        && value.requestKind === "initial-get"
-        && value.allowCreateMissing404;
-      return value.classification !== (mayCreate ? "CREATE_MISSING" : "GET_FAILED");
-    });
-    return invalid === undefined
+    const invalid = selection.items.find(({ value }) => !isValidClassification(value));
+    const duplicate = !hasUniqueClassifications(selection.items.map(({ value }) => value));
+    const artifact = invalid?.artifact ?? selection.items[0]?.artifact;
+    return invalid === undefined && !duplicate
+      ? []
+      : artifact === undefined
       ? []
       : [wp06Diagnostic(
         this.id,
-        invalid.artifact,
+        artifact,
         "/http/<classification>/phase",
         HTTP_404_MESSAGE,
       )];

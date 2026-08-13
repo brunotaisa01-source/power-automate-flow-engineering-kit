@@ -99,6 +99,33 @@ Timestamps are required for evidence records but are excluded from deterministic
 - An artifact change invalidates dependent evidence.
 - A failed or blocked dependency cannot support a PASS claim.
 
+## 4.1 WP-06 Derived Rule Evidence
+
+WP-06 rule evidence is a derived local artifact, not an assertion that can prove itself. Its normalized envelope contains:
+
+```ts
+interface Wp06EvidenceBinding {
+  section: Wp06EvidenceSection;
+  contractArtifactPath: string;
+  contractArtifactSha256: string;
+  sourceArtifactPath: string;
+  sourceArtifactSha256: string;
+  sourceArtifactBytes: number;
+  sourceArtifactKind: "frontend" | "builder";
+}
+```
+
+The validator requires all of the following:
+
+- the envelope contains exactly one populated section and `binding.section` names it;
+- the evidence path differs from `sourceArtifactPath` to prevent circular self-binding;
+- exactly one `project-contract-v1` graph node matches the contract path and SHA-256;
+- exactly one non-evidence source node matches source path, SHA-256, byte length, and kind;
+- both the evidence node and bound source kind match the rule catalog's `frontend` or `builder` applicability;
+- stale revisions, duplicate section artifacts, undeclared values, duplicate semantic items, unknown envelope keys, and unknown binding keys fail closed.
+
+The binding proves which exact local source and contract the normalized evidence describes. It does not independently prove that the producer derived every semantic field correctly. Trusted adapters, final artifact inspection, mutation controls, and the external tenant gates remain separate requirements.
+
 ## 5. Claim Support Matrix
 
 An evidence record MAY depend only on the following minimum prerequisites:
@@ -184,4 +211,3 @@ No evidence validator performs tenant mutation.
 - A reviewer must inspect the exact artifact digest and normalized output.
 - A timeout, slow response, or absent checkpoint is `PENDING` until proven otherwise; it is not automatically `FAIL`.
 - Superseded evidence remains immutable and is linked by a new record rather than edited into a stronger claim.
-

@@ -65,7 +65,7 @@ function authorityChecks(
   context: ValidationContext,
   ruleId: string,
 ): ReturnType<typeof evidenceItems<NormalizedAuthorityCheck>> {
-  return evidenceItems<NormalizedAuthorityCheck>(context, ruleId, "authorityChecks");
+  return evidenceItems<NormalizedAuthorityCheck>(context, ruleId, "authorityChecks", "builder");
 }
 
 function firstArtifact(
@@ -74,12 +74,36 @@ function firstArtifact(
   return items[0];
 }
 
+function authorityKey(value: { commandType: string; targetListId: string }): string {
+  return `${value.commandType}\0${value.targetListId}`;
+}
+
+function exactAuthorityOwnership(
+  context: ValidationContext,
+  items: readonly Wp06EvidenceItem<NormalizedAuthorityCheck>[],
+): boolean {
+  const expected = context.contract.commands
+    .map(({ type, targetListId }) => authorityKey({ commandType: type, targetListId }))
+    .sort(compareText);
+  const actual = items.map(({ value }) => isAuthorityCheck(value) ? authorityKey(value) : "");
+  return actual.length === expected.length
+    && new Set(actual).size === actual.length
+    && actual.sort(compareText).every((key, index) => key === expected[index]);
+}
+
 export const spAuthz001: RuleDetector = Object.freeze({
   id: "SP-AUTHZ-001",
   async validate(context: ValidationContext) {
     const selection = authorityChecks(context, this.id);
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
+
+    if (!exactAuthorityOwnership(context, selection.items)) {
+      const candidate = firstArtifact(selection.items);
+      return candidate === undefined
+        ? []
+        : [wp06Diagnostic(this.id, candidate.artifact, "/authority/<check>", AUTHORITY_MESSAGE)];
+    }
 
     const malformed = selection.items.find(({ value }) => !isAuthorityCheck(value));
     if (malformed !== undefined) {
@@ -144,6 +168,13 @@ export const spAuthz002: RuleDetector = Object.freeze({
     const selection = authorityChecks(context, this.id);
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
+
+    if (!exactAuthorityOwnership(context, selection.items)) {
+      const candidate = firstArtifact(selection.items);
+      return candidate === undefined
+        ? []
+        : [wp06Diagnostic(this.id, candidate.artifact, "/authority/<check>/scope", SCOPE_MESSAGE)];
+    }
 
     for (const item of selection.items) {
       if (!isAuthorityCheck(item.value)) {

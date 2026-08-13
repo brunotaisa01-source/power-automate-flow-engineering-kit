@@ -10,23 +10,25 @@
       "data": {
         "evidenceProfile": "wp06-offline-v1",
         "contractRevision": 2,
-        "paginationTraversals": [{
-          "completeness": "required",
-          "mode": "exhaust-continuation",
-          "continuation": {
-            "urlParsing": "url-api",
-            "sameOrigin": true,
-            "sitePath": true,
-            "visitedLinks": true,
-            "pageLimit": 40,
-            "onLoop": "fail",
-            "onCrossOrigin": "fail",
-            "onSitePathEscape": "fail",
-            "onPageLimit": "fail"
-          },
-          "accumulation": "append-server-order",
-          "termination": "next-link-absent"
-        }]
+        "paginationTraversals": [
+          {
+            "completeness": "required",
+            "mode": "exhaust-continuation",
+            "continuation": {
+              "urlParsing": "url-api",
+              "sameOrigin": true,
+              "sitePath": true,
+              "visitedLinks": true,
+              "pageLimit": 40,
+              "onLoop": "fail",
+              "onCrossOrigin": "fail",
+              "onSitePathEscape": "fail",
+              "onPageLimit": "fail"
+            },
+            "accumulation": "append-server-order",
+            "termination": "next-link-absent"
+          }
+        ]
       },
       "projections": {}
     },
@@ -39,42 +41,85 @@
       "data": {
         "evidenceProfile": "wp06-offline-v1",
         "contractRevision": 2,
-        "authorityChecks": [{
-          "commandType": "apply-change",
-          "targetListId": "protected-items",
-          "sequence": { "identityRead": 2, "capabilityRead": 1, "targetRead": 5, "mutation": 9 },
-          "authoritySources": {
-            "actor": "server-system-identity",
-            "role": "active-access-row",
-            "scope": "active-access-row",
-            "protectedState": "current-target-read",
-            "owner": "current-target-read",
-            "amount": "current-target-read",
-            "approval": "server-contract"
-          },
-          "capability": {
-            "id": "approve-items",
-            "accessListId": "access-control",
-            "activeField": "Active",
-            "principalField": "PrincipalKey",
-            "capabilityField": "Capability",
-            "source": "active-access-row",
-            "activeOnly": true,
-            "matchCardinality": "one",
-            "commandDeclared": true,
-            "stateTransitionDeclared": true
-          },
-          "scope": {
-            "mode": "field-match",
-            "targetField": "ScopeKey",
-            "accessField": "ScopeKey",
-            "targetValueSource": "current-target-read",
-            "capabilityValueSource": "active-access-row",
-            "evaluation": "exact-match",
-            "checkedBeforeMutation": true
-          },
-          "effectiveOperation": { "operation": "update", "allowed": true }
-        }]
+        "authorityChecks": [
+          {
+            "commandType": "apply-change",
+            "targetListId": "protected-items",
+            "sequence": {
+              "identityRead": 2,
+              "capabilityRead": 1,
+              "targetRead": 5,
+              "mutation": 9
+            },
+            "authoritySources": {
+              "actor": "server-system-identity",
+              "role": "active-access-row",
+              "scope": "active-access-row",
+              "protectedState": "current-target-read",
+              "owner": "current-target-read",
+              "amount": "current-target-read",
+              "approval": "server-contract"
+            },
+            "capability": {
+              "id": "approve-items",
+              "accessListId": "access-control",
+              "activeField": "Active",
+              "principalField": "PrincipalKey",
+              "capabilityField": "Capability",
+              "source": "active-access-row",
+              "activeOnly": true,
+              "matchCardinality": "one",
+              "commandDeclared": true,
+              "stateTransitionDeclared": true
+            },
+            "scope": {
+              "mode": "field-match",
+              "targetField": "ScopeKey",
+              "accessField": "ScopeKey",
+              "targetValueSource": "current-target-read",
+              "capabilityValueSource": "active-access-row",
+              "evaluation": "exact-match",
+              "checkedBeforeMutation": true
+            },
+            "effectiveOperation": {
+              "operation": "update",
+              "allowed": true
+            }
+          }
+        ],
+        "binding": {
+          "section": "authorityChecks",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "synthetic/processor-proof-source.json",
+          "sourceArtifactSha256": "a19edcc3e8719ae7cad3bead11c9ecb02f9f998085aeeec4e38bb7fcf301e203",
+          "sourceArtifactBytes": 553,
+          "sourceArtifactKind": "builder"
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/processor-proof-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/processor-proof-source.json",
+      "digest": "a19edcc3e8719ae7cad3bead11c9ecb02f9f998085aeeec4e38bb7fcf301e203",
+      "byteLength": 553,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
       },
       "projections": {}
     }

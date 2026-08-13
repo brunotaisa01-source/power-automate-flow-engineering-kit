@@ -1,42 +1,84 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:synthetic/http-400-branches.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "synthetic/http-400-branches.json",
-    "digest": "bbbbbbbb00000000bbbbbbbb00000000bbbbbbbb00000000bbbbbbbb00000000",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "httpClassifications": [
-        {
-          "status": 400,
-          "phase": "readback",
-          "requestKind": "other-get",
-          "allowCreateMissing404": false,
-          "error": { "messageCategory": "column-does-not-exist" },
-          "classification": "MISSING_OBJECT"
-        },
-        {
-          "status": 400,
-          "phase": "apply",
-          "requestKind": "other-get",
-          "allowCreateMissing404": false,
-          "error": { "platformCode": "INVALID_TYPE", "messageCategory": "unrelated" },
-          "classification": "GET_FAILED"
-        },
-        {
-          "status": 400,
-          "phase": "preflight",
-          "requestKind": "initial-get",
-          "allowCreateMissing404": false,
-          "error": { "platformCode": "-2147024809" },
-          "classification": "MISSING_OBJECT"
+  "nodes": [
+    {
+      "id": "builder:synthetic/http-400-branches.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/http-400-branches.json",
+      "digest": "bbbbbbbb00000000bbbbbbbb00000000bbbbbbbb00000000bbbbbbbb00000000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "httpClassifications": [
+          {
+            "status": 400,
+            "phase": "readback",
+            "requestKind": "other-get",
+            "allowCreateMissing404": false,
+            "error": {
+              "messageCategory": "column-does-not-exist"
+            },
+            "classification": "MISSING_OBJECT"
+          },
+          {
+            "status": 400,
+            "phase": "apply",
+            "requestKind": "other-get",
+            "allowCreateMissing404": false,
+            "error": {
+              "platformCode": "INVALID_TYPE",
+              "messageCategory": "unrelated"
+            },
+            "classification": "GET_FAILED"
+          },
+          {
+            "status": 400,
+            "phase": "preflight",
+            "requestKind": "initial-get",
+            "allowCreateMissing404": false,
+            "error": {
+              "platformCode": "-2147024809"
+            },
+            "classification": "MISSING_OBJECT"
+          }
+        ],
+        "binding": {
+          "section": "httpClassifications",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "synthetic/http-400-branches-source.json",
+          "sourceArtifactSha256": "340acbd6f51ca7e1d33fa4b898f746f73cec3f8f8755fe02b9a8f45be560c4b0",
+          "sourceArtifactBytes": 558,
+          "sourceArtifactKind": "builder"
         }
-      ]
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/http-400-branches-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/http-400-branches-source.json",
+      "digest": "340acbd6f51ca7e1d33fa4b898f746f73cec3f8f8755fe02b9a8f45be560c4b0",
+      "byteLength": 558,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

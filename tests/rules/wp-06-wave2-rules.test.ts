@@ -509,6 +509,7 @@ describe("WP-06 Wave 2 rules", () => {
       };
       changed.nodes.reverse();
       changed.nodes.forEach((node) => {
+        if ((node as { sourceProfile?: string }).sourceProfile === "wp06-evidence-v1") return;
         node.data.decoy = {
           label: `safe-${ruleId.toLowerCase()}`,
           text: "server-system-identity active-access-row exact-etag SP.Field MISSING_OBJECT",

@@ -1,24 +1,64 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "httpClassifications": [{
-        "status": 404,
-        "phase": "apply",
-        "requestKind": "initial-get",
-        "allowCreateMissing404": true,
-        "error": { "platformCode": "NOT_FOUND", "messageCategory": "missing-object" },
-        "classification": "CREATE_MISSING"
-      }]
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "httpClassifications": [
+          {
+            "status": 404,
+            "phase": "apply",
+            "requestKind": "initial-get",
+            "allowCreateMissing404": true,
+            "error": {
+              "platformCode": "NOT_FOUND",
+              "messageCategory": "missing-object"
+            },
+            "classification": "CREATE_MISSING"
+          }
+        ],
+        "binding": {
+          "section": "httpClassifications",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "50fdbd06ef3c7fd202c854417c9bb57d0da1538a53a3257befc056664f6bfb36",
+          "sourceArtifactBytes": 544,
+          "sourceArtifactKind": "builder"
+        }
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "50fdbd06ef3c7fd202c854417c9bb57d0da1538a53a3257befc056664f6bfb36",
+      "byteLength": 544,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

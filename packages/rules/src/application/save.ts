@@ -3,6 +3,7 @@ import type { NormalizedSaveTransaction } from "@spflow/core/types/wp06-evidence
 import type { RuleDetector, ValidationContext } from "../registry.ts";
 import {
   evidenceItems,
+  hasUniqueStrings,
   isRecord,
   strings,
   wp06Diagnostic,
@@ -51,8 +52,24 @@ export const appSave001: RuleDetector = Object.freeze({
       context,
       this.id,
       "saveTransactions",
+      "frontend",
     );
     if (selection.missing !== undefined) return [selection.missing];
+
+    const declaredLists = new Set(directPatch.listIds);
+    const transactionLists = selection.items.map(({ value }) =>
+      isTransaction(value) ? value.listId : ""
+    );
+    if (
+      selection.items.length !== declaredLists.size
+      || transactionLists.some((listId) => !declaredLists.has(listId))
+      || new Set(transactionLists).size !== transactionLists.length
+    ) {
+      const first = selection.items[0];
+      return first === undefined
+        ? []
+        : [wp06Diagnostic(this.id, first.artifact, "/saveTransactions", MESSAGE)];
+    }
 
     for (const listId of [...directPatch.listIds].sort()) {
       const list = context.contract.sharePoint.lists.find(({ id }) => id === listId);
@@ -72,6 +89,7 @@ export const appSave001: RuleDetector = Object.freeze({
         && isTransaction(transaction)
         && transaction.trigger === "explicit-save"
         && transaction.patchedFields.length > 0
+        && hasUniqueStrings(transaction.patchedFields)
         && transaction.patchedFields.every((field) =>
           list.patchAllowlist.includes(field) && editable.has(field)
         )

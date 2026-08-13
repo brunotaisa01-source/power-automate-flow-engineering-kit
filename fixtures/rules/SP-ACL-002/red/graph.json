@@ -1,26 +1,63 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "4444444444444444444444444444444444444444444444444444444444444444",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "permissionProbes": [{
-        "listId": "command-queue",
-        "principalBinding": "BROWSERS",
-        "operations": {
-          "read": true,
-          "create": true,
-          "update": false,
-          "delete": true
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "4444444444444444444444444444444444444444444444444444444444444444",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "permissionProbes": [
+          {
+            "listId": "command-queue",
+            "principalBinding": "BROWSERS",
+            "operations": {
+              "read": true,
+              "create": true,
+              "update": false,
+              "delete": true
+            }
+          }
+        ],
+        "binding": {
+          "section": "permissionProbes",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "07926ffed41228c1dd6a4562b4b421f9b332d93c5b342d53eb121224a71117e5",
+          "sourceArtifactBytes": 537,
+          "sourceArtifactKind": "builder"
         }
-      }]
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "07926ffed41228c1dd6a4562b4b421f9b332d93c5b342d53eb121224a71117e5",
+      "byteLength": 537,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

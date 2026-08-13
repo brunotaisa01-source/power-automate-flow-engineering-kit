@@ -1,42 +1,103 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "indexPlans": [{
-        "listId": "protected-items",
-        "currentFields": ["LegacyField", "Title"],
-        "requiredFields": ["Title", "ScopeKey"],
-        "execution": "serial",
-        "digest": { "fresh": true, "bindsCurrent": true, "bindsRequired": true },
-        "result": "APPLY",
-        "maximumWrites": 2,
-        "writeCount": 2,
-        "operations": [
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "indexPlans": [
           {
-            "sequence": 1,
-            "kind": "remove",
-            "field": "LegacyField",
-            "readback": { "performed": true, "observedFields": ["Title"] }
-          },
-          {
-            "sequence": 2,
-            "kind": "add",
-            "field": "ScopeKey",
-            "payloadMetadataType": "SP.Field",
-            "readback": { "performed": true, "observedFields": ["Title", "ScopeKey"] }
+            "listId": "protected-items",
+            "currentFields": [
+              "LegacyField",
+              "Title"
+            ],
+            "requiredFields": [
+              "Title",
+              "ScopeKey"
+            ],
+            "execution": "serial",
+            "digest": {
+              "fresh": true,
+              "bindsCurrent": true,
+              "bindsRequired": true
+            },
+            "result": "APPLY",
+            "maximumWrites": 2,
+            "writeCount": 2,
+            "operations": [
+              {
+                "sequence": 1,
+                "kind": "remove",
+                "field": "LegacyField",
+                "readback": {
+                  "performed": true,
+                  "observedFields": [
+                    "Title"
+                  ]
+                }
+              },
+              {
+                "sequence": 2,
+                "kind": "add",
+                "field": "ScopeKey",
+                "payloadMetadataType": "SP.Field",
+                "readback": {
+                  "performed": true,
+                  "observedFields": [
+                    "Title",
+                    "ScopeKey"
+                  ]
+                }
+              }
+            ],
+            "finalReadback": [
+              "ScopeKey",
+              "Title"
+            ]
           }
         ],
-        "finalReadback": ["ScopeKey", "Title"]
-      }]
+        "binding": {
+          "section": "indexPlans",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "5dc6b47aa6ffd50a7b7643bb8ffa73c3120a876ce1bdabc62ce22ac1f4dd6455",
+          "sourceArtifactBytes": 541,
+          "sourceArtifactKind": "builder"
+        }
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "5dc6b47aa6ffd50a7b7643bb8ffa73c3120a876ce1bdabc62ce22ac1f4dd6455",
+      "byteLength": 541,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

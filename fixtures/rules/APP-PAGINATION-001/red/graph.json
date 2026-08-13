@@ -1,33 +1,70 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "frontend",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "6666666666666666666666666666666666666666666666666666666666666666",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "paginationTraversals": [{
-        "completeness": "required",
-        "mode": "first-page-only",
-        "continuation": {
-          "urlParsing": "raw-string",
-          "sameOrigin": false,
-          "sitePath": false,
-          "visitedLinks": false,
-          "pageLimit": 0,
-          "onLoop": "continue",
-          "onCrossOrigin": "follow",
-          "onSitePathEscape": "follow",
-          "onPageLimit": "truncate"
-        },
-        "accumulation": "replace-pages",
-        "termination": "first-page"
-      }]
+  "nodes": [
+    {
+      "id": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "frontend",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "6666666666666666666666666666666666666666666666666666666666666666",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "paginationTraversals": [
+          {
+            "completeness": "required",
+            "mode": "first-page-only",
+            "continuation": {
+              "urlParsing": "raw-string",
+              "sameOrigin": false,
+              "sitePath": false,
+              "visitedLinks": false,
+              "pageLimit": 0,
+              "onLoop": "continue",
+              "onCrossOrigin": "follow",
+              "onSitePathEscape": "follow",
+              "onPageLimit": "truncate"
+            },
+            "accumulation": "replace-pages",
+            "termination": "first-page"
+          }
+        ],
+        "binding": {
+          "section": "paginationTraversals",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "802f8052c8cf4d0627ff59eb2db8544fb52228dd715ef368fd859a310c075238",
+          "sourceArtifactBytes": 545,
+          "sourceArtifactKind": "frontend"
+        }
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "frontend:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "frontend",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "802f8052c8cf4d0627ff59eb2db8544fb52228dd715ef368fd859a310c075238",
+      "byteLength": 545,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

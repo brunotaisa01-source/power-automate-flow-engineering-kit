@@ -8,6 +8,15 @@ import { normalizeWp06Evidence } from "../../../packages/core/dist/graph-builder
 const validEvidence = {
   evidenceProfile: "wp06-offline-v1",
   contractRevision: 2,
+  binding: {
+    section: "httpClassifications",
+    contractArtifactPath: "project.contract.json",
+    contractArtifactSha256: "c".repeat(64),
+    sourceArtifactPath: "synthetic/source.json",
+    sourceArtifactSha256: "d".repeat(64),
+    sourceArtifactBytes: 512,
+    sourceArtifactKind: "builder",
+  },
   httpClassifications: [{
     classification: "GET_FAILED",
     error: { messageCategory: "unrelated", platformCode: "INVALID_QUERY" },
@@ -47,6 +56,9 @@ describe("WP-06 normalized evidence builders", () => {
       { ...validEvidence, contractRevision: 0 },
       { ...validEvidence, fixtureProfile: "do-not-trust" },
       { ...validEvidence, httpClassifications: ["arbitrary text"] },
+      { ...validEvidence, binding: { ...validEvidence.binding, sourceArtifactBytes: 0 } },
+      { ...validEvidence, binding: { ...validEvidence.binding, section: "saveTransactions" } },
+      { ...validEvidence, saveTransactions: [{}] },
     ]) {
       assert.equal(normalizeWp06Evidence(data), undefined);
     }

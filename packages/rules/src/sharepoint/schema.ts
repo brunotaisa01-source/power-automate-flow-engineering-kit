@@ -121,7 +121,34 @@ function expectedCompatibility(field: FieldContract): Readonly<Record<string, un
 }
 
 function fieldSelection(context: ValidationContext, ruleId: string) {
-  return evidenceItems<NormalizedFieldOperation>(context, ruleId, "fieldOperations");
+  return evidenceItems<NormalizedFieldOperation>(context, ruleId, "fieldOperations", "builder");
+}
+
+function fieldKey(value: { listId: string; logicalName: string }): string {
+  return `${value.listId}\0${value.logicalName}`;
+}
+
+function exactFieldOwnership(
+  context: ValidationContext,
+  values: readonly NormalizedFieldOperation[],
+): boolean {
+  const expected = fieldEntries(context).map(({ listId, field }) =>
+    fieldKey({ listId, logicalName: field.logicalName })
+  );
+  const actual = values.map(fieldKey).sort(compareText);
+  return actual.length === expected.length
+    && new Set(actual).size === actual.length
+    && actual.every((key, index) => key === expected[index]);
+}
+
+function selectionOwnsFields(
+  context: ValidationContext,
+  selection: ReturnType<typeof fieldSelection>,
+): boolean {
+  const values = selection.items
+    .filter(({ value }) => isFieldOperation(value))
+    .map(({ value }) => value);
+  return values.length === selection.items.length && exactFieldOwnership(context, values);
 }
 
 export const spSchema001: RuleDetector = Object.freeze({
@@ -130,6 +157,13 @@ export const spSchema001: RuleDetector = Object.freeze({
     const selection = fieldSelection(context, this.id);
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
+
+    if (!selectionOwnsFields(context, selection)) {
+      const first = selection.items[0];
+      return first === undefined
+        ? []
+        : [wp06Diagnostic(this.id, first.artifact, "/schema/<field>/identity", IDENTITY_MESSAGE)];
+    }
 
     for (const { listId, field } of fieldEntries(context)) {
       const matches = selection.items.filter(({ value }) =>
@@ -172,6 +206,13 @@ export const spSchema002: RuleDetector = Object.freeze({
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
 
+    if (!selectionOwnsFields(context, selection)) {
+      const first = selection.items[0];
+      return first === undefined
+        ? []
+        : [wp06Diagnostic(this.id, first.artifact, "/schema/<field>/payload", PAYLOAD_MESSAGE)];
+    }
+
     for (const { listId, field } of fieldEntries(context)) {
       const matches = selection.items.filter(({ value }) =>
         isFieldOperation(value)
@@ -211,6 +252,18 @@ export const spSchema003: RuleDetector = Object.freeze({
     const selection = fieldSelection(context, this.id);
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
+
+    if (!selectionOwnsFields(context, selection)) {
+      const first = selection.items[0];
+      return first === undefined
+        ? []
+        : [wp06Diagnostic(
+          this.id,
+          first.artifact,
+          "/schema/<field>/compatibility",
+          COMPATIBILITY_MESSAGE,
+        )];
+    }
 
     for (const { listId, field } of fieldEntries(context)) {
       const matches = selection.items.filter(({ value }) =>

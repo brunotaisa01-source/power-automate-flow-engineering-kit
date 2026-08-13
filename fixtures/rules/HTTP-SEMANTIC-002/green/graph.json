@@ -1,42 +1,86 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "httpClassifications": [
-        {
-          "status": 404,
-          "phase": "preflight",
-          "requestKind": "initial-get",
-          "allowCreateMissing404": true,
-          "error": { "platformCode": "NOT_FOUND", "messageCategory": "missing-object" },
-          "classification": "CREATE_MISSING"
-        },
-        {
-          "status": 404,
-          "phase": "apply",
-          "requestKind": "initial-get",
-          "allowCreateMissing404": true,
-          "error": { "platformCode": "NOT_FOUND", "messageCategory": "missing-object" },
-          "classification": "GET_FAILED"
-        },
-        {
-          "status": 404,
-          "phase": "readback",
-          "requestKind": "other-get",
-          "allowCreateMissing404": false,
-          "error": { "platformCode": "NOT_FOUND", "messageCategory": "missing-object" },
-          "classification": "GET_FAILED"
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "httpClassifications": [
+          {
+            "status": 404,
+            "phase": "preflight",
+            "requestKind": "initial-get",
+            "allowCreateMissing404": true,
+            "error": {
+              "platformCode": "NOT_FOUND",
+              "messageCategory": "missing-object"
+            },
+            "classification": "CREATE_MISSING"
+          },
+          {
+            "status": 404,
+            "phase": "apply",
+            "requestKind": "initial-get",
+            "allowCreateMissing404": true,
+            "error": {
+              "platformCode": "NOT_FOUND",
+              "messageCategory": "missing-object"
+            },
+            "classification": "GET_FAILED"
+          },
+          {
+            "status": 404,
+            "phase": "readback",
+            "requestKind": "other-get",
+            "allowCreateMissing404": false,
+            "error": {
+              "platformCode": "NOT_FOUND",
+              "messageCategory": "missing-object"
+            },
+            "classification": "GET_FAILED"
+          }
+        ],
+        "binding": {
+          "section": "httpClassifications",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "6191b14e66872985c0c6da2ae175b20ab34d35adc2b159d65300fcb746514e7a",
+          "sourceArtifactBytes": 546,
+          "sourceArtifactKind": "builder"
         }
-      ]
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "6191b14e66872985c0c6da2ae175b20ab34d35adc2b159d65300fcb746514e7a",
+      "byteLength": 546,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

@@ -1,42 +1,103 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:synthetic/index-apply-readback.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "synthetic/index-apply-readback.json",
-    "digest": "eeeeeeee00000000eeeeeeee00000000eeeeeeee00000000eeeeeeee00000000",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "indexPlans": [{
-        "listId": "protected-items",
-        "currentFields": ["LegacyField", "Title"],
-        "requiredFields": ["Title", "ScopeKey"],
-        "execution": "serial",
-        "digest": { "fresh": true, "bindsCurrent": true, "bindsRequired": true },
-        "result": "APPLY",
-        "maximumWrites": 2,
-        "writeCount": 2,
-        "operations": [
+  "nodes": [
+    {
+      "id": "builder:synthetic/index-apply-readback.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/index-apply-readback.json",
+      "digest": "eeeeeeee00000000eeeeeeee00000000eeeeeeee00000000eeeeeeee00000000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "indexPlans": [
           {
-            "sequence": 1,
-            "kind": "remove",
-            "field": "LegacyField",
-            "readback": { "performed": true, "observedFields": ["Title"] }
-          },
-          {
-            "sequence": 2,
-            "kind": "add",
-            "field": "ScopeKey",
-            "payloadMetadataType": "SP.Field",
-            "readback": { "performed": true, "observedFields": ["ScopeKey", "Title"] }
+            "listId": "protected-items",
+            "currentFields": [
+              "LegacyField",
+              "Title"
+            ],
+            "requiredFields": [
+              "Title",
+              "ScopeKey"
+            ],
+            "execution": "serial",
+            "digest": {
+              "fresh": true,
+              "bindsCurrent": true,
+              "bindsRequired": true
+            },
+            "result": "APPLY",
+            "maximumWrites": 2,
+            "writeCount": 2,
+            "operations": [
+              {
+                "sequence": 1,
+                "kind": "remove",
+                "field": "LegacyField",
+                "readback": {
+                  "performed": true,
+                  "observedFields": [
+                    "Title"
+                  ]
+                }
+              },
+              {
+                "sequence": 2,
+                "kind": "add",
+                "field": "ScopeKey",
+                "payloadMetadataType": "SP.Field",
+                "readback": {
+                  "performed": true,
+                  "observedFields": [
+                    "ScopeKey",
+                    "Title"
+                  ]
+                }
+              }
+            ],
+            "finalReadback": [
+              "ScopeKey",
+              "Title"
+            ]
           }
         ],
-        "finalReadback": ["ScopeKey", "Title"]
-      }]
+        "binding": {
+          "section": "indexPlans",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "synthetic/index-apply-readback-source.json",
+          "sourceArtifactSha256": "4599a4052565d1f4332575bd36cf420cdffe703cc579917894e1f64ca300b363",
+          "sourceArtifactBytes": 553,
+          "sourceArtifactKind": "builder"
+        }
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/index-apply-readback-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/index-apply-readback-source.json",
+      "digest": "4599a4052565d1f4332575bd36cf420cdffe703cc579917894e1f64ca300b363",
+      "byteLength": 553,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

@@ -1,31 +1,81 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "frontend",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "5555555555555555555555555555555555555555555555555555555555555555",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "saveTransactions": [{
-        "listId": "protected-items",
-        "trigger": "autosave",
-        "patchedFields": ["Title", "Amount"],
-        "request": {
-          "method": "POST",
-          "methodOverride": "MERGE",
-          "serialization": "structured-json",
-          "digest": "shared-session",
-          "ifMatch": "wildcard"
-        },
-        "conflict": { "status": 412, "action": "automatic-replay" },
-        "ambiguousFailure": { "action": "automatic-replay", "writeRetry": true },
-        "readback": { "method": "GET", "semantic": false, "beforeSuccess": false }
-      }]
+  "nodes": [
+    {
+      "id": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "frontend",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "5555555555555555555555555555555555555555555555555555555555555555",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "saveTransactions": [
+          {
+            "listId": "protected-items",
+            "trigger": "autosave",
+            "patchedFields": [
+              "Title",
+              "Amount"
+            ],
+            "request": {
+              "method": "POST",
+              "methodOverride": "MERGE",
+              "serialization": "structured-json",
+              "digest": "shared-session",
+              "ifMatch": "wildcard"
+            },
+            "conflict": {
+              "status": 412,
+              "action": "automatic-replay"
+            },
+            "ambiguousFailure": {
+              "action": "automatic-replay",
+              "writeRetry": true
+            },
+            "readback": {
+              "method": "GET",
+              "semantic": false,
+              "beforeSuccess": false
+            }
+          }
+        ],
+        "binding": {
+          "section": "saveTransactions",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "45f862e1cc38ebbad72e68e194486ffd1709e422545837fe8bc2291f47d31dd3",
+          "sourceArtifactBytes": 539,
+          "sourceArtifactKind": "frontend"
+        }
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "frontend:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "frontend",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "45f862e1cc38ebbad72e68e194486ffd1709e422545837fe8bc2291f47d31dd3",
+      "byteLength": 539,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

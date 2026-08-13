@@ -1,34 +1,75 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "httpClassifications": [
-        {
-          "status": 400,
-          "phase": "preflight",
-          "requestKind": "initial-get",
-          "allowCreateMissing404": false,
-          "error": { "platformCode": "-2147024809", "messageCategory": "unrelated" },
-          "classification": "MISSING_OBJECT"
-        },
-        {
-          "status": 400,
-          "phase": "preflight",
-          "requestKind": "initial-get",
-          "allowCreateMissing404": false,
-          "error": { "platformCode": "INVALID_QUERY", "messageCategory": "unrelated" },
-          "classification": "GET_FAILED"
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "httpClassifications": [
+          {
+            "status": 400,
+            "phase": "preflight",
+            "requestKind": "initial-get",
+            "allowCreateMissing404": false,
+            "error": {
+              "platformCode": "-2147024809",
+              "messageCategory": "unrelated"
+            },
+            "classification": "MISSING_OBJECT"
+          },
+          {
+            "status": 400,
+            "phase": "preflight",
+            "requestKind": "initial-get",
+            "allowCreateMissing404": false,
+            "error": {
+              "platformCode": "INVALID_QUERY",
+              "messageCategory": "unrelated"
+            },
+            "classification": "GET_FAILED"
+          }
+        ],
+        "binding": {
+          "section": "httpClassifications",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "ff82e66908e26716bbbc19222377c4cf99328eeed5914f2f96cb9023a3b4c8df",
+          "sourceArtifactBytes": 546,
+          "sourceArtifactKind": "builder"
         }
-      ]
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "ff82e66908e26716bbbc19222377c4cf99328eeed5914f2f96cb9023a3b4c8df",
+      "byteLength": 546,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

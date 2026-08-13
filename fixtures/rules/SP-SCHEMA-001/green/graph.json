@@ -1,36 +1,101 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "8080808080808080808080808080808080808080808080808080808080808080",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "fieldOperations": [
-        {
-          "listId": "protected-items",
-          "logicalName": "title",
-          "identity": { "source": "field-readback", "internalName": "Title", "entityPropertyName": "Title" },
-          "uses": [{ "operation": "filter", "fieldName": "Title", "source": "entity-property-name" }]
-        },
-        {
-          "listId": "protected-items",
-          "logicalName": "amount",
-          "identity": { "source": "field-readback", "internalName": "Amount", "entityPropertyName": "Amount" },
-          "uses": [{ "operation": "readback", "fieldName": "Amount", "source": "entity-property-name" }]
-        },
-        {
-          "listId": "protected-items",
-          "logicalName": "scope-key",
-          "identity": { "source": "field-readback", "internalName": "ScopeKey", "entityPropertyName": "ScopeKey" },
-          "uses": [{ "operation": "index", "fieldName": "ScopeKey", "source": "entity-property-name" }]
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "8080808080808080808080808080808080808080808080808080808080808080",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "fieldOperations": [
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "identity": {
+              "source": "field-readback",
+              "internalName": "Title",
+              "entityPropertyName": "Title"
+            },
+            "uses": [
+              {
+                "operation": "filter",
+                "fieldName": "Title",
+                "source": "entity-property-name"
+              }
+            ]
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "amount",
+            "identity": {
+              "source": "field-readback",
+              "internalName": "Amount",
+              "entityPropertyName": "Amount"
+            },
+            "uses": [
+              {
+                "operation": "readback",
+                "fieldName": "Amount",
+                "source": "entity-property-name"
+              }
+            ]
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "scope-key",
+            "identity": {
+              "source": "field-readback",
+              "internalName": "ScopeKey",
+              "entityPropertyName": "ScopeKey"
+            },
+            "uses": [
+              {
+                "operation": "index",
+                "fieldName": "ScopeKey",
+                "source": "entity-property-name"
+              }
+            ]
+          }
+        ],
+        "binding": {
+          "section": "fieldOperations",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "b7ac539ed86c958dea285621e6c3840c30002ae964602211c2470a9c2d36cd2a",
+          "sourceArtifactBytes": 542,
+          "sourceArtifactKind": "builder"
         }
-      ]
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "b7ac539ed86c958dea285621e6c3840c30002ae964602211c2470a9c2d36cd2a",
+      "byteLength": 542,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

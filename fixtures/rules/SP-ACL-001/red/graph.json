@@ -1,36 +1,84 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "3333333333333333333333333333333333333333333333333333333333333333",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "permissionModels": [{
-        "listId": "command-queue",
-        "inheritance": "break-clear",
-        "directUserGrants": "present",
-        "browserOperations": ["read", "create", "update"],
-        "grants": [
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "3333333333333333333333333333333333333333333333333333333333333333",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "permissionModels": [
           {
-            "principalKind": "user",
-            "principalBinding": "BROWSERS",
-            "role": "contribute-limited",
-            "allowedOperations": ["read", "create", "update"]
-          },
-          {
-            "principalKind": "binding",
-            "principalBinding": "PROCESSOR",
-            "role": "processor",
-            "allowedOperations": ["read", "update"]
+            "listId": "command-queue",
+            "inheritance": "break-clear",
+            "directUserGrants": "present",
+            "browserOperations": [
+              "read",
+              "create",
+              "update"
+            ],
+            "grants": [
+              {
+                "principalKind": "user",
+                "principalBinding": "BROWSERS",
+                "role": "contribute-limited",
+                "allowedOperations": [
+                  "read",
+                  "create",
+                  "update"
+                ]
+              },
+              {
+                "principalKind": "binding",
+                "principalBinding": "PROCESSOR",
+                "role": "processor",
+                "allowedOperations": [
+                  "read",
+                  "update"
+                ]
+              }
+            ]
           }
-        ]
-      }]
+        ],
+        "binding": {
+          "section": "permissionModels",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "129f4a7af637eb69a51b7c868679d2089710245b0e524929176dcd807ace5156",
+          "sourceArtifactBytes": 537,
+          "sourceArtifactKind": "builder"
+        }
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "129f4a7af637eb69a51b7c868679d2089710245b0e524929176dcd807ace5156",
+      "byteLength": 537,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

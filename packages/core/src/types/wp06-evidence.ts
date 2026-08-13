@@ -1,6 +1,8 @@
 export const WP06_EVIDENCE_PROFILE = "wp06-offline-v1" as const;
 export const WP06_ARTIFACT_PROFILE = "wp06-evidence-v1" as const;
 
+export type Wp06SourceArtifactKind = "builder" | "frontend";
+
 export interface NormalizedAuthoritySequence {
   readonly identityRead: number;
   readonly capabilityRead: number;
@@ -210,6 +212,7 @@ export interface NormalizedIndexPlan {
 export interface NormalizedWp06Evidence {
   readonly evidenceProfile: typeof WP06_EVIDENCE_PROFILE;
   readonly contractRevision: number;
+  readonly binding: NormalizedWp06EvidenceBinding;
   readonly authorityChecks?: readonly NormalizedAuthorityCheck[];
   readonly permissionModels?: readonly NormalizedPermissionModel[];
   readonly permissionProbes?: readonly NormalizedPermissionProbe[];
@@ -234,3 +237,13 @@ export const WP06_EVIDENCE_SECTIONS = [
 ] as const;
 
 export type Wp06EvidenceSection = (typeof WP06_EVIDENCE_SECTIONS)[number];
+
+export interface NormalizedWp06EvidenceBinding {
+  readonly section: Wp06EvidenceSection;
+  readonly contractArtifactPath: string;
+  readonly contractArtifactSha256: string;
+  readonly sourceArtifactPath: string;
+  readonly sourceArtifactSha256: string;
+  readonly sourceArtifactBytes: number;
+  readonly sourceArtifactKind: Wp06SourceArtifactKind;
+}

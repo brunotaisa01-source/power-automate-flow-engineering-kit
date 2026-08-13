@@ -157,17 +157,15 @@ function completePlans(
     .filter(({ indexes }) => indexes.length > 0)
     .map(({ id }) => id)
     .sort(compareText);
-  const declaredLists = new Set(context.contract.sharePoint.lists.map(({ id }) => id));
   const planLists = plans.map(({ listId }) => listId);
   return new Set(planLists).size === planLists.length
-    && planLists.every((listId) => declaredLists.has(listId))
-    && indexedLists.every((listId) => planLists.includes(listId));
+    && sameStringSet(planLists, indexedLists);
 }
 
 export const spIndex001: RuleDetector = Object.freeze({
   id: "SP-INDEX-001",
   async validate(context: ValidationContext) {
-    const selection = evidenceItems<NormalizedIndexPlan>(context, this.id, "indexPlans");
+    const selection = evidenceItems<NormalizedIndexPlan>(context, this.id, "indexPlans", "builder");
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
     const plans = selection.items.filter(({ value }) => isPlan(value)).map(({ value }) => value);
@@ -187,7 +185,7 @@ export const spIndex001: RuleDetector = Object.freeze({
 export const spIndex002: RuleDetector = Object.freeze({
   id: "SP-INDEX-002",
   async validate(context: ValidationContext) {
-    const selection = evidenceItems<NormalizedIndexPlan>(context, this.id, "indexPlans");
+    const selection = evidenceItems<NormalizedIndexPlan>(context, this.id, "indexPlans", "builder");
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
     const plans = selection.items.filter(({ value }) => isPlan(value)).map(({ value }) => value);

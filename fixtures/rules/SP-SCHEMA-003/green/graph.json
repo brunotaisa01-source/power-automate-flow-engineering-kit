@@ -1,51 +1,156 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "fieldOperations": [
-        {
-          "listId": "protected-items",
-          "logicalName": "title",
-          "compatibility": {
-            "response": "FOUND",
-            "comparedProperties": ["logicalName", "internalName", "type", "required", "indexed", "unique", "clientEditable", "serverAuthoritative", "immutableAfterCreate", "sensitive", "maxLength"],
-            "actual": { "logicalName": "title", "internalName": "Title", "type": "Text", "required": true, "indexed": true, "unique": false, "clientEditable": true, "serverAuthoritative": false, "immutableAfterCreate": false, "sensitive": false, "maxLength": 255 },
-            "outcome": "MATCH",
-            "writeAction": "none"
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "fieldOperations": [
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "compatibility": {
+              "response": "FOUND",
+              "comparedProperties": [
+                "logicalName",
+                "internalName",
+                "type",
+                "required",
+                "indexed",
+                "unique",
+                "clientEditable",
+                "serverAuthoritative",
+                "immutableAfterCreate",
+                "sensitive",
+                "maxLength"
+              ],
+              "actual": {
+                "logicalName": "title",
+                "internalName": "Title",
+                "type": "Text",
+                "required": true,
+                "indexed": true,
+                "unique": false,
+                "clientEditable": true,
+                "serverAuthoritative": false,
+                "immutableAfterCreate": false,
+                "sensitive": false,
+                "maxLength": 255
+              },
+              "outcome": "MATCH",
+              "writeAction": "none"
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "amount",
+            "compatibility": {
+              "response": "FOUND",
+              "comparedProperties": [
+                "logicalName",
+                "internalName",
+                "type",
+                "required",
+                "indexed",
+                "unique",
+                "clientEditable",
+                "serverAuthoritative",
+                "immutableAfterCreate",
+                "sensitive"
+              ],
+              "actual": {
+                "logicalName": "amount",
+                "internalName": "Amount",
+                "type": "Currency",
+                "required": true,
+                "indexed": false,
+                "unique": false,
+                "clientEditable": false,
+                "serverAuthoritative": true,
+                "immutableAfterCreate": false,
+                "sensitive": false
+              },
+              "outcome": "MATCH",
+              "writeAction": "none"
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "scope-key",
+            "compatibility": {
+              "response": "FOUND",
+              "comparedProperties": [
+                "logicalName",
+                "internalName",
+                "type",
+                "required",
+                "indexed",
+                "unique",
+                "clientEditable",
+                "serverAuthoritative",
+                "immutableAfterCreate",
+                "sensitive",
+                "maxLength"
+              ],
+              "actual": {
+                "logicalName": "scope-key",
+                "internalName": "ScopeKey",
+                "type": "Text",
+                "required": true,
+                "indexed": true,
+                "unique": false,
+                "clientEditable": false,
+                "serverAuthoritative": true,
+                "immutableAfterCreate": true,
+                "sensitive": false,
+                "maxLength": 64
+              },
+              "outcome": "MATCH",
+              "writeAction": "none"
+            }
           }
-        },
-        {
-          "listId": "protected-items",
-          "logicalName": "amount",
-          "compatibility": {
-            "response": "FOUND",
-            "comparedProperties": ["logicalName", "internalName", "type", "required", "indexed", "unique", "clientEditable", "serverAuthoritative", "immutableAfterCreate", "sensitive"],
-            "actual": { "logicalName": "amount", "internalName": "Amount", "type": "Currency", "required": true, "indexed": false, "unique": false, "clientEditable": false, "serverAuthoritative": true, "immutableAfterCreate": false, "sensitive": false },
-            "outcome": "MATCH",
-            "writeAction": "none"
-          }
-        },
-        {
-          "listId": "protected-items",
-          "logicalName": "scope-key",
-          "compatibility": {
-            "response": "FOUND",
-            "comparedProperties": ["logicalName", "internalName", "type", "required", "indexed", "unique", "clientEditable", "serverAuthoritative", "immutableAfterCreate", "sensitive", "maxLength"],
-            "actual": { "logicalName": "scope-key", "internalName": "ScopeKey", "type": "Text", "required": true, "indexed": true, "unique": false, "clientEditable": false, "serverAuthoritative": true, "immutableAfterCreate": true, "sensitive": false, "maxLength": 64 },
-            "outcome": "MATCH",
-            "writeAction": "none"
-          }
+        ],
+        "binding": {
+          "section": "fieldOperations",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "51706819c09e84f1f759f7d3ef244ebedf64f170273e3962a146ae57c3a3f41a",
+          "sourceArtifactBytes": 542,
+          "sourceArtifactKind": "builder"
         }
-      ]
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "51706819c09e84f1f759f7d3ef244ebedf64f170273e3962a146ae57c3a3f41a",
+      "byteLength": 542,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

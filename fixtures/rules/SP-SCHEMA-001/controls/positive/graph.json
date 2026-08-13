@@ -14,40 +14,95 @@
           {
             "listId": "protected-items",
             "logicalName": "scope-key",
-            "identity": { "source": "field-readback", "internalName": "ScopeKey", "entityPropertyName": "ScopeKeyEntity" },
+            "identity": {
+              "source": "field-readback",
+              "internalName": "ScopeKey",
+              "entityPropertyName": "ScopeKeyEntity"
+            },
             "uses": [
-              { "operation": "view", "fieldName": "ScopeKeyEntity", "source": "entity-property-name" },
-              { "operation": "filter", "fieldName": "ScopeKeyEntity", "source": "entity-property-name" }
+              {
+                "operation": "view",
+                "fieldName": "ScopeKeyEntity",
+                "source": "entity-property-name"
+              },
+              {
+                "operation": "filter",
+                "fieldName": "ScopeKeyEntity",
+                "source": "entity-property-name"
+              }
             ]
           },
           {
             "listId": "protected-items",
             "logicalName": "title",
-            "identity": { "source": "field-readback", "internalName": "Title", "entityPropertyName": "Title" },
+            "identity": {
+              "source": "field-readback",
+              "internalName": "Title",
+              "entityPropertyName": "Title"
+            },
             "uses": [
-              { "operation": "patch", "fieldName": "Title", "source": "entity-property-name" },
-              { "operation": "select", "fieldName": "Title", "source": "entity-property-name" }
+              {
+                "operation": "patch",
+                "fieldName": "Title",
+                "source": "entity-property-name"
+              },
+              {
+                "operation": "select",
+                "fieldName": "Title",
+                "source": "entity-property-name"
+              }
+            ]
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "amount",
+            "identity": {
+              "source": "field-readback",
+              "internalName": "Amount",
+              "entityPropertyName": "Amount"
+            },
+            "uses": [
+              {
+                "operation": "semantic-readback",
+                "fieldName": "Amount",
+                "source": "entity-property-name"
+              }
             ]
           }
-        ]
+        ],
+        "binding": {
+          "section": "fieldOperations",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "synthetic/text-field-proof-source.json",
+          "sourceArtifactSha256": "f4ec6843e39d7dc10eeb3cdcde2f1ccdad9fcce747d25ca346004a27bea3289a",
+          "sourceArtifactBytes": 554,
+          "sourceArtifactKind": "builder"
+        }
       },
       "projections": {}
     },
     {
-      "id": "builder:synthetic/currency-field-proof.json:wp06-evidence-v1",
-      "kind": "builder",
-      "relativePath": "synthetic/currency-field-proof.json",
-      "digest": "8888888800000000888888880000000088888888000000008888888800000000",
-      "sourceProfile": "wp06-evidence-v1",
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
       "data": {
-        "evidenceProfile": "wp06-offline-v1",
-        "contractRevision": 2,
-        "fieldOperations": [{
-          "listId": "protected-items",
-          "logicalName": "amount",
-          "identity": { "source": "field-readback", "internalName": "Amount", "entityPropertyName": "Amount" },
-          "uses": [{ "operation": "semantic-readback", "fieldName": "Amount", "source": "entity-property-name" }]
-        }]
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:synthetic/text-field-proof-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "synthetic/text-field-proof-source.json",
+      "digest": "f4ec6843e39d7dc10eeb3cdcde2f1ccdad9fcce747d25ca346004a27bea3289a",
+      "byteLength": 554,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
       },
       "projections": {}
     }

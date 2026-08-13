@@ -1,26 +1,66 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "frontend:synthetic/alternate-query.json:wp06-evidence-v1",
-    "kind": "frontend",
-    "relativePath": "synthetic/alternate-query.json",
-    "digest": "7777000077770000777700007777000077770000777700007777000077770000",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "odataRequests": [{
-        "listId": "protected-items",
-        "fieldNames": ["ID", "ScopeKey"],
-        "fieldSource": "contract-allowlist",
-        "queryConstruction": "url-api",
-        "pathConstruction": "url-api",
-        "stringLiteralEscaping": "double-single-quote-before-encoding",
-        "rawFragmentsAccepted": false,
-        "parameterEncoding": "url-search-params"
-      }]
+  "nodes": [
+    {
+      "id": "frontend:synthetic/alternate-query.json:wp06-evidence-v1",
+      "kind": "frontend",
+      "relativePath": "synthetic/alternate-query.json",
+      "digest": "7777000077770000777700007777000077770000777700007777000077770000",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "odataRequests": [
+          {
+            "listId": "protected-items",
+            "fieldNames": [
+              "ID",
+              "ScopeKey"
+            ],
+            "fieldSource": "contract-allowlist",
+            "queryConstruction": "url-api",
+            "pathConstruction": "url-api",
+            "stringLiteralEscaping": "double-single-quote-before-encoding",
+            "rawFragmentsAccepted": false,
+            "parameterEncoding": "url-search-params"
+          }
+        ],
+        "binding": {
+          "section": "odataRequests",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "synthetic/alternate-query-source.json",
+          "sourceArtifactSha256": "9cfc3c26cedf027ac6e61619d093c3c432c649964f541c37906740427682770d",
+          "sourceArtifactBytes": 553,
+          "sourceArtifactKind": "frontend"
+        }
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "frontend:synthetic/alternate-query-source.json:synthetic-source-v1",
+      "kind": "frontend",
+      "relativePath": "synthetic/alternate-query-source.json",
+      "digest": "9cfc3c26cedf027ac6e61619d093c3c432c649964f541c37906740427682770d",
+      "byteLength": 553,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

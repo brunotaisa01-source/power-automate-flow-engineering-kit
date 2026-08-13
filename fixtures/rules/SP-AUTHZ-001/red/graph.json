@@ -1,52 +1,97 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "1111111111111111111111111111111111111111111111111111111111111111",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "authorityChecks": [{
-        "commandType": "apply-change",
-        "targetListId": "protected-items",
-        "sequence": { "identityRead": 1, "capabilityRead": 2, "targetRead": 3, "mutation": 4 },
-        "authoritySources": {
-          "actor": "client-claim",
-          "role": "client-claim",
-          "scope": "client-claim",
-          "protectedState": "client-claim",
-          "owner": "client-claim",
-          "amount": "client-claim",
-          "approval": "client-claim"
-        },
-        "capability": {
-          "id": "approve-items",
-          "accessListId": "access-control",
-          "activeField": "Active",
-          "principalField": "PrincipalKey",
-          "capabilityField": "Capability",
-          "source": "client-claim",
-          "activeOnly": false,
-          "matchCardinality": "one",
-          "commandDeclared": true,
-          "stateTransitionDeclared": true
-        },
-        "scope": {
-          "mode": "field-match",
-          "targetField": "ScopeKey",
-          "accessField": "ScopeKey",
-          "targetValueSource": "client-claim",
-          "capabilityValueSource": "client-claim",
-          "evaluation": "exact-match",
-          "checkedBeforeMutation": false
-        },
-        "effectiveOperation": { "operation": "update", "allowed": true }
-      }]
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "1111111111111111111111111111111111111111111111111111111111111111",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "authorityChecks": [
+          {
+            "commandType": "apply-change",
+            "targetListId": "protected-items",
+            "sequence": {
+              "identityRead": 1,
+              "capabilityRead": 2,
+              "targetRead": 3,
+              "mutation": 4
+            },
+            "authoritySources": {
+              "actor": "client-claim",
+              "role": "client-claim",
+              "scope": "client-claim",
+              "protectedState": "client-claim",
+              "owner": "client-claim",
+              "amount": "client-claim",
+              "approval": "client-claim"
+            },
+            "capability": {
+              "id": "approve-items",
+              "accessListId": "access-control",
+              "activeField": "Active",
+              "principalField": "PrincipalKey",
+              "capabilityField": "Capability",
+              "source": "client-claim",
+              "activeOnly": false,
+              "matchCardinality": "one",
+              "commandDeclared": true,
+              "stateTransitionDeclared": true
+            },
+            "scope": {
+              "mode": "field-match",
+              "targetField": "ScopeKey",
+              "accessField": "ScopeKey",
+              "targetValueSource": "client-claim",
+              "capabilityValueSource": "client-claim",
+              "evaluation": "exact-match",
+              "checkedBeforeMutation": false
+            },
+            "effectiveOperation": {
+              "operation": "update",
+              "allowed": true
+            }
+          }
+        ],
+        "binding": {
+          "section": "authorityChecks",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "3463e2b3fd474988cf2fb3b4343c6d40a2e18c7c6a65f4a1e06acc097c7f5fc3",
+          "sourceArtifactBytes": 539,
+          "sourceArtifactKind": "builder"
+        }
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "3463e2b3fd474988cf2fb3b4343c6d40a2e18c7c6a65f4a1e06acc097c7f5fc3",
+      "byteLength": 539,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

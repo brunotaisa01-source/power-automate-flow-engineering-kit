@@ -1,35 +1,88 @@
 {
   "fixtureProfile": "synthetic-wp06-v1",
-  "nodes": [{
-    "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-    "kind": "builder",
-    "relativePath": "artifacts/wp06-evidence.json",
-    "digest": "9090909090909090909090909090909090909090909090909090909090909090",
-    "sourceProfile": "wp06-evidence-v1",
-    "data": {
-      "evidenceProfile": "wp06-offline-v1",
-      "contractRevision": 2,
-      "fieldOperations": [
-        {
-          "listId": "protected-items",
-          "logicalName": "title",
-          "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldText", "fieldTypeKind": 2 },
-          "indexPayload": { "serialization": "structured-json", "metadataType": "SP.Field" }
-        },
-        {
-          "listId": "protected-items",
-          "logicalName": "amount",
-          "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldCurrency", "fieldTypeKind": 10 }
-        },
-        {
-          "listId": "protected-items",
-          "logicalName": "scope-key",
-          "createPayload": { "serialization": "structured-json", "metadataType": "SP.FieldText", "fieldTypeKind": 2 },
-          "indexPayload": { "serialization": "structured-json", "metadataType": "SP.Field" }
+  "nodes": [
+    {
+      "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence.json",
+      "digest": "9090909090909090909090909090909090909090909090909090909090909090",
+      "sourceProfile": "wp06-evidence-v1",
+      "data": {
+        "evidenceProfile": "wp06-offline-v1",
+        "contractRevision": 2,
+        "fieldOperations": [
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "createPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.FieldText",
+              "fieldTypeKind": 2
+            },
+            "indexPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.Field"
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "amount",
+            "createPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.FieldCurrency",
+              "fieldTypeKind": 10
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "scope-key",
+            "createPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.FieldText",
+              "fieldTypeKind": 2
+            },
+            "indexPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.Field"
+            }
+          }
+        ],
+        "binding": {
+          "section": "fieldOperations",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
+          "sourceArtifactSha256": "b5e96df667df523515c0ba90cc9b765dfa4dd6111399ba954d026897ae88a7e4",
+          "sourceArtifactBytes": 542,
+          "sourceArtifactKind": "builder"
         }
-      ]
+      },
+      "projections": {}
     },
-    "projections": {}
-  }],
+    {
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "kind": "builder",
+      "relativePath": "artifacts/wp06-evidence-source.json",
+      "digest": "b5e96df667df523515c0ba90cc9b765dfa4dd6111399ba954d026897ae88a7e4",
+      "byteLength": 542,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
+      },
+      "projections": {}
+    }
+  ],
   "edges": []
 }

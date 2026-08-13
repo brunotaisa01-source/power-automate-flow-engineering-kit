@@ -10,52 +10,58 @@
       "data": {
         "evidenceProfile": "wp06-offline-v1",
         "contractRevision": 2,
-        "paginationTraversals": [{
-          "completeness": "required",
-          "mode": "exhaust-continuation",
-          "continuation": {
-            "urlParsing": "url-api",
-            "sameOrigin": true,
-            "sitePath": true,
-            "visitedLinks": true,
-            "pageLimit": 12,
-            "onLoop": "fail",
-            "onCrossOrigin": "fail",
-            "onSitePathEscape": "fail",
-            "onPageLimit": "fail"
-          },
-          "accumulation": "append-server-order",
-          "termination": "next-link-absent"
-        }]
+        "paginationTraversals": [
+          {
+            "completeness": "required",
+            "mode": "exhaust-continuation",
+            "continuation": {
+              "urlParsing": "url-api",
+              "sameOrigin": true,
+              "sitePath": true,
+              "visitedLinks": true,
+              "pageLimit": 12,
+              "onLoop": "fail",
+              "onCrossOrigin": "fail",
+              "onSitePathEscape": "fail",
+              "onPageLimit": "fail"
+            },
+            "accumulation": "append-server-order",
+            "termination": "next-link-absent"
+          }
+        ],
+        "binding": {
+          "section": "paginationTraversals",
+          "contractArtifactPath": "project.contract.json",
+          "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sourceArtifactPath": "synthetic/export-read-source.json",
+          "sourceArtifactSha256": "ac7d2f21431069f772dea5adf6abc5bc2733f0799e7a2d677ac0db140d7f37da",
+          "sourceArtifactBytes": 559,
+          "sourceArtifactKind": "frontend"
+        }
       },
       "projections": {}
     },
     {
-      "id": "builder:synthetic/schema-read.json:wp06-evidence-v1",
-      "kind": "builder",
-      "relativePath": "synthetic/schema-read.json",
-      "digest": "6666666600000000666666660000000066666666000000006666666600000000",
-      "sourceProfile": "wp06-evidence-v1",
+      "id": "contract:project.contract.json:project-contract-v1",
+      "kind": "contract",
+      "relativePath": "project.contract.json",
+      "digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "byteLength": 2048,
+      "sourceProfile": "project-contract-v1",
       "data": {
-        "evidenceProfile": "wp06-offline-v1",
-        "contractRevision": 2,
-        "paginationTraversals": [{
-          "completeness": "required",
-          "mode": "exhaust-continuation",
-          "continuation": {
-            "urlParsing": "url-api",
-            "sameOrigin": true,
-            "sitePath": true,
-            "visitedLinks": true,
-            "pageLimit": 80,
-            "onLoop": "fail",
-            "onCrossOrigin": "fail",
-            "onSitePathEscape": "fail",
-            "onPageLimit": "fail"
-          },
-          "accumulation": "append-server-order",
-          "termination": "next-link-absent"
-        }]
+        "synthetic": true
+      },
+      "projections": {}
+    },
+    {
+      "id": "frontend:synthetic/export-read-source.json:synthetic-source-v1",
+      "kind": "frontend",
+      "relativePath": "synthetic/export-read-source.json",
+      "digest": "ac7d2f21431069f772dea5adf6abc5bc2733f0799e7a2d677ac0db140d7f37da",
+      "byteLength": 559,
+      "sourceProfile": "synthetic-source-v1",
+      "data": {
+        "synthetic": true
       },
       "projections": {}
     }
