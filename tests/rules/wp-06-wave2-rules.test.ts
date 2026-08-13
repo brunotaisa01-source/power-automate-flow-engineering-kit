@@ -6,7 +6,10 @@ import { describe, test } from "node:test";
 import { Ajv2020 } from "ajv/dist/2020.js";
 
 import type { ProjectContract } from "../../packages/core/src/types/project-contract.ts";
-import { hydrateWp06FixtureGraph } from "../helpers/wp06-fixture-graph.ts";
+import {
+  hydrateWp06FixtureGraph,
+  wp06FixtureAdapterEvidence,
+} from "../helpers/wp06-fixture-graph.ts";
 import {
   ruleRegistry,
   type ArtifactGraphInput,
@@ -427,12 +430,13 @@ function projectContract(): ProjectContract {
 
 function fixtureContext(graph: ArtifactGraphInput): ValidationContext {
   const contract = projectContract();
+  const hydrated = hydrateWp06FixtureGraph(graph, contract);
   return {
     root: ".",
     offline: true,
     contract,
-    graph,
-    adapterEvidence: { packages: [], flows: [] },
+    graph: hydrated,
+    adapterEvidence: wp06FixtureAdapterEvidence(hydrated, contract),
   };
 }
 
@@ -618,12 +622,13 @@ describe("WP-06 Wave 2 rules", () => {
         }
       }
       const contract = projectContract();
+      const hydrated = hydrateWp06FixtureGraph(reordered, contract);
       const context: ValidationContext = {
         root: ".",
         offline: true,
         contract,
-        graph: hydrateWp06FixtureGraph(reordered, contract),
-        adapterEvidence: { packages: [], flows: [] },
+        graph: hydrated,
+        adapterEvidence: wp06FixtureAdapterEvidence(hydrated, contract),
       };
       const lists = context.contract.sharePoint.lists as unknown as Array<{
         fields: unknown[];

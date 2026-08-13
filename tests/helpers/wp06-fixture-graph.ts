@@ -1,13 +1,21 @@
 import { canonicalize } from "../../packages/core/dist/canonical-json.js";
 import { createArtifactNode } from "../../packages/core/dist/artifact-node.js";
 import type { ProjectContract } from "../../packages/core/src/types/project-contract.ts";
+import type {
+  NormalizedFlow,
+  RuleAdapterEvidence,
+  Wp06AdapterDerivation,
+} from "../../packages/core/src/types/rule-input.ts";
 import {
-  WP06_FRONTEND_BUNDLE_PROFILE,
   WP06_FRONTEND_SOURCE_IR_PROFILE,
   WP06_POWER_AUTOMATE_SOURCE_IR_PROFILE,
-  buildWp06ProjectionArtifact,
-  deriveWp06SourceProjection,
 } from "../../packages/core/dist/wp06-source-adapters.js";
+import {
+  WP06_EVIDENCE_PROFILE,
+  WP06_SOURCE_PROJECTION_PROFILE,
+  WP06_TRUSTED_ARTIFACT_PROFILE,
+  WP06_TRUSTED_PROJECTION_PROFILE,
+} from "../../packages/core/dist/types/wp06-evidence.js";
 import type { ArtifactGraphInput } from "../../packages/rules/src/registry.ts";
 
 type EvidenceSection =
@@ -231,21 +239,48 @@ export function hydrateWp06FixtureGraph(
   const section = binding.section as EvidenceSection;
   const kind = evidence.kind as "builder" | "frontend";
   const facts = data[section] as RecordValue[];
-  const sourceData = wp06SourceIrFromFacts(kind, section, facts, contract.project.contractRevision);
+  const flow = contract.flows[0];
+  const sourceData = kind === "frontend"
+    ? { fixtureProfile: "test-only-frontend-adapter-input-v1", section }
+    : {
+        properties: {
+          definition: {
+            triggers: { SyntheticTrigger: { type: "Request", inputs: {} } },
+            actions: { SyntheticAction: { type: "Compose", inputs: "synthetic" } },
+          },
+        },
+      };
   const sourcePath = kind === "frontend"
-    ? `frontend/source-${section}.json`
-    : `flows/synthetic/builder-source-${section}.json`;
+    ? `${contract.frontend.root}/source-${section}.ts`
+    : flow?.definitionPath ?? "flows/synthetic/definition.json";
   const source = createArtifactNode({
-    kind,
+    kind: kind === "frontend" ? "frontend" : "definition",
     relativePath: sourcePath,
-    sourceProfile: kind === "frontend" ? WP06_FRONTEND_SOURCE_IR_PROFILE : WP06_POWER_AUTOMATE_SOURCE_IR_PROFILE,
+    sourceProfile: kind === "frontend" ? "frontend-projection-v1" : "normalized-flow-v1",
     data: sourceData,
     bytes: nodeBytes(sourceData),
   });
-  const projection = buildWp06ProjectionArtifact(source);
-  if (projection === undefined) return graph;
-  const normalized = deriveWp06SourceProjection(sourceData)!;
-  data[section] = normalized.facts;
+  const projectionData = {
+    sourceProjectionProfile: WP06_SOURCE_PROJECTION_PROFILE,
+    projectionRevision: 1,
+    contractRevision: contract.project.contractRevision,
+    sourceKind: kind,
+    section,
+    adapter: {
+      id: kind === "frontend"
+        ? "spflow.frontend-source-v2"
+        : "spflow.power-automate-definition-v2",
+      version: 2,
+    },
+    facts,
+  };
+  const projection = createArtifactNode({
+    kind: "projection",
+    relativePath: `.spflow-derived/test-only/${kind}-${section}-${source.digest}.json`,
+    sourceProfile: WP06_TRUSTED_PROJECTION_PROFILE,
+    data: projectionData,
+    bytes: nodeBytes(projectionData),
+  });
 
   const contractNode = graph.nodes.find((node) => node.kind === "contract" && node.relativePath === "project.contract.json")!;
   binding.contractArtifactPath = contractNode.relativePath;
@@ -262,9 +297,9 @@ export function hydrateWp06FixtureGraph(
   const evidenceNode = createArtifactNode({
     kind,
     relativePath: evidence.relativePath,
-    sourceProfile: "wp06-evidence-v1",
-    data,
-    bytes: nodeBytes(data),
+    sourceProfile: WP06_TRUSTED_ARTIFACT_PROFILE,
+    data: { ...data, evidenceProfile: WP06_EVIDENCE_PROFILE },
+    bytes: nodeBytes({ ...data, evidenceProfile: WP06_EVIDENCE_PROFILE }),
   });
   const nodes: any[] = [evidenceNode, contractNode, projection, source];
   const edges: any[] = [
@@ -276,7 +311,7 @@ export function hydrateWp06FixtureGraph(
 
   if (kind === "frontend") {
     const bundleData = {
-      artifactProfile: WP06_FRONTEND_BUNDLE_PROFILE,
+      artifactProfile: "spflow.frontend-bundle-v1",
       artifactRevision: 1,
       contractRevision: contract.project.contractRevision,
       entrypoint: "index.js",
@@ -286,7 +321,7 @@ export function hydrateWp06FixtureGraph(
     const bundle = createArtifactNode({
       kind: "frontend",
       relativePath: `${contract.frontend.root}/bundle-${section}.json`,
-      sourceProfile: WP06_FRONTEND_BUNDLE_PROFILE,
+      sourceProfile: "spflow.frontend-bundle-v1",
       data: bundleData,
       bytes: nodeBytes(bundleData),
     });
@@ -296,23 +331,8 @@ export function hydrateWp06FixtureGraph(
       { from: contractNode.id, to: bundle.id, relation: "declares" },
     );
   } else {
-    const flow = contract.flows[0]!;
     const packageContract = contract.packages[0]!;
-    const definitionData = {
-      properties: {
-        definition: {
-          triggers: { SyntheticTrigger: { type: "Request", inputs: {} } },
-          actions: { SyntheticAction: { type: "Compose", inputs: "synthetic" } },
-        },
-      },
-    };
-    const definition = createArtifactNode({
-      kind: "definition",
-      relativePath: flow.definitionPath,
-      sourceProfile: "normalized-flow-v1",
-      data: definitionData,
-      bytes: nodeBytes(definitionData),
-    });
+    if (flow === undefined) return graph;
     const zipData = { packageId: packageContract.id, flowIds: [flow.id], inventory: [flow.definitionPath] };
     const zip = createArtifactNode({
       kind: "zip",
@@ -336,14 +356,152 @@ export function hydrateWp06FixtureGraph(
       data: manifestData,
       bytes: nodeBytes(manifestData),
     });
-    nodes.push(definition, zip, manifest);
+    nodes.push(zip, manifest);
     edges.push(
-      { from: source.id, to: definition.id, relation: "generates" },
-      { from: contractNode.id, to: definition.id, relation: "declares" },
-      { from: definition.id, to: zip.id, relation: "packages" },
+      { from: contractNode.id, to: source.id, relation: "declares" },
+      { from: source.id, to: zip.id, relation: "packages" },
       { from: contractNode.id, to: zip.id, relation: "declares" },
       { from: manifest.id, to: zip.id, relation: "hashes" },
     );
   }
   return structuredClone({ nodes, edges });
+}
+
+function fixtureFlow(contract: ProjectContract): NormalizedFlow | undefined {
+  const flow = contract.flows[0];
+  if (flow === undefined) return undefined;
+  return {
+    id: flow.id,
+    trigger: {
+      id: "SyntheticTrigger",
+      type: "Request",
+      expressionPointers: [],
+      expressions: [],
+    },
+    actions: new Map([["SyntheticAction", {
+      id: "SyntheticAction",
+      type: "Compose",
+      containerId: "root",
+      containerIndex: 0,
+      runAfter: [],
+      expressionPointers: [],
+      expressions: [],
+      inputs: "synthetic",
+    }]]),
+    connectionReferences: new Set(flow.connectionReferences),
+    actionCount: 1,
+    declaredDestructive: false,
+  };
+}
+
+/** Test-only adapter output for detector unit fixtures; production never reads this from disk. */
+export function wp06FixtureAdapterEvidence(
+  graph: ArtifactGraphInput,
+  contract: ProjectContract,
+): RuleAdapterEvidence {
+  const derivations: Wp06AdapterDerivation[] = [];
+  for (const evidence of graph.nodes.filter(({ sourceProfile }) =>
+    sourceProfile === WP06_TRUSTED_ARTIFACT_PROFILE
+  )) {
+    const evidenceData = evidence.data as RecordValue;
+    const evidenceBinding = evidenceData.binding as RecordValue | undefined;
+    const section = evidenceBinding?.section as EvidenceSection | undefined;
+    if (section === undefined) continue;
+    const source = graph.nodes.find(({ relativePath, digest, byteLength }) =>
+      relativePath === evidenceBinding.sourceArtifactPath
+      && digest === evidenceBinding.sourceArtifactSha256
+      && byteLength === evidenceBinding.sourceArtifactBytes
+    );
+    const projection = graph.nodes.find(({ relativePath }) =>
+      relativePath === evidenceBinding.projectionArtifactPath
+    );
+    const projectionData = projection?.data as RecordValue | undefined;
+    const adapter = projectionData?.adapter as RecordValue | undefined;
+    if (source === undefined || projection === undefined || !Array.isArray(projectionData?.facts)) continue;
+    derivations.push({
+      adapterId: adapter?.id as Wp06AdapterDerivation["adapterId"],
+      adapterVersion: 2,
+      contractRevision: contract.project.contractRevision,
+      sourceKind: evidence.kind as "builder" | "frontend",
+      section,
+      sourceArtifactPath: source.relativePath,
+      sourceArtifactSha256: source.digest,
+      sourceArtifactBytes: source.byteLength!,
+      facts: structuredClone(projectionData.facts),
+    });
+  }
+
+  const frontendSources = graph.nodes.filter((node) =>
+    node.kind === "frontend"
+    && node.sourceProfile === "frontend-projection-v1"
+    && derivations.some(({ sourceArtifactPath }) => sourceArtifactPath === node.relativePath)
+  );
+  const normalizedFlow = fixtureFlow(contract);
+  const definition = normalizedFlow === undefined
+    ? undefined
+    : graph.nodes.find((node) =>
+        node.kind === "definition"
+        && node.relativePath === contract.flows[0]?.definitionPath
+      );
+  const normalizedSha256 = definition?.digest;
+  const definitions = definition === undefined || normalizedFlow === undefined
+    ? []
+    : [{
+        flowId: normalizedFlow.id,
+        relativePath: definition.relativePath,
+        contract: contract.flows[0]!,
+        bytes: definition.byteLength,
+        sha256: definition.digest,
+        normalizedSha256,
+        flow: normalizedFlow,
+      }];
+  const packages = contract.packages.flatMap((packageContract) => {
+    const zip = graph.nodes.find((node) =>
+      node.kind === "zip" && node.relativePath === packageContract.path
+    );
+    if (zip === undefined || normalizedFlow === undefined) return [];
+    const inventory = [`Workflows/${normalizedFlow.id}.json`];
+    return [{
+      packageId: packageContract.id,
+      relativePath: zip.relativePath,
+      contract: packageContract,
+      bytes: zip.byteLength,
+      sha256: zip.digest,
+      inspection: {
+        profile: "power-platform-solution-v1" as const,
+        valid: true,
+        inventory,
+        expectedInventory: inventory,
+        flows: [normalizedFlow],
+        diagnostics: [],
+      },
+    }];
+  });
+  const flows = normalizedFlow === undefined || normalizedSha256 === undefined
+    ? []
+    : contract.flows.map((flowContract) => ({
+        packageId: flowContract.packageId,
+        packagePath: contract.packages.find(({ id }) => id === flowContract.packageId)?.path ?? "",
+        contract: flowContract,
+        flow: normalizedFlow,
+        normalizedSha256,
+      }));
+
+  return {
+    packages,
+    flows,
+    definitions,
+    frontendBundles: frontendSources.length === 0 ? [] : [{
+      root: contract.frontend.root,
+      entrypoint: frontendSources[0]!.relativePath,
+      files: frontendSources.map((node) => ({
+        relativePath: node.relativePath,
+        bytes: node.byteLength!,
+        sha256: node.digest,
+      })),
+      sourcePaths: frontendSources.map(({ relativePath }) => relativePath),
+      valid: true,
+    }],
+    wp06Derivations: derivations,
+  };
 }

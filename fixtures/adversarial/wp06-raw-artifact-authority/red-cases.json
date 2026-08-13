@@ -1,0 +1,60 @@
+{
+  "missingFrontendEntrypoint": "index.js",
+  "unrelatedDefinition": {
+    "properties": {
+      "definition": {
+        "triggers": {
+          "SyntheticTrigger": {
+            "type": "Request",
+            "inputs": {}
+          }
+        },
+        "actions": {
+          "UnrelatedCompose": {
+            "type": "Compose",
+            "inputs": "synthetic"
+          }
+        }
+      }
+    }
+  },
+  "jsonNamedZip": {
+    "packageId": "synthetic-package",
+    "flowIds": [
+      "synthetic-processor"
+    ],
+    "inventory": [
+      "flows/synthetic/definition.json"
+    ]
+  },
+  "inventedFound": {
+    "status": 200,
+    "phase": "preflight",
+    "requestKind": "initial-get",
+    "allowCreateMissing404": false,
+    "error": {},
+    "responseBody": {
+      "schemaId": "sharepoint-list-item-v1:protected-items",
+      "targetListId": "protected-items",
+      "expectedFields": [
+        "ID",
+        "Title"
+      ],
+      "actual": {
+        "kind": "object",
+        "itemCount": 1,
+        "fields": [
+          {
+            "name": "ID",
+            "valueKind": "number"
+          },
+          {
+            "name": "Title",
+            "valueKind": "string"
+          }
+        ]
+      }
+    },
+    "classification": "FOUND"
+  }
+}

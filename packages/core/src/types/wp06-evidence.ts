@@ -1,6 +1,8 @@
 export const WP06_EVIDENCE_PROFILE = "wp06-offline-v1" as const;
 export const WP06_ARTIFACT_PROFILE = "wp06-evidence-v1" as const;
+export const WP06_TRUSTED_ARTIFACT_PROFILE = "wp06-adapter-evidence-v2" as const;
 export const WP06_SOURCE_PROJECTION_PROFILE = "wp06-source-projection-v1" as const;
+export const WP06_TRUSTED_PROJECTION_PROFILE = "wp06-adapter-projection-v2" as const;
 
 export type Wp06SourceArtifactKind = "builder" | "frontend";
 
@@ -269,8 +271,12 @@ export interface NormalizedWp06EvidenceBinding {
 }
 
 export interface NormalizedWp06SourceAdapter {
-  readonly id: "spflow.frontend-static-v1" | "spflow.power-automate-static-v1";
-  readonly version: 1;
+  readonly id:
+    | "spflow.frontend-static-v1"
+    | "spflow.power-automate-static-v1"
+    | "spflow.frontend-source-v2"
+    | "spflow.power-automate-definition-v2";
+  readonly version: 1 | 2;
 }
 
 export interface NormalizedWp06SourceProjection {
@@ -695,11 +701,15 @@ export function parseNormalizedWp06SourceProjection(
     || (data.sourceKind !== "frontend" && data.sourceKind !== "builder")
     || !isSection(data.section)
     || !exactRecord(data.adapter, ["id", "version"])
-    || data.adapter.version !== 1
-    || data.adapter.id !== (
-      data.sourceKind === "frontend"
-        ? "spflow.frontend-static-v1"
-        : "spflow.power-automate-static-v1"
+    || !(
+      (data.sourceKind === "frontend" && (
+        (data.adapter.id === "spflow.frontend-static-v1" && data.adapter.version === 1)
+        || (data.adapter.id === "spflow.frontend-source-v2" && data.adapter.version === 2)
+      ))
+      || (data.sourceKind === "builder" && (
+        (data.adapter.id === "spflow.power-automate-static-v1" && data.adapter.version === 1)
+        || (data.adapter.id === "spflow.power-automate-definition-v2" && data.adapter.version === 2)
+      ))
     )
     || !isSectionFacts(data.section, data.facts)
   ) return undefined;

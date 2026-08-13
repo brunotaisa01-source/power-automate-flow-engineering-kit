@@ -1,5 +1,6 @@
 import type { Diagnostic } from "./diagnostics.js";
 import type { FlowContract, PackageContract } from "./flow.js";
+import type { Wp06EvidenceSection, Wp06SourceArtifactKind } from "./wp06-evidence.js";
 
 export interface NormalizedReadbackAssertion {
   readonly actionId: string;
@@ -146,9 +147,52 @@ export interface FlowRuleEvidence {
   readonly packagePath: string;
   readonly contract: FlowContract;
   readonly flow: NormalizedFlow;
+  readonly normalizedSha256?: string;
+}
+
+export interface DefinitionRuleEvidence {
+  readonly flowId: string;
+  readonly relativePath: string;
+  readonly contract: FlowContract;
+  readonly bytes?: number;
+  readonly sha256?: string;
+  readonly normalizedSha256?: string;
+  readonly flow?: NormalizedFlow;
+  readonly failure?: "invalid" | "missing";
+}
+
+export interface FrontendFileRuleEvidence {
+  readonly relativePath: string;
+  readonly bytes: number;
+  readonly sha256: string;
+}
+
+export interface FrontendBundleRuleEvidence {
+  readonly root: string;
+  readonly manifestPath?: string;
+  readonly entrypoint?: string;
+  readonly files: readonly FrontendFileRuleEvidence[];
+  readonly sourcePaths: readonly string[];
+  readonly valid: boolean;
+  readonly failure?: "invalid" | "missing" | "unsupported";
+}
+
+export interface Wp06AdapterDerivation {
+  readonly adapterId: "spflow.frontend-source-v2" | "spflow.power-automate-definition-v2";
+  readonly adapterVersion: 2;
+  readonly contractRevision: number;
+  readonly sourceKind: Wp06SourceArtifactKind;
+  readonly section: Wp06EvidenceSection;
+  readonly sourceArtifactPath: string;
+  readonly sourceArtifactSha256: string;
+  readonly sourceArtifactBytes: number;
+  readonly facts: readonly unknown[];
 }
 
 export interface RuleAdapterEvidence {
   readonly packages: readonly PackageRuleEvidence[];
   readonly flows: readonly FlowRuleEvidence[];
+  readonly definitions?: readonly DefinitionRuleEvidence[];
+  readonly frontendBundles?: readonly FrontendBundleRuleEvidence[];
+  readonly wp06Derivations?: readonly Wp06AdapterDerivation[];
 }

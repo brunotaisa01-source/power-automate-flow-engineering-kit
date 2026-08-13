@@ -6,7 +6,7 @@
   "severity": "error",
   "description": "OData request accepts raw fragments or lacks structured escaping and encoding.",
   "rationale": "Allowlisted fields and escaped literals must be encoded by a structured URL API.",
-  "appliesTo": [{ "kind": "frontend", "profile": "wp06-evidence-v1" }],
+  "appliesTo": [{ "kind": "frontend", "profile": "wp06-adapter-evidence-v2" }],
   "detector": {
     "implementation": "packages/rules/src/sharepoint/odata.ts",
     "exportName": "spOdata001",

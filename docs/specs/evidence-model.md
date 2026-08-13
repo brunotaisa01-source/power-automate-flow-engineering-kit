@@ -119,24 +119,30 @@ interface Wp06EvidenceBinding {
 }
 ```
 
-The bound source is a strict source IR artifact. It is structurally different
-from both the normalized evidence and the derived projection:
+The bound source is an actual repository artifact parsed by
+`@spflow/package-adapters`: an exact frontend source file or the exact declared
+Power Automate definition. It is structurally different from both normalized
+evidence and the derived projection. Adapter output records the source identity:
 
 ```ts
-interface Wp06SourceIr {
-  sourceIrProfile:
-    | "spflow.frontend-source-ir-v1"
-    | "spflow.power-automate-source-ir-v1";
-  sourceRevision: 1;
+interface Wp06AdapterDerivation {
+  adapterId:
+    | "spflow.frontend-source-v2"
+    | "spflow.power-automate-definition-v2";
+  adapterVersion: 2;
   contractRevision: number;
+  sourceKind: "frontend" | "builder";
   section: Wp06EvidenceSection;
-  model: FrontendOrPowerAutomateStructure;
+  sourceArtifactPath: string;
+  sourceArtifactSha256: string;
+  sourceArtifactBytes: number;
+  facts: readonly unknown[];
 }
 ```
 
-Adapter identity is not accepted from this input. Executable code selects the
-adapter from the exact source IR profile and section. It produces a virtual,
-canonical-byte projection node:
+Adapter identity is emitted by executable code and is never selected by a
+repository JSON field. Successful parsing produces a virtual canonical-byte
+projection node:
 
 ```ts
 interface Wp06SourceProjection {
@@ -146,8 +152,8 @@ interface Wp06SourceProjection {
   sourceKind: "frontend" | "builder";
   section: Wp06EvidenceSection;
   adapter: {
-    id: "spflow.frontend-static-v1" | "spflow.power-automate-static-v1";
-    version: 1;
+    id: "spflow.frontend-source-v2" | "spflow.power-automate-definition-v2";
+    version: 2;
   };
   facts: readonly unknown[];
 }
@@ -158,9 +164,10 @@ The validator requires all of the following:
 - the envelope contains exactly one populated section and `binding.section` names it;
 - the evidence path differs from `sourceArtifactPath` to prevent circular self-binding;
 - exactly one `project-contract-v1` graph node matches contract path, SHA-256, and byte length;
-- exactly one strict source IR node matches source path, kind, profile, SHA-256, and byte length;
-- exactly one `wp06-derived-projection-v1` node matches projection path, SHA-256, and byte length;
-- the validator re-runs the code-selected adapter and requires canonical equality with the projection node;
+- exactly one parsed raw source node matches source path, kind, profile, SHA-256, and byte length;
+- exactly one `wp06-adapter-projection-v2` node matches projection path, SHA-256, and byte length;
+- exactly one adapter derivation exists for the source kind and section; ambiguous accepted sources fail closed;
+- the validator requires canonical equality between adapter output, projection, and evidence;
 - the projection has one `derives-from` edge to the raw source;
 - the evidence has one `derives-from` edge to the raw source, one `matches-projection` edge to the projection, and one `verifies-contract` edge to the contract;
 - both the evidence node and bound source kind match the rule catalog's `frontend` or `builder` applicability;
@@ -168,15 +175,20 @@ The validator requires all of the following:
 - canonical projected facts equal the selected normalized evidence section;
 - stale revisions, duplicate section artifacts, undeclared values, duplicate semantic items, unknown envelope keys, unknown binding keys, unknown section keys, and unknown nested keys fail closed.
 
-The current executable adapters parse the public JSON source IR defined in
-`docs/specs/wp06-source-ir.md`. They do not yet parse arbitrary JavaScript,
-TypeScript, exported Power Automate WDL, or solution ZIP bytes into that IR.
-Such parsers must emit this IR before WP-06 evidence can pass. A hand-authored
-projection or evidence envelope cannot independently authorize PASS. Final
-artifact inspection is a separate gate: a required ZIP must expose a strict
-synthetic package projection or match exact safe-adapter inspection evidence,
-and its manifest must bind the ZIP path, SHA-256, and byte length. Mutation
-controls and external tenant gates remain separate requirements.
+The frontend adapter parses supported JavaScript and TypeScript syntax from an
+exact, complete `spflow.frontend-bundle-v2` inventory. The definition adapter
+uses the existing flow normalizer over the declared exported definition. A
+required ZIP is read as bytes and inspected by the safe solution adapter; JSON
+content under a `.zip` path is not a package projection. Direct-definition and
+ZIP-normalized flows must agree when ZIP evidence is required, and the manifest
+must bind the real ZIP path, SHA-256, and byte length.
+
+Legacy source IR fixtures remain useful for parser demonstrations but are
+non-authoritative. Static flow parsing does not claim observed HTTP response
+values. In particular, caller-provided response bodies cannot authorize
+`FOUND`; body semantics remain an open `LIVE_SMOKE` gate until a separately
+authenticated runtime evidence adapter is implemented. Mutation controls and
+external tenant gates remain separate requirements.
 
 ## 5. Claim Support Matrix
 

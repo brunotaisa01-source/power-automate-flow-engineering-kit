@@ -25,6 +25,7 @@ import type {
 } from "../../packages/rules/src/registry.ts";
 import {
   hydrateWp06FixtureGraph,
+  wp06FixtureAdapterEvidence,
   wp06SourceIrFromFacts,
 } from "../helpers/wp06-fixture-graph.ts";
 
@@ -703,7 +704,7 @@ async function runCli(args: readonly string[]): Promise<CliResult> {
 }
 
 describe("WP-06 built CLI", () => {
-  test("frontend Wave-2 rules use split bound evidence and reject a structural mutation", async () => {
+  test("frontend caller-authored source IR and copied evidence fail closed", async () => {
     const root = await mkdtemp(join(tmpdir(), "spflow-wp06-"));
     const contract = projectContract(FRONTEND_RULE_IDS);
     try {
@@ -769,11 +770,13 @@ describe("WP-06 built CLI", () => {
       };
       await writeBundle();
 
-      const green = await runCli(["validate", "rules", "--root", root, "--format", "json"]);
-      assert.equal(green.exitCode, 0, green.stdout);
-      assert.equal(green.report.result, "PASS", green.stdout);
-      assert.equal(green.report.summary.notRun, 0, green.stdout);
-      assert.deepEqual(green.report.diagnostics, []);
+      const copied = await runCli(["validate", "rules", "--root", root, "--format", "json"]);
+      assert.equal(copied.exitCode, 1, copied.stdout);
+      assert.equal(copied.report.result, "FAIL", copied.stdout);
+      assert.deepEqual(
+        copied.report.diagnostics.map(({ code }) => code),
+        ["APP-PAGINATION-001", "APP-SAVE-001", "SP-ODATA-001"],
+      );
 
       const mutated = structuredClone(evidenceBySection.get("saveTransactions")!);
       mutated.saveTransactions![0]!.trigger = "implicit-save";
@@ -815,9 +818,12 @@ describe("WP-06 built CLI", () => {
       const red = await runCli(["validate", "rules", "--root", root, "--format", "json"]);
 
       assert.equal(red.exitCode, 1, red.stdout);
-      assert.deepEqual(red.report.diagnostics.map(({ code }) => code), ["APP-SAVE-001"]);
+      assert.deepEqual(
+        red.report.diagnostics.map(({ code }) => code),
+        ["APP-PAGINATION-001", "APP-SAVE-001", "SP-ODATA-001"],
+      );
       assert.equal(red.stdout.includes("implicit-save"), false);
-      assert.equal(`${green.stderr}${red.stderr}`, "");
+      assert.equal(`${copied.stderr}${red.stderr}`, "");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -889,7 +895,7 @@ describe("WP-06 built CLI", () => {
       offline: true,
       contract,
       graph,
-      adapterEvidence: { packages: [], flows: [] },
+      adapterEvidence: wp06FixtureAdapterEvidence(graph, contract),
     };
 
     assert.deepEqual(await validateBuiltRules(context, RULE_IDS), []);

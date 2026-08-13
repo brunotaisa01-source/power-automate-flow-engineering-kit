@@ -1,7 +1,6 @@
 import { createArtifactNode, type ArtifactNode, type ArtifactProjections } from "../artifact-node.js";
 import type { FrontendContract } from "../types/project-contract.js";
 import { isRecord, mergeProjections, nodeInput, projectionEnvelope, type ArtifactSource } from "./common.js";
-import { normalizeWp06ArtifactSource } from "./wp06-evidence.js";
 
 export function frontendProjections(frontend: FrontendContract): ArtifactProjections {
   return {
@@ -12,16 +11,15 @@ export function frontendProjections(frontend: FrontendContract): ArtifactProject
 }
 
 export function buildFrontendArtifact(source: ArtifactSource): ArtifactNode {
-  const normalized = normalizeWp06ArtifactSource(source);
-  const derived = isRecord(normalized.data)
-    && isRecord(normalized.data.directPatch)
-    && typeof normalized.data.directPatch.enabled === "boolean"
-    && typeof normalized.data.protectedWriteModel === "string"
-      ? frontendProjections(normalized.data as unknown as FrontendContract)
+  const derived = isRecord(source.data)
+    && isRecord(source.data.directPatch)
+    && typeof source.data.directPatch.enabled === "boolean"
+    && typeof source.data.protectedWriteModel === "string"
+      ? frontendProjections(source.data as unknown as FrontendContract)
       : {};
   return createArtifactNode({
     kind: "frontend",
-    ...nodeInput(normalized, "frontend-projection-v1"),
-    projections: mergeProjections(derived, projectionEnvelope(normalized.data)),
+    ...nodeInput(source, "frontend-projection-v1"),
+    projections: mergeProjections(derived, projectionEnvelope(source.data)),
   });
 }

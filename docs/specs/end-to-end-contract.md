@@ -172,9 +172,10 @@ Rules:
 
 - HTTP status evidence is an integer from 100 through 599.
 - HTTP 200-299 is `FOUND` only when the request kind expects an object or list
-  and the executable adapter projects an actual parsed body. The projection
-  identifies the target list schema, expected field names, body shape, item
-  count, and the observed primitive type of every field.
+  and a trusted adapter projects an actual parsed body with provenance from an
+  authenticated runtime response artifact. Current offline static adapters do
+  not establish observed body values, so they fail closed and retain the
+  `LIVE_SMOKE` gate.
 - The schema ID must be `sharepoint-list-item-v1:<list-id>`, expected fields
   must exactly match the projected body fields, and every field must be on the
   contract read allowlist with a compatible contract type.
@@ -188,12 +189,14 @@ Rules:
 
 WP-06 rules with catalog `finalArtifact.required: true` also require a graph
 artifact connected to the same bound source and contract. Frontend rules use a
-strict frontend bundle manifest. Builder rules use a declared generated
+strict `spflow.frontend-bundle-v2` manifest whose entrypoint and complete file
+inventory exist with exact paths, byte lengths, and SHA-256 values. Builder rules use a declared generated
 definition, and rules that list `zip` additionally require the declared ZIP,
 package flow relationship, and manifest-to-ZIP edge. The package content must
-either parse as the strict synthetic package IR or match exact path, SHA-256,
-byte length, flow inventory, and definition inventory from the safe solution
-adapter. The manifest must bind the same ZIP path, SHA-256, and byte length.
+be read as real ZIP bytes and match exact path, SHA-256, byte length, flow
+inventory, and definition inventory from the safe solution adapter. JSON under
+a `.zip` path is invalid. The manifest must bind the same ZIP path, SHA-256,
+and byte length.
 Applicability and final artifact readiness are evaluated separately.
 
 The missing-column classifier MUST have positive and negative fixtures, including unrelated 400 responses.

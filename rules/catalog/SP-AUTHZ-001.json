@@ -6,7 +6,7 @@
   "severity": "error",
   "description": "Protected mutation is not preceded by server identity and active capability re-read.",
   "rationale": "Client actor and protected business values cannot authorize a server mutation.",
-  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-adapter-evidence-v2" }],
   "detector": {
     "implementation": "packages/rules/src/sharepoint/authorization.ts",
     "exportName": "spAuthz001",

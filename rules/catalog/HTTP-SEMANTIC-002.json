@@ -6,7 +6,7 @@
   "severity": "error",
   "description": "HTTP 404 classification is not restricted to the declared initial Preflight GET.",
   "rationale": "Permissive Preflight absence handling must never leak into Apply or Readback.",
-  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-adapter-evidence-v2" }],
   "detector": {
     "implementation": "packages/rules/src/http/semantic.ts",
     "exportName": "httpSemantic002",

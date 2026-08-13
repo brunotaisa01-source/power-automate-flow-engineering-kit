@@ -6,7 +6,7 @@
   "severity": "error",
   "description": "Index remediation is not a bounded serial remove-before-add plan with fresh digest evidence.",
   "rationale": "Index budget remediation must remove deterministically before any addition and bind approval to current state.",
-  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-adapter-evidence-v2" }],
   "detector": {
     "implementation": "packages/rules/src/sharepoint/indexes.ts",
     "exportName": "spIndex001",

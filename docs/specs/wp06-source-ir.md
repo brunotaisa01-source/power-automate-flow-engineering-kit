@@ -1,84 +1,121 @@
-# WP-06 Source IR
+# WP-06 Trusted Source Adapters
 
 ## Purpose
 
-WP-06 rules do not trust hand-authored normalized evidence. They consume a
-strict JSON source intermediate representation, run a code-selected adapter,
-and compare the deterministic projection with exactly bound evidence.
+WP-06 rules do not trust repository-authored normalized evidence, source IR,
+projection JSON, adapter names, or evidence bindings. Production authority
+starts only when `@spflow/package-adapters` parses an actual raw artifact in
+the same repository graph and emits an exact adapter derivation.
 
-This IR is the boundary between future parsers and the rule engine. A parser
-for frontend source, exported Power Automate definitions, or package contents
-must build this IR from the inspected artifact. Supplying an allowed adapter
-name inside input JSON has no authority.
+The legacy profiles `spflow.frontend-source-ir-v1` and
+`spflow.power-automate-source-ir-v1` remain non-authoritative fixtures for
+demonstrating normalization behavior. They cannot create trusted graph nodes or
+authorize a CLI PASS.
 
-## Profiles
+## Adapter Profiles
 
-- `spflow.frontend-source-ir-v1`: Save transactions, guarded pagination, and OData request construction.
-- `spflow.power-automate-source-ir-v1`: Authority order, ACL plans/readbacks, schema operations, HTTP outcomes, and index transactions.
+- `spflow.frontend-source-v2`: parses supported JavaScript or TypeScript from a verified frontend inventory.
+- `spflow.power-automate-definition-v2`: normalizes the exact declared exported flow definition and derives only structurally supported facts.
 
-Every document has exact keys:
+Adapter IDs and versions are emitted by executable code. No repository field
+can select an adapter or upgrade an ordinary artifact to trusted evidence.
 
-```json
-{
-  "sourceIrProfile": "spflow.frontend-source-ir-v1",
-  "sourceRevision": 1,
-  "contractRevision": 2,
-  "section": "saveTransactions",
-  "model": {}
+Each successful derivation binds:
+
+```ts
+interface Wp06AdapterDerivation {
+  adapterId:
+    | "spflow.frontend-source-v2"
+    | "spflow.power-automate-definition-v2";
+  adapterVersion: 2;
+  contractRevision: number;
+  sourceKind: "frontend" | "builder";
+  section: Wp06EvidenceSection;
+  sourceArtifactPath: string;
+  sourceArtifactSha256: string;
+  sourceArtifactBytes: number;
+  facts: readonly unknown[];
 }
 ```
 
-The `model` schema is section-specific. Unknown keys, duplicate semantic
-records, invalid types, and a section that does not belong to the selected
-profile fail closed. The adapter derives normalized field names and values;
-the source model is not a renamed `facts` array.
+## Trusted Graph Lineage
 
-## Graph Lineage
-
-For each accepted source IR artifact, the core graph builder creates a virtual
-`projection` node from canonical JSON bytes. The required lineage is:
+Core repository discovery creates ordinary raw nodes only. After successful
+adapter inspection, the CLI adds immutable derived nodes and these exact edges:
 
 ```text
-derived projection --derives-from--> raw source IR
-evidence ----------derives-from----> raw source IR
-evidence ----------matches-projection--> derived projection
-evidence ----------verifies-contract---> project contract
+adapter projection --derives-from------> parsed raw source
+adapter evidence ---derives-from-------> parsed raw source
+adapter evidence ---matches-projection-> adapter projection
+adapter evidence ---verifies-contract--> project contract
 ```
 
-All source, projection, and contract paths, profiles, kinds, SHA-256 digests,
-and byte lengths must match. Rule validation re-runs the adapter over the raw
-source IR and compares the result with both projection and evidence.
+The trusted profiles are `wp06-adapter-projection-v2` and
+`wp06-adapter-evidence-v2`. Paths, kinds, profiles, SHA-256 values, and byte
+lengths must agree. Exactly one adapter derivation may exist for a source kind
+and section; multiple parser-accepted sources are ambiguous and fail closed.
+Edges named in caller-authored metadata are never created as trust edges.
 
-## Frontend Bundle
+## Frontend Inventory
 
-`spflow.frontend-bundle-v1` is a strict final-artifact manifest containing a
-contract revision, entrypoint, exact file inventory, and exact source
-path/SHA-256/byte bindings. A required frontend final artifact passes only when
-the graph connects the same bound source and contract to this bundle.
+The frontend root must contain exactly one strict
+`spflow.frontend-bundle-v2` manifest. It declares:
 
-## Builder Final Artifacts
+```json
+{
+  "artifactProfile": "spflow.frontend-bundle-v2",
+  "artifactRevision": 2,
+  "contractRevision": 2,
+  "entrypoint": "index.js",
+  "files": [
+    { "path": "index.js", "sha256": "<64 lowercase hex>", "bytes": 512 }
+  ],
+  "sources": ["index.js"]
+}
+```
 
-A required generated definition must be declared by the project contract,
-generated from the bound builder source, and contain non-empty trigger and
-action structures. A required package is accepted through one of two explicit
-paths:
+Validation enumerates the real directory. The manifest itself is excluded from
+the deployable inventory. Every other regular file must appear exactly once,
+with the exact relative path, positive byte length, and SHA-256. The entrypoint
+must exist, every source must be an inventory member, and missing, extra,
+duplicated, escaping, or mismatched entries fail closed.
 
-- the public synthetic package IR has exact `packageId`, unique `flowIds`, and
-  unique `inventory` values that cover every contracted flow definition; or
-- the safe solution adapter inspected the exact ZIP path, SHA-256, and byte
-  length and returned a valid flow inventory matching the package contract.
+Only exact source files from a valid inventory are parsed. Supported source
+structure currently covers explicit conflict-safe Save, guarded continuation
+pagination, and structured OData URL construction. Unsupported source produces
+no derivation.
 
-In both cases, the definition-to-ZIP package edge and contract-to-ZIP declaration
-edge are required. The matching manifest must identify the exact ZIP path,
-SHA-256, and byte length. A connected node with arbitrary JSON does not satisfy
-the final-artifact requirement.
+## Definition And Package Authority
 
-## Current Boundary
+Every declared definition is read from its exact repository-relative path,
+parsed as JSON, and passed to the existing flow normalizer. A minimal or
+unrelated definition does not produce WP-06 derivations. Structural action
+roles are checked together with normalized connector type, HTTP method, action
+order, successful `runAfter` lineage, and required contract tokens; a role
+label or JSON enumeration order alone is insufficient.
 
-The repository currently provides executable IR-to-evidence adapters. It does
-not claim arbitrary JavaScript, TypeScript, Power Automate WDL, or native ZIP
-parsing into WP-06 semantic source IR. Existing package adapters continue to
-inspect supported solution artifacts and can supply exact package evidence to
-the WP-06 final-artifact gate. Adding a real-source
-parser requires new RED fixtures proving that source changes alter the emitted
-IR and downstream rule result.
+A required ZIP is always read as bytes and opened by the safe solution adapter.
+The adapter validates archive safety, XML, inventory, workflow JSON, and
+normalized actions. JSON text under a `.zip` filename is invalid. Where ZIP is
+required, the directly normalized definition and safely inspected packaged flow
+must have the same normalized digest. The package manifest binds the real ZIP
+path, byte length, and SHA-256.
+
+## HTTP Response Boundary
+
+Static definition parsing can prove response-handling structure and selected
+400/404 classification branches. It cannot prove a response value observed in
+a tenant. A body object in source IR, projection JSON, or evidence JSON cannot
+authorize `FOUND`, even when it looks schema-valid.
+
+`FOUND` requires a future separately authenticated runtime evidence record
+bound to an actual response artifact, expected contract schema, target binding,
+and change window. Until that adapter exists, offline validation fails closed
+for `FOUND` and retains the residual `LIVE_SMOKE` gate.
+
+## Claim Boundary
+
+Adapter-derived GREEN is local evidence only. It does not establish tenant
+discovery, import, connection rebinding, enablement, execution, mutation,
+semantic readback, effective permissions, or publication. Those gates require
+separate authenticated evidence and remain `NOT_RUN` during offline validation.

@@ -6,7 +6,7 @@
   "severity": "error",
   "description": "Direct patch does not satisfy the explicit Save and conflict-safe transaction contract.",
   "rationale": "A direct-patch exception must remain allowlisted, concurrency-safe, and GET-reconciled.",
-  "appliesTo": [{ "kind": "frontend", "profile": "wp06-evidence-v1" }],
+  "appliesTo": [{ "kind": "frontend", "profile": "wp06-adapter-evidence-v2" }],
   "detector": {
     "implementation": "packages/rules/src/application/save.ts",
     "exportName": "appSave001",

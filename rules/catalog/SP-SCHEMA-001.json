@@ -6,7 +6,7 @@
   "severity": "error",
   "description": "SharePoint field use is not bound to a confirmed internal name and EntityPropertyName.",
   "rationale": "Display names are presentation only and cannot bind REST, view, filter, index, or patch operations.",
-  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-adapter-evidence-v2" }],
   "detector": {
     "implementation": "packages/rules/src/sharepoint/schema.ts",
     "exportName": "spSchema001",

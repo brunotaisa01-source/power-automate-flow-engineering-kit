@@ -4,7 +4,11 @@ import { resolve } from "node:path";
 import { describe, test } from "node:test";
 
 import type { ProjectContract } from "../../packages/core/src/types/project-contract.ts";
-import { hydrateWp06FixtureGraph } from "../helpers/wp06-fixture-graph.ts";
+import {
+  hydrateWp06FixtureGraph,
+  wp06FixtureAdapterEvidence,
+  wp06SourceIrFromFacts,
+} from "../helpers/wp06-fixture-graph.ts";
 import {
   ruleRegistry,
   type ArtifactGraphInput,
@@ -23,6 +27,10 @@ const HARDENING_CASES_PATH = resolve(
 const EXECUTABLE_ADAPTER_CASES_PATH = resolve(
   ROOT,
   "fixtures/adversarial/wp06-executable-adapters/red-cases.json",
+);
+const RAW_ARTIFACT_AUTHORITY_CASES_PATH = resolve(
+  ROOT,
+  "fixtures/adversarial/wp06-raw-artifact-authority/red-cases.json",
 );
 
 type ExpectedKind = "builder" | "frontend";
@@ -435,7 +443,10 @@ function addProjectionAndRelations(
   expectedKind: ExpectedKind,
 ): void {
   assert.equal((graph.nodes[0]!.data as { binding: { section: string } }).binding.section, section);
-  assert.equal((graph.nodes[3]!.kind as string), expectedKind);
+  assert.equal(
+    graph.nodes[3]!.kind,
+    expectedKind === "builder" ? "definition" : "frontend",
+  );
 }
 
 function projectionFacts(
@@ -446,19 +457,24 @@ function projectionFacts(
 
 function context(
   graph: ArtifactGraphInput,
-  adapterEvidence: ValidationContext["adapterEvidence"] = { packages: [], flows: [] },
+  adapterEvidence?: ValidationContext["adapterEvidence"],
 ): ValidationContext {
+  const contract = fixtureContract();
   return {
     root: ".",
     offline: true,
-    contract: fixtureContract(),
+    contract,
     graph,
-    adapterEvidence,
+    adapterEvidence: adapterEvidence ?? wp06FixtureAdapterEvidence(graph, contract),
   };
 }
 
-async function expectFailure(ruleId: string, graph: ArtifactGraphInput): Promise<void> {
-  const diagnostics = await ruleRegistry.get(ruleId)!.validate(context(graph));
+async function expectFailure(
+  ruleId: string,
+  graph: ArtifactGraphInput,
+  adapterEvidence?: ValidationContext["adapterEvidence"],
+): Promise<void> {
+  const diagnostics = await ruleRegistry.get(ruleId)!.validate(context(graph, adapterEvidence));
   assert.equal(diagnostics.at(0)?.code, ruleId);
 }
 
@@ -795,8 +811,8 @@ describe("WP-06 remediation adversarial cases", () => {
     }
   });
 
-  test("HTTP FOUND accepts only a strict parsed object body", async () => {
-    let graph = await fixture("HTTP-SEMANTIC-001", "builder", "httpClassifications");
+  test("HTTP FOUND rejects a strict-looking body without runtime or definition provenance", async () => {
+    const graph = await fixture("HTTP-SEMANTIC-001", "builder", "httpClassifications");
     (graph.nodes[0]!.data as { httpClassifications: unknown[] }).httpClassifications = [{
       status: 200,
       phase: "preflight",
@@ -806,18 +822,6 @@ describe("WP-06 remediation adversarial cases", () => {
       responseBody: { bodyKind: "sharepoint-object", parsed: true, schemaValid: true },
       classification: "FOUND",
     }];
-    graph = hydrateWp06FixtureGraph(graph, fixtureContract()) as typeof graph;
-    assert.deepEqual(
-      await ruleRegistry.get("HTTP-SEMANTIC-001")!.validate(context(graph)),
-      [],
-    );
-
-    const found = (graph.nodes[0]!.data as {
-      httpClassifications: Array<{ responseBody: Record<string, unknown> }>;
-    }).httpClassifications[0]!;
-    (found.responseBody as Record<string, unknown>).untrustedClaim = true;
-    (graph.nodes[2]!.data as { facts: Array<{ responseBody: Record<string, unknown> }> })
-      .facts[0]!.responseBody.untrustedClaim = true;
     await expectFailure("HTTP-SEMANTIC-001", graph);
   });
 
@@ -891,34 +895,21 @@ describe("WP-06 remediation adversarial cases", () => {
       const graph = await fixture("SP-AUTHZ-001", "builder", "authorityChecks");
       const artifact = graph.nodes.find((node) => node.kind === kind)!;
       artifact.data = mutate(structuredClone(artifact.data));
-      const diagnostics = await ruleRegistry.get("SP-AUTHZ-001")!.validate(context(graph));
+      const trusted = wp06FixtureAdapterEvidence(graph, fixtureContract());
+      const adapterEvidence = kind === "zip"
+        ? { ...trusted, packages: [] }
+        : trusted;
+      const diagnostics = await ruleRegistry.get("SP-AUTHZ-001")!.validate(
+        context(graph, adapterEvidence),
+      );
       if (diagnostics.at(0)?.code !== "SP-AUTHZ-001") accepted.push(label);
     }
     assert.deepEqual(accepted, []);
   });
 
-  test("exact safe-adapter package inspection satisfies the ZIP content gate", async () => {
+  test("exact trusted-adapter package evidence satisfies the detector ZIP gate", async () => {
     const graph = await fixture("SP-AUTHZ-001", "builder", "authorityChecks");
-    const zip = graph.nodes.find((node) => node.kind === "zip")!;
-    zip.data = { bytes: zip.byteLength };
-    const diagnostics = await ruleRegistry.get("SP-AUTHZ-001")!.validate(context(graph, {
-      packages: [{
-        packageId: "synthetic-package",
-        relativePath: zip.relativePath,
-        bytes: zip.byteLength,
-        sha256: zip.digest,
-        contract: fixtureContract().packages[0]!,
-        inspection: {
-          profile: "power-platform-solution-v1",
-          valid: true,
-          inventory: ["Workflows/synthetic-processor.json"],
-          expectedInventory: ["Workflows/synthetic-processor.json"],
-          flows: [{ id: "synthetic-processor" }] as any,
-          diagnostics: [],
-        },
-      }],
-      flows: [],
-    }));
+    const diagnostics = await ruleRegistry.get("SP-AUTHZ-001")!.validate(context(graph));
     assert.deepEqual(diagnostics, []);
   });
 
@@ -985,5 +976,78 @@ describe("WP-06 remediation adversarial cases", () => {
       graph = hydrateWp06FixtureGraph(graph, fixtureContract()) as typeof graph;
       await expectFailure("HTTP-SEMANTIC-001", graph);
     }
+  });
+
+  test("repository-authored source IR cannot authorize APP-SAVE-001", async () => {
+    const graph = await fixture("APP-SAVE-001", "frontend", "saveTransactions");
+    const source = graph.nodes.find(({ sourceProfile }) => sourceProfile === "frontend-projection-v1");
+    assert.notEqual(source, undefined);
+    source!.sourceProfile = "spflow.frontend-source-ir-v1";
+    source!.data = wp06SourceIrFromFacts(
+      "frontend",
+      "saveTransactions",
+      (graph.nodes[0]!.data as { saveTransactions: Record<string, unknown>[] }).saveTransactions,
+    );
+
+    await expectFailure("APP-SAVE-001", graph);
+  });
+
+  test("frontend bundle metadata cannot authorize missing entrypoint or inventory files", async () => {
+    const cases = await readJson<{ missingFrontendEntrypoint: string }>(
+      RAW_ARTIFACT_AUTHORITY_CASES_PATH,
+    );
+    const graph = await fixture("APP-SAVE-001", "frontend", "saveTransactions");
+    const bundle = graph.nodes.find(({ sourceProfile }) =>
+      sourceProfile === "spflow.frontend-bundle-v1"
+    );
+    assert.notEqual(bundle, undefined);
+    assert.equal(
+      graph.nodes.some(({ relativePath }) =>
+        relativePath === `frontend/${cases.missingFrontendEntrypoint}`
+      ),
+      false,
+    );
+
+    const trusted = wp06FixtureAdapterEvidence(graph, fixtureContract());
+    await expectFailure("APP-SAVE-001", graph, { ...trusted, frontendBundles: [] });
+  });
+
+  test("an unrelated minimal definition cannot satisfy a builder final-artifact gate", async () => {
+    const cases = await readJson<{ unrelatedDefinition: Record<string, unknown> }>(
+      RAW_ARTIFACT_AUTHORITY_CASES_PATH,
+    );
+    const graph = await fixture("SP-AUTHZ-001", "builder", "authorityChecks");
+    const definition = graph.nodes.find(({ kind }) => kind === "definition");
+    assert.notEqual(definition, undefined);
+    definition!.data = structuredClone(cases.unrelatedDefinition);
+
+    const trusted = wp06FixtureAdapterEvidence(graph, fixtureContract());
+    await expectFailure("SP-AUTHZ-001", graph, { ...trusted, definitions: [] });
+  });
+
+  test("JSON content under a zip path cannot satisfy a required ZIP gate", async () => {
+    const cases = await readJson<{ jsonNamedZip: Record<string, unknown> }>(
+      RAW_ARTIFACT_AUTHORITY_CASES_PATH,
+    );
+    const graph = await fixture("SP-AUTHZ-001", "builder", "authorityChecks");
+    const zip = graph.nodes.find(({ kind }) => kind === "zip");
+    assert.notEqual(zip, undefined);
+    zip!.data = structuredClone(cases.jsonNamedZip);
+
+    const trusted = wp06FixtureAdapterEvidence(graph, fixtureContract());
+    await expectFailure("SP-AUTHZ-001", graph, { ...trusted, packages: [] });
+  });
+
+  test("an invented HTTP body in source IR cannot authorize FOUND", async () => {
+    const cases = await readJson<{ inventedFound: Record<string, unknown> }>(
+      RAW_ARTIFACT_AUTHORITY_CASES_PATH,
+    );
+    let graph = await fixture("HTTP-SEMANTIC-001", "builder", "httpClassifications");
+    (graph.nodes[0]!.data as { httpClassifications: unknown[] }).httpClassifications = [
+      structuredClone(cases.inventedFound),
+    ];
+    graph = hydrateWp06FixtureGraph(graph, fixtureContract()) as typeof graph;
+
+    await expectFailure("HTTP-SEMANTIC-001", graph);
   });
 });

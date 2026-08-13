@@ -41,7 +41,7 @@ const validEvidence = {
 } as const;
 
 describe("WP-06 normalized evidence builders", () => {
-  test("builder and frontend sources normalize a typed envelope without changing section order", () => {
+  test("repository evidence JSON remains an ordinary non-authoritative artifact", () => {
     const reversed = {
       ...validEvidence,
       httpClassifications: [...validEvidence.httpClassifications].reverse(),
@@ -55,14 +55,14 @@ describe("WP-06 normalized evidence builders", () => {
       data: reversed,
     });
 
-    assert.equal(builder.sourceProfile, "wp06-evidence-v1");
-    assert.equal(frontend.sourceProfile, "wp06-evidence-v1");
+    assert.equal(builder.sourceProfile, "builder-source-v1");
+    assert.equal(frontend.sourceProfile, "frontend-projection-v1");
     assert.deepEqual(builder.data, frontend.data);
     assert.ok(Object.isFrozen(builder.data));
     assert.ok(Object.isFrozen((builder.data as typeof reversed).httpClassifications));
   });
 
-  test("hand-authored projection input is untrusted while source IR is derived by code", () => {
+  test("legacy source IR parsing is demonstrative but repository graphs do not promote it", () => {
     const projection = {
       sourceProjectionProfile: "wp06-source-projection-v1",
       projectionRevision: 1,
@@ -100,10 +100,11 @@ describe("WP-06 normalized evidence builders", () => {
     const source = buildBuilderArtifact({ relativePath: "synthetic/builder-source.json", data: sourceIr });
     const derived = deriveWp06SourceProjection(sourceIr);
     const artifact = buildWp06ProjectionArtifact(source);
-    assert.equal(source.sourceProfile, "spflow.power-automate-source-ir-v1");
+    assert.equal(source.sourceProfile, "builder-source-v1");
     assert.equal(derived?.adapter.id, "spflow.power-automate-static-v1");
     assert.equal(artifact?.sourceProfile, "wp06-derived-projection-v1");
     assert.deepEqual(artifact?.data, derived);
+    assert.notEqual(artifact?.sourceProfile, "wp06-adapter-projection-v2");
   });
 
   test("unknown, empty, stale-shaped, or caller-decorated values are not normalized", () => {

@@ -22,19 +22,6 @@ import {
 import { assertNoPathCaseCollisions, normalizeRepositoryPath } from "./path-policy.js";
 import type { Diagnostic } from "./types/diagnostics.js";
 import type { ProjectContract } from "./types/project-contract.js";
-import {
-  WP06_ARTIFACT_PROFILE,
-  parseNormalizedWp06Evidence,
-  wp06ProjectionMatchesEvidence,
-} from "./types/wp06-evidence.js";
-import {
-  WP06_DERIVED_PROJECTION_PROFILE,
-  WP06_FRONTEND_SOURCE_IR_PROFILE,
-  WP06_POWER_AUTOMATE_SOURCE_IR_PROFILE,
-  buildWp06ProjectionArtifact,
-  deriveWp06SourceProjection,
-  parseWp06FrontendBundle,
-} from "./wp06-source-adapters.js";
 
 export interface ArtifactGraphJson {
   readonly nodes: readonly ArtifactNode[];
@@ -266,13 +253,11 @@ async function enumerateRepositoryFiles(
 
 function parseArtifactData(relativePath: string, bytes: Uint8Array): unknown {
   const text = Buffer.from(bytes).toString("utf8");
-  if (relativePath.endsWith(".json") || relativePath.endsWith(".zip")) {
+  if (relativePath.endsWith(".json")) {
     try {
       return JSON.parse(text) as unknown;
     } catch {
-      if (relativePath.endsWith(".json")) {
-        throw new Error(`Artifact JSON is invalid: '${relativePath}'.`);
-      }
+      throw new Error(`Artifact JSON is invalid: '${relativePath}'.`);
     }
   }
   return relativePath.endsWith(".md") || relativePath.endsWith(".txt")
@@ -341,30 +326,7 @@ export async function buildArtifactGraph(
     const frontend = await addFileNode(frontendPath, buildFrontendArtifact);
     if (frontend !== undefined) {
       addEdge(contracted.frontend, frontend, "declares");
-      const projection = buildWp06ProjectionArtifact(frontend);
-      if (projection !== undefined) {
-        addNode(projection);
-        addEdge(projection, frontend, "derives-from");
-      }
     }
-  }
-
-  for (const bundleNode of nodes.values()) {
-    const bundle = parseWp06FrontendBundle(bundleNode.data);
-    if (bundle === undefined || bundleNode.kind !== "frontend") continue;
-    const sources = bundle.sources.map((binding) => [...nodes.values()].filter((node) =>
-      node.kind === "frontend"
-      && node.relativePath === binding.path
-      && node.digest === binding.sha256
-      && node.byteLength === binding.bytes
-      && node.sourceProfile === WP06_FRONTEND_SOURCE_IR_PROFILE
-    ));
-    if (
-      bundle.contractRevision !== contract.project.contractRevision
-      || sources.some((matches) => matches.length !== 1)
-    ) continue;
-    addEdge(contracted.contract, bundleNode, "declares");
-    sources.forEach((matches) => addEdge(matches[0]!, bundleNode, "generates"));
   }
 
   const declaredDefinitionPaths = new Set(
@@ -423,11 +385,6 @@ export async function buildArtifactGraph(
       if (builder !== undefined) {
         builders.push(builder);
         addEdge(flowNode, builder, "declares");
-        const projection = buildWp06ProjectionArtifact(builder);
-        if (projection !== undefined) {
-          addNode(projection);
-          addEdge(projection, builder, "derives-from");
-        }
       }
     }
     if (definition !== undefined) {
@@ -475,51 +432,6 @@ export async function buildArtifactGraph(
         addEdge(evidence, manifest, "supports");
       }
     }
-  }
-
-  for (const evidenceNode of nodes.values()) {
-    if (evidenceNode.sourceProfile !== WP06_ARTIFACT_PROFILE) continue;
-    const evidence = parseNormalizedWp06Evidence(evidenceNode.data);
-    if (evidence === undefined) continue;
-    const contractMatches = [...nodes.values()].filter((node) =>
-      node.kind === "contract"
-      && node.sourceProfile === "project-contract-v1"
-      && node.relativePath === evidence.binding.contractArtifactPath
-    );
-    const sourceMatches = [...nodes.values()].filter((node) =>
-      node.kind === evidence.binding.sourceArtifactKind
-      && node.sourceProfile === (
-        evidence.binding.sourceArtifactKind === "frontend"
-          ? WP06_FRONTEND_SOURCE_IR_PROFILE
-          : WP06_POWER_AUTOMATE_SOURCE_IR_PROFILE
-      )
-      && node.relativePath === evidence.binding.sourceArtifactPath
-    );
-    const projectionMatches = [...nodes.values()].filter((node) =>
-      node.kind === "projection"
-      && node.sourceProfile === WP06_DERIVED_PROJECTION_PROFILE
-      && node.relativePath === evidence.binding.projectionArtifactPath
-    );
-    if (contractMatches.length !== 1 || sourceMatches.length !== 1 || projectionMatches.length !== 1) continue;
-    const contractNode = contractMatches[0]!;
-    const sourceNode = sourceMatches[0]!;
-    const projectionNode = projectionMatches[0]!;
-    const derived = deriveWp06SourceProjection(sourceNode.data);
-    if (
-      contractNode.digest !== evidence.binding.contractArtifactSha256
-      || contractNode.byteLength !== evidence.binding.contractArtifactBytes
-      || sourceNode.digest !== evidence.binding.sourceArtifactSha256
-      || sourceNode.byteLength !== evidence.binding.sourceArtifactBytes
-      || projectionNode.digest !== evidence.binding.projectionArtifactSha256
-      || projectionNode.byteLength !== evidence.binding.projectionArtifactBytes
-      || derived === undefined
-      || canonicalize(derived) !== canonicalize(projectionNode.data)
-      || !wp06ProjectionMatchesEvidence(derived, evidence)
-      || !edges.has(`${projectionNode.id}\0${sourceNode.id}\0derives-from`)
-    ) continue;
-    addEdge(evidenceNode, contractNode, "verifies-contract");
-    addEdge(evidenceNode, sourceNode, "derives-from");
-    addEdge(evidenceNode, projectionNode, "matches-projection");
   }
 
   return new ArtifactGraph([...nodes.values()], [...edges.values()]);

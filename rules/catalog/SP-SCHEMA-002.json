@@ -6,7 +6,7 @@
   "severity": "error",
   "description": "SharePoint field payload lacks endpoint-required typed metadata or structured serialization.",
   "rationale": "Typed SP.Field payloads avoid endpoint ambiguity and unsafe JSON interpolation.",
-  "appliesTo": [{ "kind": "builder", "profile": "wp06-evidence-v1" }],
+  "appliesTo": [{ "kind": "builder", "profile": "wp06-adapter-evidence-v2" }],
   "detector": {
     "implementation": "packages/rules/src/sharepoint/schema.ts",
     "exportName": "spSchema002",

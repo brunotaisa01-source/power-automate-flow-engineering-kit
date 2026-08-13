@@ -1,7 +1,7 @@
 import type { Diagnostic } from "@spflow/core/types/diagnostics";
 import {
-  WP06_ARTIFACT_PROFILE,
-  WP06_EVIDENCE_PROFILE,
+  WP06_TRUSTED_ARTIFACT_PROFILE,
+  WP06_TRUSTED_PROJECTION_PROFILE,
   canonicalWp06Value,
   parseNormalizedWp06Evidence,
   parseNormalizedWp06SourceProjection,
@@ -11,13 +11,6 @@ import {
   type Wp06EvidenceSection,
 } from "@spflow/core/types/wp06-evidence";
 import {
-  WP06_DERIVED_PROJECTION_PROFILE,
-  WP06_FRONTEND_BUNDLE_PROFILE,
-  WP06_FRONTEND_SOURCE_IR_PROFILE,
-  WP06_POWER_AUTOMATE_SOURCE_IR_PROFILE,
-  deriveWp06SourceProjection,
-  parseWp06FrontendBundle,
-  parseWp06PackageArtifact,
   parseWp06PackageManifest,
 } from "@spflow/core/wp06-source-adapters";
 
@@ -94,7 +87,7 @@ function validatedEvidence(
 } | undefined {
   const evidence = parseNormalizedWp06Evidence(evidenceArtifact.data);
   if (
-    evidenceArtifact.sourceProfile !== WP06_ARTIFACT_PROFILE
+    evidenceArtifact.sourceProfile !== WP06_TRUSTED_ARTIFACT_PROFILE
     || evidenceArtifact.kind !== expectedKind
     || evidence === undefined
     || evidence.contractRevision !== context.contract.project.contractRevision
@@ -113,17 +106,18 @@ function validatedEvidence(
   );
   const sourceNodes = context.graph.nodes.filter((node) =>
     node.relativePath === binding.sourceArtifactPath
-    && node.kind === expectedKind
-    && node.sourceProfile === (
+    && (
       expectedKind === "frontend"
-        ? WP06_FRONTEND_SOURCE_IR_PROFILE
-        : WP06_POWER_AUTOMATE_SOURCE_IR_PROFILE
+        ? node.kind === "frontend"
+          && node.sourceProfile === "frontend-projection-v1"
+        : node.kind === "definition"
+          && node.sourceProfile === "normalized-flow-v1"
     )
   );
   const projectionNodes = context.graph.nodes.filter((node) =>
     node.relativePath === binding.projectionArtifactPath
     && node.kind === "projection"
-    && node.sourceProfile === WP06_DERIVED_PROJECTION_PROFILE
+    && node.sourceProfile === WP06_TRUSTED_PROJECTION_PROFILE
   );
   const contractNode = contractNodes[0];
   const sourceNode = sourceNodes[0];
@@ -144,12 +138,23 @@ function validatedEvidence(
   ) return undefined;
 
   const projection = parseNormalizedWp06SourceProjection(projectionNode.data);
-  const derived = deriveWp06SourceProjection(sourceNode.data);
+  const derivations = (context.adapterEvidence?.wp06Derivations ?? []).filter((item) =>
+    item.contractRevision === context.contract.project.contractRevision
+    && item.sourceKind === expectedKind
+    && item.section === section
+    && item.sourceArtifactPath === sourceNode.relativePath
+    && item.sourceArtifactSha256 === sourceNode.digest
+    && item.sourceArtifactBytes === sourceNode.byteLength
+  );
+  const derivation = derivations[0];
   if (
     projection === undefined
-    || derived === undefined
-    || canonicalWp06Value(projection) !== canonicalWp06Value(derived)
-    || !wp06ProjectionMatchesEvidence(derived, evidence)
+    || derivations.length !== 1
+    || derivation === undefined
+    || projection.adapter.id !== derivation.adapterId
+    || projection.adapter.version !== derivation.adapterVersion
+    || canonicalWp06Value(projection.facts) !== canonicalWp06Value(derivation.facts)
+    || !wp06ProjectionMatchesEvidence(projection, evidence)
   ) {
     return undefined;
   }
@@ -233,13 +238,6 @@ function packageContentMatches(
   packageFlowIds: readonly string[],
   definitionPaths: readonly string[],
 ): boolean {
-  const projection = parseWp06PackageArtifact(node.data);
-  if (projection !== undefined) {
-    return projection.packageId === packageId
-      && sameStringSet(projection.flowIds, packageFlowIds)
-      && definitionPaths.every((path) => projection.inventory.includes(path));
-  }
-
   const inspected = (context.adapterEvidence?.packages ?? []).filter((item) =>
     item.packageId === packageId
     && item.relativePath === node.relativePath
@@ -249,11 +247,25 @@ function packageContentMatches(
     && item.inspection.valid
   );
   const inspection = inspected[0]?.inspection;
+  const definitionDigests = new Map(
+    (context.adapterEvidence?.definitions ?? [])
+      .filter((item) => item.failure === undefined && item.normalizedSha256 !== undefined)
+      .map((item) => [item.flowId, item.normalizedSha256]),
+  );
   return inspected.length === 1
     && inspection !== undefined
     && sameStringSet(inspection.flows.map(({ id }) => id), packageFlowIds)
+    && (context.adapterEvidence?.flows ?? []).filter((flow) =>
+      flow.packageId === packageId
+      && packageFlowIds.includes(flow.flow.id)
+      && flow.normalizedSha256 !== undefined
+      && flow.normalizedSha256 === definitionDigests.get(flow.flow.id)
+    ).length === packageFlowIds.length
     && inspection.inventory.length > 0
-    && sameStringSet(inspection.inventory, inspection.expectedInventory);
+    && sameStringSet(inspection.inventory, inspection.expectedInventory)
+    && definitionPaths.every((path) => context.graph.nodes.some((definition) =>
+      definition.kind === "definition" && definition.relativePath === path
+    ));
 }
 
 function manifestMatchesZip(
@@ -285,37 +297,50 @@ function requiredFinalArtifactsPresent(
   const requirements = WP06_FINAL_ARTIFACT_REQUIREMENTS[ruleId] ?? [];
   if (requirements.length === 0) return true;
 
-  const bundles = context.graph.nodes.filter((node) => {
+  const bundles = (context.adapterEvidence?.frontendBundles ?? []).filter((bundle) => {
     if (
-      node.kind !== "frontend"
-      || node.sourceProfile !== WP06_FRONTEND_BUNDLE_PROFILE
-      || node.byteLength === undefined
-      || node.byteLength < 1
-      || !hasEdge(context, sourceNode, node, "generates")
-      || !hasEdge(context, contractNode, node, "declares")
+      !bundle.valid
+      || bundle.root !== context.contract.frontend.root
+      || bundle.entrypoint === undefined
+      || !bundle.sourcePaths.includes(sourceNode.relativePath)
+      || !bundle.files.some(({ relativePath }) => relativePath === bundle.entrypoint)
     ) return false;
-    const bundle = parseWp06FrontendBundle(node.data);
-    return bundle !== undefined
-      && bundle.contractRevision === context.contract.project.contractRevision
-      && node.relativePath.startsWith(`${context.contract.frontend.root}/`)
-      && bundle.sources.some((binding) =>
-        binding.path === sourceNode.relativePath
-        && binding.sha256 === sourceNode.digest
-        && binding.bytes === sourceNode.byteLength
-      );
+    return bundle.files.length > 0 && bundle.files.every((file) =>
+      context.graph.nodes.filter((node) =>
+        node.kind === "frontend"
+        && node.relativePath === file.relativePath
+        && node.byteLength === file.bytes
+        && node.digest === file.sha256
+      ).length === 1
+    );
   });
 
   const declaredDefinitionPaths = new Set(context.contract.flows.map(({ definitionPath }) => definitionPath));
-  const definitions = context.graph.nodes.filter((node) =>
-    node.kind === "definition"
+  const definitions = context.graph.nodes.filter((node) => {
+    const flowContract = context.contract.flows.find(({ definitionPath }) =>
+      definitionPath === node.relativePath
+    );
+    const normalized = (context.adapterEvidence?.definitions ?? []).filter((item) =>
+      flowContract !== undefined
+      && item.failure === undefined
+      && item.flow !== undefined
+      && item.contract.id === flowContract.id
+      && item.contract.definitionPath === node.relativePath
+      && item.flowId === flowContract.id
+      && item.flow.id === flowContract.id
+      && item.bytes === node.byteLength
+      && item.sha256 === node.digest
+    );
+    return node.kind === "definition"
     && node.sourceProfile === "normalized-flow-v1"
     && node.byteLength !== undefined
     && node.byteLength > 0
     && declaredDefinitionPaths.has(node.relativePath)
     && definitionShape(node.data)
-    && hasEdge(context, sourceNode, node, "generates")
-    && hasEdge(context, contractNode, node, "declares")
-  );
+    && normalized.length === 1
+    && (sourceNode.id === node.id || hasEdge(context, sourceNode, node, "generates"))
+    && hasEdge(context, contractNode, node, "declares");
+  });
 
   const zips = context.graph.nodes.filter((node) => {
     const packageContract = context.contract.packages.find(({ path }) => path === node.relativePath);
@@ -353,7 +378,7 @@ function requiredFinalArtifactsPresent(
       && hasEdge(context, candidate, node, "hashes")
       && manifestMatchesZip(candidate, packageContract.id, node)
     );
-    return packagedDefinitions.length > 0 && manifest !== undefined;
+    return packagedDefinitions.length === packageFlows.length && manifest !== undefined;
   });
 
   return requirements.every((requirement) =>
@@ -386,8 +411,7 @@ export function evidenceItems<T>(
   const candidates = context.graph.nodes
     .filter((node) => isRecord(node.data)
       && (
-        node.sourceProfile === WP06_ARTIFACT_PROFILE
-        || node.data.evidenceProfile === WP06_EVIDENCE_PROFILE
+        node.sourceProfile === WP06_TRUSTED_ARTIFACT_PROFILE
       )
       && (
         node.data[section] !== undefined
