@@ -1,11 +1,9 @@
 import { readFile, realpath } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 
-import { buildArtifactGraph } from "@spflow/core/artifact-graph";
 import { validateProjectContract } from "@spflow/core/schema-loader";
 import type { ProjectContract } from "@spflow/core/types/project-contract";
-import { inspectProjectRuleEvidence } from "@spflow/package-adapters/solution-v1";
-import { attachTrustedWp06Evidence } from "@spflow/package-adapters/trusted-graph";
+import { inspectTrustedProjectArtifacts } from "@spflow/package-adapters/solution-v1";
 import {
   ruleRegistry,
   validateRules,
@@ -121,11 +119,10 @@ export async function loadOfflineValidationContext(
 
   const contract = contractValue as ProjectContract;
   try {
-    const [repositoryGraph, adapterEvidence] = await Promise.all([
-      buildArtifactGraph(repositoryRoot, contract),
-      inspectProjectRuleEvidence(repositoryRoot, contract),
-    ]);
-    const graph = attachTrustedWp06Evidence(repositoryGraph, contract, adapterEvidence);
+    const { graph, adapterEvidence } = await inspectTrustedProjectArtifacts(
+      repositoryRoot,
+      contract,
+    );
     return {
       kind: "context",
       context: {

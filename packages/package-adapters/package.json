@@ -8,14 +8,11 @@
     "./archive-reader": "./dist/archive-reader.js",
     "./flow-normalizer": "./dist/flow-normalizer.js",
     "./frontend-inventory": "./dist/frontend-inventory.js",
-    "./rule-evidence": "./dist/rule-evidence.js",
-    "./trusted-graph": "./dist/trusted-graph.js",
-    "./wp06-derivation": "./dist/wp06-derivation.js",
     "./solution-v1": "./dist/solution-v1.js",
     "./wdl-parser": "./dist/wdl-parser.js"
   },
   "scripts": {
-    "build": "tsc --target ES2022 --module NodeNext --moduleResolution NodeNext --rootDir src --outDir dist --declaration --declarationMap --sourceMap --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --noImplicitOverride --noFallthroughCasesInSwitch --noImplicitReturns --noUnusedLocals --noUnusedParameters --forceConsistentCasingInFileNames --esModuleInterop --skipLibCheck false --rewriteRelativeImportExtensions src/solution-v1.ts src/action-graph.ts src/rule-evidence.ts src/trusted-graph.ts"
+    "build": "tsc --target ES2022 --module NodeNext --moduleResolution NodeNext --rootDir src --outDir dist --declaration --declarationMap --sourceMap --strict --noUncheckedIndexedAccess --exactOptionalPropertyTypes --noImplicitOverride --noFallthroughCasesInSwitch --noImplicitReturns --noUnusedLocals --noUnusedParameters --forceConsistentCasingInFileNames --esModuleInterop --skipLibCheck false --rewriteRelativeImportExtensions src/solution-v1.ts src/action-graph.ts src/rule-evidence.ts"
   },
   "dependencies": {
     "@spflow/core": "0.0.0",

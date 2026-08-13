@@ -5,14 +5,14 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { describe, test } from "node:test";
 
-import { buildArtifactGraph } from "../../packages/core/dist/artifact-graph.js";
 import type { ProjectContract } from "../../packages/core/src/types/project-contract.ts";
-import { inspectProjectRuleEvidence } from "../../packages/package-adapters/dist/solution-v1.js";
-import { attachTrustedWp06Evidence } from "../../packages/package-adapters/dist/trusted-graph.js";
+import { loadOfflineValidationContext } from "../../packages/cli/dist/commands/offline-validation.js";
+import { inspectTrustedProjectArtifacts } from "../../packages/package-adapters/dist/solution-v1.js";
 import {
   ruleRegistry,
   type ValidationContext,
 } from "../../packages/rules/src/registry.ts";
+import { validateRules as validateBuiltRules } from "../../packages/rules/dist/registry.js";
 import { syntheticSolution } from "../artifacts/synthetic-solution.ts";
 
 const FRONTEND_RULES = ["APP-PAGINATION-001", "APP-SAVE-001", "SP-ODATA-001"];
@@ -20,8 +20,11 @@ const BUILDER_RULES = [
   "HTTP-SEMANTIC-001",
   "HTTP-SEMANTIC-002",
   "SP-ACL-001",
+  "SP-ACL-002",
   "SP-AUTHZ-001",
   "SP-AUTHZ-002",
+  "SP-INDEX-001",
+  "SP-INDEX-002",
   "SP-SCHEMA-001",
   "SP-SCHEMA-002",
   "SP-SCHEMA-003",
@@ -61,7 +64,31 @@ function contract(requiredRuleIds: readonly string[], builder: boolean): Project
       timeZone: "UTC",
       networkDuringOfflineVerify: "forbidden",
     },
-    environmentBindings: [],
+    environmentBindings: [{
+      key: "SYNTHETIC_SITE",
+      kind: "site-url",
+      requiredFor: ["generate", "tenant-preflight", "tenant-apply", "tenant-readback"],
+      sensitive: false,
+      example: "https://synthetic.example.test/sites/spflow",
+    }, {
+      key: "PROTECTED_ITEMS",
+      kind: "list-title",
+      requiredFor: ["generate", "tenant-preflight", "tenant-apply", "tenant-readback"],
+      sensitive: false,
+      example: "{PROTECTED_ITEMS}",
+    }, {
+      key: "ACCESS_CONTROL",
+      kind: "list-title",
+      requiredFor: ["generate", "tenant-preflight", "tenant-apply", "tenant-readback"],
+      sensitive: false,
+      example: "{ACCESS_CONTROL}",
+    }, {
+      key: "PROCESSOR",
+      kind: "connection-reference",
+      requiredFor: ["generate", "tenant-preflight", "tenant-apply", "tenant-readback"],
+      sensitive: true,
+      example: "{PROCESSOR}",
+    }],
     sharePoint: {
       siteUrlBinding: "SYNTHETIC_SITE",
       lists: [{
@@ -77,15 +104,27 @@ function contract(requiredRuleIds: readonly string[], builder: boolean): Project
           internalName: "Title",
           type: "Text",
           required: true,
-          indexed: false,
+          indexed: true,
           unique: false,
           clientEditable: true,
           serverAuthoritative: false,
           immutableAfterCreate: false,
           sensitive: false,
           maxLength: 255,
+        }, {
+          logicalName: "status",
+          internalName: "Status",
+          type: "Text",
+          required: true,
+          indexed: false,
+          unique: false,
+          clientEditable: false,
+          serverAuthoritative: true,
+          immutableAfterCreate: false,
+          sensitive: false,
+          maxLength: 64,
         }],
-        indexes: [],
+        indexes: [{ field: "Title", order: 1, required: true }],
         permissions: {
           inheritance: "break-clear",
           minimumRoles: [{
@@ -105,7 +144,77 @@ function contract(requiredRuleIds: readonly string[], builder: boolean): Project
         readAllowlist: [],
         createAllowlist: [],
         patchAllowlist: [],
-        fields: [],
+        fields: [{
+          logicalName: "active",
+          internalName: "Active",
+          type: "Boolean",
+          required: true,
+          indexed: false,
+          unique: false,
+          clientEditable: false,
+          serverAuthoritative: true,
+          immutableAfterCreate: false,
+          sensitive: false,
+        }, {
+          logicalName: "principal-key",
+          internalName: "PrincipalKey",
+          type: "Text",
+          required: true,
+          indexed: false,
+          unique: false,
+          clientEditable: false,
+          serverAuthoritative: true,
+          immutableAfterCreate: false,
+          sensitive: false,
+          maxLength: 255,
+        }, {
+          logicalName: "capability",
+          internalName: "Capability",
+          type: "Text",
+          required: true,
+          indexed: false,
+          unique: false,
+          clientEditable: false,
+          serverAuthoritative: true,
+          immutableAfterCreate: false,
+          sensitive: false,
+          maxLength: 255,
+        }, {
+          logicalName: "scope-title",
+          internalName: "Title",
+          type: "Text",
+          required: true,
+          indexed: false,
+          unique: false,
+          clientEditable: false,
+          serverAuthoritative: true,
+          immutableAfterCreate: false,
+          sensitive: false,
+          maxLength: 255,
+        }, {
+          logicalName: "target-item-id",
+          internalName: "TargetItemId",
+          type: "Number",
+          required: true,
+          indexed: false,
+          unique: false,
+          clientEditable: false,
+          serverAuthoritative: true,
+          immutableAfterCreate: true,
+          sensitive: false,
+        }, {
+          logicalName: "command-type",
+          internalName: "CommandType",
+          type: "Text",
+          required: true,
+          indexed: false,
+          unique: false,
+          clientEditable: false,
+          serverAuthoritative: true,
+          immutableAfterCreate: true,
+          sensitive: false,
+          maxLength: 64,
+        }],
         indexes: [],
         permissions: {
           inheritance: "break-clear",
@@ -252,7 +361,24 @@ function contract(requiredRuleIds: readonly string[], builder: boolean): Project
 }
 
 const FRONTEND_SOURCE = `
-export async function saveSharePointItem(itemUrl, etag, digest, patch) {
+const PATCH_ALLOWLISTS = Object.freeze({ "protected-items": Object.freeze(["Title"]) });
+const READ_ALLOWLISTS = Object.freeze({ "protected-items": Object.freeze(["ID", "Title"]) });
+
+function allowlistedPatch(listId, patch) {
+  const fields = PATCH_ALLOWLISTS[listId];
+  if (!fields) throw new Error("unknown-list");
+  return Object.fromEntries(fields.map((field) => [field, patch[field]]));
+}
+
+async function freshDigest(itemUrl) {
+  const response = await fetch(new URL("/_api/contextinfo", itemUrl), { method: "POST" });
+  const body = await response.json();
+  return body.FormDigestValue;
+}
+
+export async function saveSharePointItem(listId, itemUrl, etag, patch) {
+  const body = allowlistedPatch(listId, patch);
+  const digest = await freshDigest(itemUrl);
   const response = await fetch(itemUrl, {
     method: "POST",
     headers: {
@@ -260,9 +386,10 @@ export async function saveSharePointItem(itemUrl, etag, digest, patch) {
       "IF-MATCH": etag,
       "X-RequestDigest": digest
     },
-    body: JSON.stringify(patch)
+    body: JSON.stringify(body)
   });
   if (response.status === 412) throw new Error("conflict");
+  if (!response.ok) return fetch(itemUrl, { method: "GET" });
   return fetch(itemUrl, { method: "GET" });
 }
 
@@ -270,7 +397,10 @@ export async function loadAllSharePointPages(initialUrl, expectedOrigin, expecte
   const visited = new Set();
   const items = [];
   let next = initialUrl;
+  let pages = 0;
   while (next) {
+    pages += 1;
+    if (pages > 50) throw new Error("page-limit");
     const pageUrl = new URL(next);
     if (pageUrl.origin !== expectedOrigin || !pageUrl.pathname.startsWith(expectedPathname)) throw new Error("boundary");
     if (visited.has(pageUrl.href)) throw new Error("loop");
@@ -283,7 +413,9 @@ export async function loadAllSharePointPages(initialUrl, expectedOrigin, expecte
   return items;
 }
 
-export function buildSharePointODataUrl(base, fields, value) {
+export function buildSharePointODataUrl(base, listId, value) {
+  const fields = READ_ALLOWLISTS[listId];
+  if (!fields) throw new Error("unknown-list");
   const url = new URL(base);
   const params = new URLSearchParams();
   params.set("$select", fields.join(","));
@@ -315,7 +447,7 @@ function connectorAction(
   };
 }
 
-function builderDefinition(): Record<string, unknown> {
+function inertBuilderDefinition(): Record<string, unknown> {
   const coverage = [
     "apply-change", "approve-items", "access-control", "Active", "PrincipalKey", "Capability",
     "protected-items", "Title", "-2147024809", "404",
@@ -339,6 +471,327 @@ function builderDefinition(): Record<string, unknown> {
             runAfter: { FieldWrite: ["Succeeded"] },
             inputs: { expression: "400 404 -2147024809" },
           },
+        },
+      },
+      connectionReferences: { PROCESSOR: { id: "synthetic" } },
+    },
+  };
+}
+
+function semanticConnector(
+  role: string,
+  method: "GET" | "POST",
+  uri: string,
+  parameters: Record<string, unknown>,
+  predecessor?: string,
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    type: "OpenApiConnection",
+    metadata: { spflowRole: role },
+    ...(predecessor === undefined ? {} : { runAfter: { [predecessor]: ["Succeeded"] } }),
+    inputs: {
+      host: {
+        connection: { referenceName: "PROCESSOR" },
+        operationId: "HttpRequest",
+      },
+      method,
+      uri,
+      parameters,
+      ...extra,
+    },
+  };
+}
+
+function builderDefinition(): Record<string, unknown> {
+  const protectedUri = "/_api/web/lists/getbytitle('PROTECTED_ITEMS')";
+  const accessUri = "/_api/web/lists/getbytitle('ACCESS_CONTROL')";
+  const commonProperties = [
+    "logicalName", "internalName", "type", "required", "indexed", "unique",
+    "clientEditable", "serverAuthoritative", "immutableAfterCreate", "sensitive",
+  ];
+  const fieldActions: Record<string, unknown> = {};
+  let fieldPredecessor = "PermissionAssertAccess";
+  for (const field of [
+    {
+      listId: "protected-items", listUri: protectedUri, logicalName: "title",
+      internalName: "Title", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      indexMetadataType: "SP.Field", comparedProperties: [...commonProperties, "maxLength"],
+    },
+    {
+      listId: "protected-items", listUri: protectedUri, logicalName: "status",
+      internalName: "Status", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      comparedProperties: [...commonProperties, "maxLength"],
+    },
+    {
+      listId: "access-control", listUri: accessUri, logicalName: "active",
+      internalName: "Active", metadataType: "SP.FieldBoolean", fieldTypeKind: 8,
+      comparedProperties: commonProperties,
+    },
+    {
+      listId: "access-control", listUri: accessUri, logicalName: "principal-key",
+      internalName: "PrincipalKey", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      comparedProperties: [...commonProperties, "maxLength"],
+    },
+    {
+      listId: "access-control", listUri: accessUri, logicalName: "capability",
+      internalName: "Capability", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      comparedProperties: [...commonProperties, "maxLength"],
+    },
+    {
+      listId: "access-control", listUri: accessUri, logicalName: "scope-title",
+      internalName: "Title", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      comparedProperties: [...commonProperties, "maxLength"],
+    },
+    {
+      listId: "access-control", listUri: accessUri, logicalName: "target-item-id",
+      internalName: "TargetItemId", metadataType: "SP.FieldNumber", fieldTypeKind: 9,
+      comparedProperties: commonProperties,
+    },
+    {
+      listId: "access-control", listUri: accessUri, logicalName: "command-type",
+      internalName: "CommandType", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      comparedProperties: [...commonProperties, "maxLength"],
+    },
+  ]) {
+    const suffix = `${field.listId.replaceAll("-", "_")}_${field.internalName}`;
+    const readId = `FieldRead_${suffix}`;
+    const writeId = `FieldWrite_${suffix}`;
+    fieldActions[readId] = semanticConnector(
+      `field-read:${field.listId}:${field.internalName}`,
+      "GET",
+      `${field.listUri}/fields/getbyinternalnameortitle('${field.internalName}')`,
+      { listId: field.listId, internalName: field.internalName },
+      fieldPredecessor,
+    );
+    fieldActions[writeId] = semanticConnector(
+      `field-write:${field.listId}:${field.internalName}`,
+      "POST",
+      `${field.listUri}/fields`,
+      {
+        listId: field.listId,
+        logicalName: field.logicalName,
+        internalName: field.internalName,
+        metadataType: field.metadataType,
+        fieldTypeKind: field.fieldTypeKind,
+        ...(field.indexMetadataType === undefined ? {} : { indexMetadataType: field.indexMetadataType }),
+        comparedProperties: field.comparedProperties,
+      },
+      readId,
+      {
+        body: {
+          __metadata: { type: field.metadataType },
+          FieldTypeKind: field.fieldTypeKind,
+          InternalName: field.internalName,
+        },
+      },
+    );
+    fieldPredecessor = writeId;
+  }
+  return {
+    properties: {
+      definition: {
+        triggers: { SyntheticTrigger: { type: "Request", inputs: {} } },
+        actions: {
+          IdentityRead: semanticConnector(
+            "identity-read",
+            "GET",
+            "/_api/web/currentuser?$select=Id,LoginName",
+            { actorSource: "server-system-identity" },
+          ),
+          CapabilityRead: semanticConnector(
+            "capability-read",
+            "GET",
+            `${accessUri}/items?$select=Active,PrincipalKey,Capability,Title&$filter=Active eq 1`,
+            {
+              listId: "access-control",
+              capabilityId: "approve-items",
+              activeField: "Active",
+              principalField: "PrincipalKey",
+              capabilityField: "Capability",
+              principalSource: "IdentityRead.LoginName",
+              matchCardinality: "one",
+            },
+            "IdentityRead",
+          ),
+          TargetRead: semanticConnector(
+            "target-read",
+            "GET",
+            `${protectedUri}/items(@{triggerBody()?['TargetItemId']})?$select=Title,Status`,
+            {
+              listId: "protected-items",
+              itemIdSource: "trigger.TargetItemId",
+              fields: ["Title", "Status"],
+            },
+            "CapabilityRead",
+          ),
+          AuthorizationGuard: {
+            type: "If",
+            metadata: { spflowRole: "authorization-guard" },
+            runAfter: { TargetRead: ["Succeeded"] },
+            expression: "@and(equals(length(body('CapabilityRead')?['value']),1),equals(first(body('CapabilityRead')?['value'])?['Title'],body('TargetRead')?['Title']),equals(triggerBody()?['CommandType'],'apply-change'),equals(body('TargetRead')?['Status'],'Pending'))",
+            actions: {
+              Mutation: semanticConnector(
+                "mutation",
+                "POST",
+                `${protectedUri}/items(@{triggerBody()?['TargetItemId']})`,
+                {
+                  listId: "protected-items",
+                  commandType: "apply-change",
+                  transitionId: "apply-transition",
+                  stateFrom: "Pending",
+                  stateTo: "Applied",
+                  scopeTargetField: "Title",
+                  scopeAccessField: "Title",
+                },
+                undefined,
+                {
+                  headers: {
+                    "X-HTTP-Method": "MERGE",
+                    "IF-MATCH": "@{body('TargetRead')?['@odata.etag']}",
+                  },
+                  body: { Status: "Applied" },
+                },
+              ),
+            },
+            else: { actions: {} },
+          },
+          PermissionModelProtected: semanticConnector(
+            "permission-model:protected-items",
+            "POST",
+            `${protectedUri}/breakroleinheritance(copyRoleAssignments=false,clearSubscopes=true)`,
+            {
+              listId: "protected-items",
+              inheritance: "break-clear",
+              directUserGrants: "forbidden",
+              browserOperations: ["read", "update"],
+              grants: [{
+                principalKind: "binding",
+                principalBinding: "PROCESSOR",
+                role: "processor",
+                allowedOperations: ["read", "update"],
+              }],
+            },
+            "AuthorizationGuard",
+          ),
+          PermissionReadbackProtected: semanticConnector(
+            "permission-readback:protected-items",
+            "GET",
+            `${protectedUri}/roleassignments?$expand=Member,RoleDefinitionBindings`,
+            { listId: "protected-items" },
+            "PermissionModelProtected",
+          ),
+          PermissionProbeProtected: semanticConnector(
+            "permission-probe:protected-items:PROCESSOR",
+            "GET",
+            `${protectedUri}/getusereffectivepermissions(@p)?@p='PROCESSOR'`,
+            {
+              listId: "protected-items",
+              principalBinding: "PROCESSOR",
+              operations: { create: false, delete: false, read: true, update: true },
+            },
+            "PermissionReadbackProtected",
+          ),
+          PermissionAssertProtected: {
+            type: "If",
+            metadata: { spflowRole: "permission-assert:protected-items:PROCESSOR" },
+            runAfter: { PermissionProbeProtected: ["Succeeded"] },
+            expression: "@and(equals(body('PermissionProbeProtected')?['operations/read'],true),equals(body('PermissionProbeProtected')?['operations/update'],true),equals(body('PermissionProbeProtected')?['operations/create'],false),equals(body('PermissionProbeProtected')?['operations/delete'],false))",
+            actions: {},
+            else: { actions: {} },
+          },
+          PermissionModelAccess: semanticConnector(
+            "permission-model:access-control",
+            "POST",
+            `${accessUri}/breakroleinheritance(copyRoleAssignments=false,clearSubscopes=true)`,
+            {
+              listId: "access-control",
+              inheritance: "break-clear",
+              directUserGrants: "forbidden",
+              browserOperations: [],
+              grants: [{
+                principalKind: "binding",
+                principalBinding: "PROCESSOR",
+                role: "processor",
+                allowedOperations: ["read"],
+              }],
+            },
+            "PermissionAssertProtected",
+          ),
+          PermissionReadbackAccess: semanticConnector(
+            "permission-readback:access-control",
+            "GET",
+            `${accessUri}/roleassignments?$expand=Member,RoleDefinitionBindings`,
+            { listId: "access-control" },
+            "PermissionModelAccess",
+          ),
+          PermissionProbeAccess: semanticConnector(
+            "permission-probe:access-control:PROCESSOR",
+            "GET",
+            `${accessUri}/getusereffectivepermissions(@p)?@p='PROCESSOR'`,
+            {
+              listId: "access-control",
+              principalBinding: "PROCESSOR",
+              operations: { create: false, delete: false, read: true, update: false },
+            },
+            "PermissionReadbackAccess",
+          ),
+          PermissionAssertAccess: {
+            type: "If",
+            metadata: { spflowRole: "permission-assert:access-control:PROCESSOR" },
+            runAfter: { PermissionProbeAccess: ["Succeeded"] },
+            expression: "@and(equals(body('PermissionProbeAccess')?['operations/read'],true),equals(body('PermissionProbeAccess')?['operations/update'],false),equals(body('PermissionProbeAccess')?['operations/create'],false),equals(body('PermissionProbeAccess')?['operations/delete'],false))",
+            actions: {},
+            else: { actions: {} },
+          },
+          ...fieldActions,
+          HttpClassifier: {
+            type: "If",
+            metadata: { spflowRole: "http-classifier" },
+            runAfter: { [fieldPredecessor]: ["Succeeded"] },
+            expression: "@and(equals(400,400),equals('-2147024809','-2147024809'),equals(404,404),equals('preflight','preflight'),equals('initial-get','initial-get'))",
+            actions: {},
+            else: { actions: {} },
+          },
+          IndexRead: semanticConnector(
+            "index-read:protected-items",
+            "GET",
+            `${protectedUri}/fields?$select=InternalName,Indexed`,
+            { listId: "protected-items", currentFields: [], requiredFields: ["Title"] },
+            "HttpClassifier",
+          ),
+          DigestRead: semanticConnector(
+            "index-digest:protected-items",
+            "POST",
+            "/_api/contextinfo",
+            { listId: "protected-items", bindsCurrent: true, bindsRequired: true },
+            "IndexRead",
+          ),
+          IndexWrite: semanticConnector(
+            "index-write:protected-items:Title",
+            "POST",
+            `${protectedUri}/fields/getbyinternalnameortitle('Title')`,
+            { listId: "protected-items", field: "Title", operation: "add", sequence: 1 },
+            "DigestRead",
+            {
+              headers: { "X-RequestDigest": "@{body('DigestRead')?['FormDigestValue']}" },
+              body: { __metadata: { type: "SP.Field" }, Indexed: true },
+            },
+          ),
+          IndexStepReadback: semanticConnector(
+            "index-step-readback:protected-items:Title",
+            "GET",
+            `${protectedUri}/fields?$select=InternalName,Indexed`,
+            { listId: "protected-items", observedFields: ["Title"] },
+            "IndexWrite",
+          ),
+          IndexFinalReadback: semanticConnector(
+            "index-final-readback:protected-items",
+            "GET",
+            `${protectedUri}/fields?$select=InternalName,Indexed`,
+            { listId: "protected-items", observedFields: ["Title"] },
+            "IndexStepReadback",
+          ),
         },
       },
       connectionReferences: { PROCESSOR: { id: "synthetic" } },
@@ -378,9 +831,7 @@ async function writeBuilder(root: string, definition: unknown, zipBytes?: Uint8A
 }
 
 async function validationContext(root: string, value: ProjectContract): Promise<ValidationContext> {
-  const repositoryGraph = await buildArtifactGraph(root, value);
-  const adapterEvidence = await inspectProjectRuleEvidence(root, value);
-  const graph = attachTrustedWp06Evidence(repositoryGraph, value, adapterEvidence);
+  const { graph, adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
   return {
     root,
     offline: true,
@@ -410,6 +861,37 @@ describe("WP-06 raw artifact authority", () => {
       assert.equal(context.adapterEvidence.frontendBundles?.[0]?.valid, true);
       assert.equal(context.adapterEvidence.wp06Derivations?.length, 3);
       assert.deepEqual(await diagnostics(context, FRONTEND_RULES), []);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("unreachable frontend tokens cannot create trusted evidence", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-frontend-unreachable-"));
+    const value = contract(FRONTEND_RULES, false);
+    const unreachable = FRONTEND_SOURCE
+      .replace(
+        "export async function saveSharePointItem(listId, itemUrl, etag, patch) {",
+        "export async function saveSharePointItem(listId, itemUrl, etag, patch) { return undefined;",
+      )
+      .replace(
+        "export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) {",
+        "export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) { return [];",
+      )
+      .replace(
+        "export function buildSharePointODataUrl(base, listId, value) {",
+        "export function buildSharePointODataUrl(base, listId, value) { return base;",
+      );
+    try {
+      await writeContract(root, value);
+      await writeFrontend(root, unreachable);
+      const context = await validationContext(root, value);
+
+      assert.equal(context.adapterEvidence.wp06Derivations?.length, 0);
+      assert.deepEqual(
+        (await diagnostics(context, FRONTEND_RULES)).map(({ code }) => code),
+        FRONTEND_RULES,
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -493,7 +975,7 @@ describe("WP-06 raw artifact authority", () => {
     }
   });
 
-  test("normalized definition and safely inspected ZIP authorize only structurally derived rules", async () => {
+  test("normalized definition and safely inspected ZIP cover every builder section", async () => {
     const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-"));
     const value = contract(BUILDER_RULES, true);
     try {
@@ -503,8 +985,127 @@ describe("WP-06 raw artifact authority", () => {
 
       assert.equal(context.adapterEvidence.definitions?.[0]?.failure, undefined);
       assert.equal(context.adapterEvidence.packages[0]?.inspection?.valid, true);
-      assert.equal(context.adapterEvidence.wp06Derivations?.length, 4);
+      assert.equal(context.adapterEvidence.wp06Derivations?.length, 6);
       assert.deepEqual(await diagnostics(context, BUILDER_RULES), []);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("built CLI context validates all fourteen WP06 rules from raw artifacts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-built-cli-"));
+    const ruleIds = [...FRONTEND_RULES, ...BUILDER_RULES].sort();
+    const value = contract(ruleIds, true);
+    try {
+      await writeContract(root, value);
+      await writeFrontend(root);
+      await writeBuilder(root, builderDefinition());
+
+      const loaded = await loadOfflineValidationContext(
+        root,
+        join(root, "project.contract.json"),
+        "WP07 built CLI raw-artifact integration",
+      );
+      assert.equal(loaded.kind, "context", JSON.stringify(loaded));
+      if (loaded.kind !== "context") return;
+
+      assert.deepEqual(await validateBuiltRules(loaded.context, ruleIds), []);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a contract without indexes preserves unrelated builder derivations", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-no-index-"));
+    const value = contract(BUILDER_RULES.filter((ruleId) => !ruleId.startsWith("SP-INDEX-")), true);
+    value.sharePoint.lists[0]!.indexes = [];
+    value.sharePoint.lists[0]!.fields[0]!.indexed = false;
+    const definition = builderDefinition() as any;
+    const actions = definition.properties.definition.actions;
+    delete actions.IndexRead;
+    delete actions.DigestRead;
+    delete actions.IndexWrite;
+    delete actions.IndexStepReadback;
+    delete actions.IndexFinalReadback;
+    delete actions.FieldWrite_protected_items_Title.inputs.parameters.indexMetadataType;
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+      assert.deepEqual(
+        adapterEvidence.wp06Derivations?.map(({ section }) => section).sort(),
+        [
+          "authorityChecks",
+          "fieldOperations",
+          "httpClassifications",
+          "permissionModels",
+          "permissionProbes",
+        ],
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("inert builder tokens and no-op connector URIs cannot create trusted evidence", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-inert-"));
+    const value = contract(BUILDER_RULES, true);
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, inertBuilderDefinition());
+      const context = await validationContext(root, value);
+
+      assert.equal(context.adapterEvidence.wp06Derivations?.length, 0);
+      assert.deepEqual(
+        (await diagnostics(context, BUILDER_RULES)).map(({ code }) => code),
+        BUILDER_RULES,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("fabricated or rebound adapter evidence cannot mint trusted graph nodes", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-fabricated-evidence-"));
+    const value = contract(["APP-SAVE-001"], false);
+    try {
+      await writeContract(root, value);
+      const fabricated = {
+        packages: [],
+        flows: [],
+        wp06Derivations: [{
+          adapterId: "spflow.frontend-source-v2",
+          adapterVersion: 2,
+          contractRevision: 2,
+          sourceKind: "frontend",
+          section: "saveTransactions",
+          sourceArtifactPath: "unrelated.js",
+          sourceArtifactSha256: "0".repeat(64),
+          sourceArtifactBytes: 1,
+          facts: [{ listId: "protected-items" }],
+        }],
+      };
+      const inspect = inspectTrustedProjectArtifacts as unknown as (
+        ...args: readonly unknown[]
+      ) => Promise<Awaited<ReturnType<typeof inspectTrustedProjectArtifacts>>>;
+      const { graph, adapterEvidence } = await inspect(root, value, fabricated);
+      const context: ValidationContext = {
+        root,
+        offline: true,
+        contract: value,
+        graph: graph.toJSON(),
+        adapterEvidence,
+      };
+
+      assert.equal(adapterEvidence.wp06Derivations?.length, 0);
+      assert.equal(graph.toJSON().nodes.some(({ sourceProfile }) =>
+        sourceProfile.startsWith("wp06-trusted")
+      ), false);
+      assert.deepEqual(
+        (await diagnostics(context, ["APP-SAVE-001"])).map(({ code }) => code),
+        ["APP-SAVE-001"],
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -525,10 +1126,10 @@ describe("WP-06 raw artifact authority", () => {
           ? { properties: { definition: { triggers: { T: { type: "Request" } }, actions: { A: { type: "Compose", inputs: "synthetic" } } } } }
           : builderDefinition() as any;
         if (scenario === "definition-action-mutation") {
-          definition.properties.definition.actions.Mutation.inputs.method = "GET";
+          definition.properties.definition.actions.AuthorizationGuard.actions.Mutation.inputs.method = "GET";
         }
         if (scenario === "definition-lineage-mutation") {
-          delete definition.properties.definition.actions.Mutation.runAfter;
+          delete definition.properties.definition.actions.AuthorizationGuard.runAfter;
         }
         const zip = scenario === "json-zip"
           ? Buffer.from(JSON.stringify({ packageId: "synthetic-package" }), "utf8")

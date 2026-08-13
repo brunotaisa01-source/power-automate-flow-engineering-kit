@@ -19,6 +19,12 @@ const OFFLINE_RESIDUAL_GATES = [
   "publication-readback",
 ] as const;
 
+const RULE_SPECIFIC_OFFLINE_GATES = [{
+  ruleId: "HTTP-SEMANTIC-001",
+  claimClass: "LIVE_SMOKE",
+  residualGate: "rule:HTTP-SEMANTIC-001:LIVE_SMOKE",
+}] as const;
+
 export function createVerifyCommand(
   steps: readonly CommandHandler[],
   publicDataStep: CommandHandler = scanPublicDataCommand,
@@ -94,6 +100,17 @@ export function createVerifyCommand(
         artifactPath: "<external>",
         remediation: "Keep this residual gate open until separately authorized evidence exists.",
         residualGate: gate,
+        notRun: true,
+      })));
+      findings.push(...RULE_SPECIFIC_OFFLINE_GATES.map((gate) => ({
+        exitCode: 0 as const,
+        ruleId: gate.ruleId,
+        severity: "info" as const,
+        code: `${gate.ruleId.replaceAll("-", "_")}_${gate.claimClass}_NOT_RUN`,
+        message: "The rule-specific runtime observation was not run during offline verification.",
+        artifactPath: "<external>",
+        remediation: "Keep this residual gate open until a controlled runtime response is observed.",
+        residualGate: gate.residualGate,
         notRun: true,
       })));
 

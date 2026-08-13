@@ -90,9 +90,20 @@ no derivation.
 Every declared definition is read from its exact repository-relative path,
 parsed as JSON, and passed to the existing flow normalizer. A minimal or
 unrelated definition does not produce WP-06 derivations. Structural action
-roles are checked together with normalized connector type, HTTP method, action
-order, successful `runAfter` lineage, and required contract tokens; a role
-label or JSON enumeration order alone is insufficient.
+roles select candidates but never authorize them. The adapter checks normalized
+connector method, concrete SharePoint REST URI, connector parameters, request
+payload metadata, non-wildcard ETag source, guard expression, successful
+`runAfter`, and true-branch dominance. Contract values are comparison targets.
+Facts are emitted from accepted source nodes and normalized action inputs, not
+copied from a contract after a token scan. A role label, unrelated property,
+no-op URI, or JSON enumeration order is insufficient.
+
+The executable builder profile emits all six sections: `authorityChecks`,
+`permissionModels`, `permissionProbes`, `fieldOperations`,
+`httpClassifications`, and `indexPlans`. Index plans require a concrete
+list-field read, fresh digest request, serial writes, per-step readback, and
+final readback. Permission probes require the effective-permission request and
+a dependent assertion over the four operation booleans.
 
 A required ZIP is always read as bytes and opened by the safe solution adapter.
 The adapter validates archive safety, XML, inventory, workflow JSON, and
@@ -111,7 +122,16 @@ authorize `FOUND`, even when it looks schema-valid.
 `FOUND` requires a future separately authenticated runtime evidence record
 bound to an actual response artifact, expected contract schema, target binding,
 and change window. Until that adapter exists, offline validation fails closed
-for `FOUND` and retains the residual `LIVE_SMOKE` gate.
+for `FOUND` and emits the rule-specific
+`HTTP_SEMANTIC_001_LIVE_SMOKE_NOT_RUN` residual gate.
+
+## Public Trust API
+
+The package does not export the derivation module, evidence-inspector factory,
+or graph attachment module. Public CLI loading calls
+`inspectTrustedProjectArtifacts(root, contract)`, which performs the complete
+raw-artifact inspection, derivation, and attachment sequence internally. It
+does not accept caller-supplied `adapterEvidence`.
 
 ## Claim Boundary
 

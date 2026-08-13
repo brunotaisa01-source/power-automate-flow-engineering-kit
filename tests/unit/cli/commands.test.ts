@@ -174,6 +174,10 @@ describe("CLI command shells", () => {
       assert.ok(report.summary.notRun > 0);
       assert.ok(report.diagnostics.every(({ residualGate }) => residualGate !== undefined));
       assert.ok(report.diagnostics.every(({ code }) => code.endsWith("_NOT_RUN")));
+      assert.ok(report.diagnostics.some(({ code, residualGate }) =>
+        code === "HTTP_SEMANTIC_001_LIVE_SMOKE_NOT_RUN"
+        && residualGate === "rule:HTTP-SEMANTIC-001:LIVE_SMOKE"
+      ));
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -193,7 +197,7 @@ describe("CLI command shells", () => {
 
       assert.equal(report.exitCode, 8);
       assert.equal(report.result, "FAIL");
-      assert.equal(report.summary.notRun, 8);
+      assert.equal(report.summary.notRun, 9);
       assert.ok(report.diagnostics.some(({ code, residualGate }) =>
         code === "CLI_VALIDATOR_NOT_RUN" && residualGate === "public-data-scanner"
       ));

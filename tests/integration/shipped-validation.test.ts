@@ -813,9 +813,13 @@ describe("WP-05S shipped offline validation", () => {
       assert.equal(verify.report.result, "FAIL", verify.stdout);
       assert.equal(rules.report.summary.notRun, 0);
       assert.equal(artifact.report.summary.notRun, 0);
-      assert.equal(verify.report.summary.notRun, 8);
+      assert.equal(verify.report.summary.notRun, 9);
       assert.ok(verify.report.diagnostics.some(({ code, residualGate }) =>
         code === "CLI_VALIDATOR_NOT_RUN" && residualGate === "public-data-scanner"
+      ));
+      assert.ok(verify.report.diagnostics.some(({ code, residualGate }) =>
+        code === "HTTP_SEMANTIC_001_LIVE_SMOKE_NOT_RUN"
+        && residualGate === "rule:HTTP-SEMANTIC-001:LIVE_SMOKE"
       ));
       assert.ok(verify.report.diagnostics
         .filter(({ residualGate }) => residualGate !== undefined)

@@ -10,7 +10,10 @@ import {
   normalizeFlow,
   type NormalizedFlow,
 } from "./flow-normalizer.ts";
-import { createProjectRuleEvidenceInspector } from "./rule-evidence.ts";
+import {
+  createProjectRuleEvidenceInspector,
+  createTrustedProjectArtifactsInspector,
+} from "./rule-evidence.ts";
 import { findXmlElements, parseSafeXml, type SafeXmlNode } from "./xml-safe-parser.ts";
 
 export type { PackageInspection } from "@spflow/core/types/rule-input";
@@ -227,6 +230,10 @@ export async function inspectSolutionBytes(
 }
 
 export const inspectProjectRuleEvidence = createProjectRuleEvidenceInspector(
+  inspectSolutionBytes,
+);
+
+export const inspectTrustedProjectArtifacts = createTrustedProjectArtifactsInspector(
   inspectSolutionBytes,
 );
 

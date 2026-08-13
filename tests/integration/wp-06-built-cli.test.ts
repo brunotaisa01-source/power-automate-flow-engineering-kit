@@ -18,14 +18,7 @@ import {
   WP06_FRONTEND_BUNDLE_PROFILE,
   buildWp06ProjectionArtifact,
 } from "../../packages/core/dist/wp06-source-adapters.js";
-import { validateRules as validateBuiltRules } from "../../packages/rules/dist/registry.js";
-import type {
-  ArtifactGraphInput,
-  ValidationContext,
-} from "../../packages/rules/src/registry.ts";
 import {
-  hydrateWp06FixtureGraph,
-  wp06FixtureAdapterEvidence,
   wp06SourceIrFromFacts,
 } from "../helpers/wp06-fixture-graph.ts";
 
@@ -829,88 +822,4 @@ describe("WP-06 built CLI", () => {
     }
   });
 
-  test("compiled Wave-2 registry validates all bound sections and catches authority mutation", async () => {
-    const contract = projectContract();
-    const contractDigest = "c".repeat(64);
-    const evidence = wp06Evidence(contract);
-    const contractNode = {
-      id: "contract:project.contract.json:project-contract-v1",
-      kind: "contract",
-      relativePath: "project.contract.json",
-      digest: contractDigest,
-      byteLength: 2048,
-      sourceProfile: "project-contract-v1",
-      data: contract,
-      projections: {},
-    };
-    const nodeMap = new Map<string, ArtifactGraphInput["nodes"][number]>();
-    const edgeMap = new Map<string, ArtifactGraphInput["edges"][number]>();
-    for (const section of Object.keys(SECTION_KINDS) as Wp06EvidenceSection[]) {
-      const kind = SECTION_KINDS[section];
-      const evidencePath = `artifacts/${kind}-evidence-${section}.json`;
-      const values = evidence[section];
-      assert.ok(Array.isArray(values) && values.length > 0);
-      const payload = {
-        evidenceProfile: "wp06-offline-v1",
-        contractRevision: contract.project.contractRevision,
-        binding: {
-          section,
-          contractArtifactPath: "project.contract.json",
-          contractArtifactSha256: contractDigest,
-          contractArtifactBytes: 2048,
-          sourceArtifactPath: "synthetic/pending-source.json",
-          sourceArtifactSha256: "d".repeat(64),
-          sourceArtifactBytes: 512,
-          sourceArtifactKind: kind,
-          projectionArtifactPath: "synthetic/pending-projection.json",
-          projectionArtifactSha256: "e".repeat(64),
-          projectionArtifactBytes: 768,
-        },
-        [section]: values,
-      };
-      const evidenceBytes = Buffer.from(`${JSON.stringify(payload)}\n`, "utf8");
-      const evidenceNode = {
-        id: `${kind}:${evidencePath}:wp06-evidence-v1`,
-        kind,
-        relativePath: evidencePath,
-        digest: sha256(evidenceBytes),
-        byteLength: evidenceBytes.byteLength,
-        sourceProfile: "wp06-evidence-v1",
-        data: payload,
-        projections: {},
-      };
-      const hydrated = hydrateWp06FixtureGraph(
-        { nodes: [evidenceNode, contractNode], edges: [] },
-        contract,
-      );
-      hydrated.nodes.forEach((node) => nodeMap.set(node.id, node));
-      hydrated.edges.forEach((edge) => edgeMap.set(`${edge.from}\0${edge.to}\0${edge.relation}`, edge));
-    }
-    const graph: ArtifactGraphInput = {
-      nodes: [...nodeMap.values()],
-      edges: [...edgeMap.values()],
-    };
-    const context: ValidationContext = {
-      root: ".",
-      offline: true,
-      contract,
-      graph,
-      adapterEvidence: wp06FixtureAdapterEvidence(graph, contract),
-    };
-
-    assert.deepEqual(await validateBuiltRules(context, RULE_IDS), []);
-
-    const mutated = structuredClone(graph) as ArtifactGraphInput & {
-      nodes: Array<{ sourceProfile: string; data: Record<string, unknown> }>;
-    };
-    const authority = mutated.nodes.find(({ data }) => data.binding !== undefined
-      && (data.binding as { section?: unknown }).section === "authorityChecks")!;
-    const check = (authority.data.authorityChecks as Array<{
-      authoritySources: { actor: string };
-    }>)[0]!;
-    check.authoritySources.actor = "client-claim";
-    const mutatedContext: ValidationContext = { ...context, graph: mutated };
-    const diagnostics = await validateBuiltRules(mutatedContext, RULE_IDS);
-    assert.deepEqual(diagnostics.map(({ code }) => code), ["SP-AUTHZ-001", "SP-AUTHZ-002"]);
-  });
 });

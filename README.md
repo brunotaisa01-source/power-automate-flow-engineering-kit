@@ -15,6 +15,11 @@ inventories, and safely inspect native solution ZIP bytes. Repository-authored
 evidence, source IR, projections, and JSON stored under a `.zip` name cannot
 authorize a production PASS.
 
+WP-07 hardening rejects unreachable frontend tokens and inert builder actions,
+derives all fourteen application and SharePoint rules through raw executable
+adapter paths, keeps trust construction internal, and reports the HTTP runtime
+`LIVE_SMOKE` gate as `NOT_RUN` during offline verification.
+
 All results are local evidence only. Tenant import, rebinding, enablement,
 execution, mutation, semantic readback, and publication readback are separate
 gates and are not performed by this repository.
