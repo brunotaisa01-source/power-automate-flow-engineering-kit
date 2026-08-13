@@ -98,6 +98,8 @@ function idempotencyActions(options: {
   readonly keyExpression?: string;
   readonly emptyGuardExpression?: string;
   readonly zeroCardinalityExpression?: string;
+  readonly oneCardinalityExpression?: string;
+  readonly manyCardinalityExpression?: string;
 } = {}): Readonly<Record<string, RawAction>> {
   return {
     DeriveKey: {
@@ -125,7 +127,8 @@ function idempotencyActions(options: {
         HandleOne: {
           type: "If",
           runAfter: runAfter("Lookup", "Succeeded"),
-          expression: "@equals(length(body('Lookup')?['value']), 1)",
+          expression: options.oneCardinalityExpression
+            ?? "@equals(length(body('Lookup')?['value']), 1)",
           actions: {
             ReturnExisting: { type: "Response", runAfter: {} },
           },
@@ -133,7 +136,8 @@ function idempotencyActions(options: {
         HandleMany: {
           type: "If",
           runAfter: runAfter("Lookup", "Succeeded"),
-          expression: "@greater(length(body('Lookup')?['value']), 1)",
+          expression: options.manyCardinalityExpression
+            ?? "@greater(length(body('Lookup')?['value']), 1)",
           actions: {
             FailReconciliation: {
               type: "Terminate",
@@ -526,6 +530,51 @@ describe("WP-05R real adapter boundary counterexamples", () => {
     const context = await inspectedContext(flowDefinition(
       idempotencyActions({
         keyExpression: "@concat(if(true, triggerBody()?['TargetId'], 'fixed-target'), ':', if(false, 'fixed-command', triggerBody()?['CommandType']))",
+      }),
+      ["synthetic_connection"],
+    ));
+
+    assert.deepEqual(await diagnostics("FLOW-IDEMPOTENCY-001", context), []);
+  });
+
+  for (const [scenario, options] of [
+    ["non-empty key behind a dominating statically false conjunct", {
+      emptyGuardExpression: "@and(not(empty(outputs('DeriveKey'))), equals('fixed', 'different'))",
+    }],
+    ["zero cardinality behind a dominating false conjunct", {
+      zeroCardinalityExpression: "@and(equals(length(body('Lookup')?['value']), 0), false)",
+    }],
+    ["one cardinality behind a dominating false conjunct", {
+      oneCardinalityExpression: "@and(equals(length(body('Lookup')?['value']), 1), false)",
+    }],
+    ["many cardinality behind a dominating false conjunct", {
+      manyCardinalityExpression: "@and(greater(length(body('Lookup')?['value']), 1), false)",
+    }],
+    ["non-empty key inside a statically unknown disjunction", {
+      emptyGuardExpression: "@or(not(empty(outputs('DeriveKey'))), equals(triggerBody()?['Unrelated'], true))",
+    }],
+  ] as const) {
+    test(`FLOW-IDEMPOTENCY-001 rejects ${scenario}`, async () => {
+      const context = await inspectedContext(flowDefinition(
+        idempotencyActions(options),
+        ["synthetic_connection"],
+      ));
+
+      assert.deepEqual(await diagnostics("FLOW-IDEMPOTENCY-001", context), [{
+        code: "FLOW-IDEMPOTENCY-001",
+        path: `${PACKAGE_PATH}#/flows/<flow>/idempotency`,
+        message: "Flow does not provide a deterministic non-empty key with explicit zero, one, and many handling.",
+      }]);
+    });
+  }
+
+  test("FLOW-IDEMPOTENCY-001 accepts runtime predicates with neutral true conjuncts", async () => {
+    const context = await inspectedContext(flowDefinition(
+      idempotencyActions({
+        emptyGuardExpression: "@and(not(empty(outputs('DeriveKey'))), true)",
+        zeroCardinalityExpression: "@and(equals(length(body('Lookup')?['value']), 0), true)",
+        oneCardinalityExpression: "@and(equals(length(body('Lookup')?['value']), 1), true)",
+        manyCardinalityExpression: "@and(greater(length(body('Lookup')?['value']), 1), true)",
       }),
       ["synthetic_connection"],
     ));

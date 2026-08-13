@@ -227,6 +227,10 @@ function influentialChildren(
 function conjuncts(
   node: NormalizedExpressionNode,
 ): readonly NormalizedExpressionNode[] | undefined {
+  const constant = staticExpressionValue(node);
+  if (constant.known && typeof constant.value === "boolean") {
+    return constant.value ? [] : undefined;
+  }
   if (isCall(node) && isNamedCall(node, "or")) {
     return undefined;
   }

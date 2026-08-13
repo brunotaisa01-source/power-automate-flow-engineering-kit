@@ -1028,6 +1028,26 @@ describe("WP-05S shipped offline validation", () => {
     });
   });
 
+  test("idempotency false-dominance: built validation rejects a statically false non-empty guard", async () => {
+    const privateFlowId = "synthetic-dominating-false-idempotency";
+    await withProject({
+      flowId: privateFlowId,
+      processor: true,
+      connectionReference: true,
+      actions: semanticProcessorActions("GetItem", {}, {
+        emptyGuard: "@and(not(empty(outputs('DeriveKey'))), equals('fixed', 'different'))",
+      }),
+    }, async (project) => {
+      const result = await runCli([
+        "validate", "rules", "--root", project.root, "--format", "json",
+      ]);
+
+      assert.equal(result.exitCode, 1, result.stdout);
+      assertDiagnosticCodes(result, ["FLOW-IDEMPOTENCY-001"]);
+      assert.equal(result.stdout.includes(privateFlowId), false);
+    });
+  });
+
   for (const [scenario, options] of [
     ["dominating dry-run constant", {
       dryRunExpression: "@and(equals(triggerBody()?['DryRun'], true), equals('fixed', 'different'))",
