@@ -61,7 +61,7 @@ interface ParsedBase {
 export type ParsedCliArgs =
   | { kind: "help"; format: OutputFormat }
   | (ParsedBase & { route: "validate-contract"; path: string })
-  | (ParsedBase & { route: "validate-rules"; root: string })
+  | (ParsedBase & { route: "validate-rules"; root: string; requiredOnly: boolean })
   | (ParsedBase & {
       route: "validate-artifact";
       path: string;
@@ -271,7 +271,11 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
   if (first === "validate" && second === "rules") {
     const parsed = parseOptions(
       args.slice(2),
-      { root: { type: "string" }, format: { type: "string" } },
+      {
+        root: { type: "string" },
+        "required-only": { type: "boolean" },
+        format: { type: "string" },
+      },
       "validate rules",
     );
     if (parsed.positionals.length !== 0) {
@@ -283,6 +287,7 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
       command: "validate rules",
       format: parseFormat(parsed.values.format),
       root: requiredOption(parsed.values.root, "validate rules requires --root <repository>."),
+      requiredOnly: parsed.values["required-only"] ?? false,
     };
   }
   if (first === "validate" && second === "artifact") {

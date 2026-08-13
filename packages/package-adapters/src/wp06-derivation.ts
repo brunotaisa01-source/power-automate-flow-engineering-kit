@@ -88,8 +88,29 @@ function stringPolicy(source: ts.SourceFile, name: string): StringPolicy | undef
   return policy.size > 0 ? policy : undefined;
 }
 
+function constantBoolean(expression: ts.Expression): boolean | undefined {
+  if (expression.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (expression.kind === ts.SyntaxKind.FalseKeyword) return false;
+  if (ts.isParenthesizedExpression(expression)) return constantBoolean(expression.expression);
+  if (ts.isPrefixUnaryExpression(expression) && expression.operator === ts.SyntaxKind.ExclamationToken) {
+    const value = constantBoolean(expression.operand);
+    return value === undefined ? undefined : !value;
+  }
+  return undefined;
+}
+
 function statementTerminates(statement: ts.Statement): boolean {
-  return ts.isReturnStatement(statement) || ts.isThrowStatement(statement);
+  if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) return true;
+  if (ts.isBlock(statement)) return statement.statements.some(statementTerminates);
+  if (!ts.isIfStatement(statement)) return false;
+  const condition = constantBoolean(statement.expression);
+  if (condition === true) return statementTerminates(statement.thenStatement);
+  if (condition === false) {
+    return statement.elseStatement !== undefined && statementTerminates(statement.elseStatement);
+  }
+  return statement.elseStatement !== undefined
+    && statementTerminates(statement.thenStatement)
+    && statementTerminates(statement.elseStatement);
 }
 
 function hasUnreachableTopLevel(body: ts.Block): boolean {
@@ -163,7 +184,11 @@ function isGetReturn(statement: ts.Statement, source: ts.SourceFile): boolean {
 
 function supportsPatchHelper(source: ts.SourceFile): boolean {
   const helper = topLevelFunction(source, "allowlistedPatch");
-  if (helper?.body === undefined || hasUnreachableTopLevel(helper.body)) return false;
+  if (
+    helper?.body === undefined
+    || helper.body.statements.length !== 3
+    || hasUnreachableTopLevel(helper.body)
+  ) return false;
   const fields = variableInitializer(helper.body, "fields");
   const returned = helper.body.statements.find(ts.isReturnStatement)?.expression;
   return fields?.getText(source) === "PATCH_ALLOWLISTS[listId]"
@@ -177,7 +202,11 @@ function supportsPatchHelper(source: ts.SourceFile): boolean {
 
 function supportsFreshDigest(source: ts.SourceFile): boolean {
   const helper = topLevelFunction(source, "freshDigest");
-  if (helper?.body === undefined || hasUnreachableTopLevel(helper.body)) return false;
+  if (
+    helper?.body === undefined
+    || helper.body.statements.length !== 3
+    || hasUnreachableTopLevel(helper.body)
+  ) return false;
   const response = fetchRequest(variableInitializer(helper.body, "response"));
   const body = variableInitializer(helper.body, "body");
   const returned = helper.body.statements.find(ts.isReturnStatement)?.expression;
@@ -190,7 +219,11 @@ function supportsFreshDigest(source: ts.SourceFile): boolean {
 
 function supportsSave(source: ts.SourceFile): boolean {
   const save = topLevelFunction(source, "saveSharePointItem");
-  if (save?.body === undefined || hasUnreachableTopLevel(save.body)) return false;
+  if (
+    save?.body === undefined
+    || save.body.statements.length !== 6
+    || hasUnreachableTopLevel(save.body)
+  ) return false;
   const body = variableInitializer(save.body, "body");
   const digest = variableInitializer(save.body, "digest");
   const request = fetchRequest(variableInitializer(save.body, "response"));
@@ -230,7 +263,11 @@ function supportsSave(source: ts.SourceFile): boolean {
 
 function supportsPagination(source: ts.SourceFile): number | undefined {
   const pagination = topLevelFunction(source, "loadAllSharePointPages");
-  if (pagination?.body === undefined || hasUnreachableTopLevel(pagination.body)) return undefined;
+  if (
+    pagination?.body === undefined
+    || pagination.body.statements.length !== 6
+    || hasUnreachableTopLevel(pagination.body)
+  ) return undefined;
   const loop = pagination.body.statements.find(ts.isWhileStatement);
   if (loop === undefined || loop.expression.getText(source) !== "next" || !ts.isBlock(loop.statement)) {
     return undefined;
@@ -254,7 +291,11 @@ function supportsPagination(source: ts.SourceFile): number | undefined {
 
 function supportsOData(source: ts.SourceFile): boolean {
   const odata = topLevelFunction(source, "buildSharePointODataUrl");
-  if (odata?.body === undefined || hasUnreachableTopLevel(odata.body)) return false;
+  if (
+    odata?.body === undefined
+    || odata.body.statements.length !== 8
+    || hasUnreachableTopLevel(odata.body)
+  ) return false;
   const text = odata.body.getText(source);
   return variableInitializer(odata.body, "fields")?.getText(source) === "READ_ALLOWLISTS[listId]"
     && text.includes("new URL(base)")
@@ -342,6 +383,19 @@ function succeedsAfter(action: NormalizedAction, predecessor: NormalizedAction):
     );
 }
 
+function runsAfterStatuses(
+  action: NormalizedAction,
+  predecessor: NormalizedAction,
+  expectedStatuses: readonly string[],
+): boolean {
+  const match = action.runAfter.filter(({ actionId }) => actionId === predecessor.id);
+  const expected = [...expectedStatuses].sort();
+  return action.containerId === predecessor.containerId
+    && match.length === 1
+    && match[0]?.statuses.length === expected.length
+    && match[0]?.statuses.every((status, index) => status === expected[index]);
+}
+
 type UnknownRecord = Record<string, unknown>;
 
 function isRecord(value: unknown): value is UnknownRecord {
@@ -362,17 +416,63 @@ function actionUri(action: NormalizedAction): string | undefined {
   return inputs === undefined || typeof inputs.uri !== "string" ? undefined : inputs.uri;
 }
 
+interface CanonicalConnectorUri {
+  readonly path: string;
+  readonly query: ReadonlyMap<string, string>;
+}
+
+function canonicalConnectorUri(action: NormalizedAction | undefined): CanonicalConnectorUri | undefined {
+  const uri = action === undefined ? undefined : actionUri(action);
+  if (
+    action?.connector?.operationId !== "HttpRequest"
+    || action.connector.uriClass !== "relative"
+    || uri === undefined
+    || !uri.startsWith("/_api/")
+    || uri.includes("#")
+    || uri.includes("\\")
+    || /[\u0000-\u001f\u007f]/.test(uri)
+    || /%(?:2f|3f|23|5c)/i.test(uri)
+  ) return undefined;
+  const separator = uri.indexOf("?");
+  const path = separator === -1 ? uri : uri.slice(0, separator);
+  const queryText = separator === -1 ? "" : uri.slice(separator + 1);
+  if (queryText.includes("?")) return undefined;
+  const parsed = new URLSearchParams(queryText);
+  const query = new Map<string, string>();
+  for (const [key, value] of parsed) {
+    if (key.length === 0 || query.has(key)) return undefined;
+    query.set(key, value);
+  }
+  return { path, query };
+}
+
+function queryMatches(
+  actual: ReadonlyMap<string, string>,
+  expected: Readonly<Record<string, string>>,
+): boolean {
+  const entries = Object.entries(expected);
+  return actual.size === entries.length
+    && entries.every(([key, value]) => actual.get(key) === value);
+}
+
+function connectorMatches(
+  action: NormalizedAction | undefined,
+  method: string,
+  path: string,
+  query: Readonly<Record<string, string>> = {},
+): action is NormalizedAction {
+  const uri = canonicalConnectorUri(action);
+  return action !== undefined
+    && actionMethod(action) === method
+    && uri?.path === path
+    && queryMatches(uri.query, query);
+}
+
 function stringArrayValue(value: unknown): readonly string[] | undefined {
   return Array.isArray(value)
       && value.every((item): item is string => typeof item === "string")
       && new Set(value).size === value.length
     ? value
-    : undefined;
-}
-
-function booleanMap(value: unknown): Readonly<Record<string, boolean>> | undefined {
-  return isRecord(value) && Object.values(value).every((item) => typeof item === "boolean")
-    ? value as Record<string, boolean>
     : undefined;
 }
 
@@ -393,23 +493,62 @@ function oneRole(
   return actions.length === 1 ? actions[0] : undefined;
 }
 
-function connectorMatches(
-  action: NormalizedAction | undefined,
-  method: string,
-  uriParts: readonly string[],
-): action is NormalizedAction {
-  const uri = action === undefined ? undefined : actionUri(action);
-  return action?.connector !== undefined
-    && actionMethod(action) === method
-    && uri !== undefined
-    && uriParts.every((part) => uri.includes(part));
-}
-
 function conditionExpression(action: NormalizedAction | undefined): string | undefined {
   if (action === undefined || !["Condition", "If"].includes(action.type)) return undefined;
   const direct = actionInputs(action)?.expression;
   if (typeof direct === "string") return direct;
   return action.expressions.length === 1 ? action.expressions[0]?.source : undefined;
+}
+
+function listEndpoint(titleBinding: string): string {
+  return `/_api/web/lists/getbytitle('${titleBinding}')`;
+}
+
+function conditionMatches(action: NormalizedAction | undefined, expected: string): action is NormalizedAction {
+  return action !== undefined
+    && action.expressions.length === 1
+    && action.expressions[0]?.valid === true
+    && conditionExpression(action) === expected;
+}
+
+function childRole(
+  flow: NonNullable<DefinitionRuleEvidence["flow"]>,
+  parent: NormalizedAction,
+  branch: NormalizedAction["controlBranch"],
+  role: string,
+): NormalizedAction | undefined {
+  const matches = [...flow.actions.values()].filter((action) =>
+    action.parentId === parent.id
+    && action.controlBranch === branch
+    && action.declaredRole === role
+  );
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
+function conditionFailsClosed(
+  flow: NonNullable<DefinitionRuleEvidence["flow"]>,
+  condition: NormalizedAction,
+): boolean {
+  const falseActions = [...flow.actions.values()].filter((action) =>
+    action.parentId === condition.id && action.controlBranch === "condition-false"
+  );
+  return falseActions.length === 1
+    && falseActions[0]?.type === "Terminate"
+    && falseActions[0]?.terminationStatus === "Failed";
+}
+
+function bodyRecord(action: NormalizedAction | undefined): UnknownRecord | undefined {
+  const body = action === undefined ? undefined : actionInputs(action)?.body;
+  return isRecord(body) ? body : undefined;
+}
+
+function exactRecord(value: UnknownRecord | undefined, expected: UnknownRecord): boolean {
+  if (value === undefined) return false;
+  const actualKeys = Object.keys(value).sort();
+  const expectedKeys = Object.keys(expected).sort();
+  return actualKeys.length === expectedKeys.length
+    && actualKeys.every((key, index) => key === expectedKeys[index])
+    && expectedKeys.every((key) => JSON.stringify(value[key]) === JSON.stringify(expected[key]));
 }
 
 function authorityFromDefinition(
@@ -432,52 +571,72 @@ function authorityFromDefinition(
   const target = oneRole(flow, "target-read");
   const guard = oneRole(flow, "authorization-guard");
   const mutation = oneRole(flow, "mutation");
-  const capabilityParams = capability === undefined ? undefined : actionParameters(capability);
-  const targetParams = target === undefined ? undefined : actionParameters(target);
-  const mutationParams = mutation === undefined ? undefined : actionParameters(mutation);
-  const expression = conditionExpression(guard);
+  const readback = oneRole(flow, "mutation-readback");
+  const readbackAssert = oneRole(flow, "mutation-readback-assert");
+  const accessPath = listEndpoint(accessList.titleBinding);
+  const targetPath = listEndpoint(targetList.titleBinding);
+  const scopeField = capabilityContract.scope.targetField;
+  const accessField = capabilityContract.scope.accessField;
+  const stateMachine = contract.stateMachines.find(({ transitions }) =>
+    transitions.some(({ id }) => id === transition.id)
+  );
+  if (scopeField === undefined || accessField === undefined || stateMachine === undefined) {
+    return undefined;
+  }
+  const selectedCapabilityFields = [
+    capabilityContract.activeField,
+    capabilityContract.principalField,
+    capabilityContract.capabilityField,
+    ...(accessField === undefined ? [] : [accessField]),
+  ].filter((field, index, fields) => fields.indexOf(field) === index);
+  const selectedTargetFields = [
+    ...command.serverReadFields,
+    ...(stateMachine === undefined ? [] : [stateMachine.field]),
+  ].filter((field, index, fields) => fields.indexOf(field) === index);
+  const targetItemPath = `${targetPath}/items(@{triggerBody()['${command.targetIdField}']})`;
+  const capabilityFilter = `${capabilityContract.activeField} eq 1 and `
+    + `${capabilityContract.principalField} eq '@{body('${identity?.id ?? ""}')['LoginName']}' and `
+    + `${capabilityContract.capabilityField} eq '${capabilityContract.id}'`;
+  const expectedGuard = `@and(equals(length(body('${capability?.id ?? ""}')['value']),1),`
+    + `equals(body('${capability?.id ?? ""}')['value'][0]['${accessField}'],body('${target?.id ?? ""}')['${scopeField}']),`
+    + `equals(triggerBody()['CommandType'],'${command.type}'),`
+    + `equals(body('${target?.id ?? ""}')['${stateMachine.field}'],'${transition.from[0] ?? ""}'))`;
+  const expectedReadback = `@equals(body('${readback?.id ?? ""}')['${stateMachine.field}'],'${transition.to}')`;
   if (
-    !connectorMatches(identity, "GET", ["/_api/web/currentuser", "$select=Id,LoginName"])
-    || !connectorMatches(capability, "GET", [accessList.titleBinding, "/items", capabilityContract.activeField])
-    || !connectorMatches(target, "GET", [targetList.titleBinding, "/items(", "$select="])
+    !connectorMatches(identity, "GET", "/_api/web/currentuser", { $select: "Id,LoginName" })
+    || !connectorMatches(capability, "GET", `${accessPath}/items`, {
+      $select: selectedCapabilityFields.join(","),
+      $filter: capabilityFilter,
+    })
+    || !connectorMatches(target, "GET", targetItemPath, { $select: selectedTargetFields.join(",") })
     || guard === undefined
     || mutation === undefined
-    || !connectorMatches(mutation, "POST", [targetList.titleBinding, "/items("])
+    || readback === undefined
+    || readbackAssert === undefined
+    || !connectorMatches(mutation, "POST", targetItemPath)
+    || !connectorMatches(readback, "GET", targetItemPath, { $select: stateMachine.field })
     || !succeedsAfter(capability, identity)
     || !succeedsAfter(target, capability)
     || !succeedsAfter(guard, target)
     || mutation.parentId !== guard.id
     || mutation.controlBranch !== "condition-true"
+    || readback.parentId !== guard.id
+    || readback.controlBranch !== "condition-true"
+    || readbackAssert.parentId !== guard.id
+    || readbackAssert.controlBranch !== "condition-true"
+    || !succeedsAfter(readback, mutation)
+    || !succeedsAfter(readbackAssert, readback)
+    || !conditionFailsClosed(flow, guard)
+    || !conditionFailsClosed(flow, readbackAssert)
     || mutation.connector?.overrideMethod !== "MERGE"
-    || mutation.connector.ifMatch === undefined
-    || mutation.connector.ifMatch === "*"
-    || expression === undefined
-    || !expression.includes(`body('${capability.id}')`)
-    || !expression.includes(`body('${target.id}')`)
-    || !expression.includes(`'${command.type}'`)
-    || !expression.includes(`'${transition.from[0] ?? ""}'`)
-    || capabilityParams === undefined
-    || targetParams === undefined
-    || mutationParams === undefined
-  ) return undefined;
-  const capabilityId = capabilityParams.capabilityId;
-  const accessListId = capabilityParams.listId;
-  const activeField = capabilityParams.activeField;
-  const principalField = capabilityParams.principalField;
-  const capabilityField = capabilityParams.capabilityField;
-  const targetListId = targetParams.listId;
-  const commandType = mutationParams.commandType;
-  const transitionId = mutationParams.transitionId;
-  const scopeTargetField = mutationParams.scopeTargetField;
-  const scopeAccessField = mutationParams.scopeAccessField;
-  if (
-    ![capabilityId, accessListId, activeField, principalField, capabilityField, targetListId,
-      commandType, transitionId, scopeTargetField, scopeAccessField]
-      .every((value) => typeof value === "string")
+    || mutation.connector.ifMatch !== `@{body('${target.id}')['@odata.etag']}`
+    || !exactRecord(bodyRecord(mutation), { [stateMachine.field]: transition.to })
+    || !conditionMatches(guard, expectedGuard)
+    || !conditionMatches(readbackAssert, expectedReadback)
   ) return undefined;
   return [{
-    commandType,
-    targetListId,
+    commandType: command.type,
+    targetListId: targetList.id,
     sequence: { identityRead: 1, capabilityRead: 2, targetRead: 3, mutation: 4 },
     authoritySources: {
       actor: "server-system-identity",
@@ -489,21 +648,21 @@ function authorityFromDefinition(
       approval: "server-contract",
     },
     capability: {
-      id: capabilityId,
-      accessListId,
-      activeField,
-      principalField,
-      capabilityField,
+      id: capabilityContract.id,
+      accessListId: accessList.id,
+      activeField: capabilityContract.activeField,
+      principalField: capabilityContract.principalField,
+      capabilityField: capabilityContract.capabilityField,
       source: "active-access-row",
-      activeOnly: capabilityParams.matchCardinality === "one",
-      matchCardinality: capabilityParams.matchCardinality,
-      commandDeclared: commandType === command.type,
-      stateTransitionDeclared: transitionId === transition.id,
+      activeOnly: true,
+      matchCardinality: "one",
+      commandDeclared: true,
+      stateTransitionDeclared: true,
     },
     scope: {
       mode: capabilityContract.scope.mode,
-      targetField: scopeTargetField,
-      accessField: scopeAccessField,
+      targetField: scopeField,
+      accessField,
       targetValueSource: "current-target-read",
       capabilityValueSource: "active-access-row",
       evaluation: "exact-match",
@@ -519,62 +678,115 @@ function permissionSections(
 ): { readonly models: readonly unknown[]; readonly probes: readonly unknown[] } | undefined {
   const models: unknown[] = [];
   const probes: unknown[] = [];
+  let expectedGrantCount = 0;
+  const operationUniverse = ["create", "delete", "read", "update"] as const;
   for (const list of contract.sharePoint.lists) {
     const model = oneRole(flow, `permission-model:${list.id}`);
-    const readback = oneRole(flow, `permission-readback:${list.id}`);
-    const parameters = model === undefined ? undefined : actionParameters(model);
     if (
-      !connectorMatches(model, "POST", [list.titleBinding, "breakroleinheritance("])
-      || !connectorMatches(readback, "GET", [list.titleBinding, "/roleassignments"])
-      || !succeedsAfter(readback, model)
-      || parameters === undefined
-      || parameters.listId !== list.id
-      || typeof parameters.inheritance !== "string"
-      || typeof parameters.directUserGrants !== "string"
-      || stringArrayValue(parameters.browserOperations) === undefined
-      || !Array.isArray(parameters.grants)
-      || !parameters.grants.every((grant) =>
-        isRecord(grant)
-        && typeof grant.principalKind === "string"
-        && typeof grant.principalBinding === "string"
-        && typeof grant.role === "string"
-        && stringArrayValue(grant.allowedOperations) !== undefined
+      !connectorMatches(
+        model,
+        "POST",
+        `${listEndpoint(list.titleBinding)}/breakroleinheritance(copyRoleAssignments=false,clearSubscopes=true)`,
       )
     ) return undefined;
+    const grants: unknown[] = [];
+    let predecessor = model;
+    let finalReadback: NormalizedAction | undefined;
     models.push({
-      listId: parameters.listId,
-      inheritance: parameters.inheritance,
-      directUserGrants: parameters.directUserGrants,
-      browserOperations: parameters.browserOperations,
-      grants: structuredClone(parameters.grants),
+      listId: list.id,
+      inheritance: list.permissions.inheritance,
+      directUserGrants: "forbidden",
+      browserOperations: list.role === "protected-domain"
+        ? list.writeModel === "direct-patch" ? ["read", "update"] : ["read"]
+        : list.role === "command-queue" ? ["read", "create"]
+        : ["reference", "outbox"].includes(list.role) ? ["read"] : [],
+      grants,
     });
     for (const role of list.permissions.minimumRoles) {
+      expectedGrantCount += 1;
+      const principal = oneRole(flow, `permission-principal:${list.id}:${role.principalBinding}`);
+      const roleRead = oneRole(flow, `permission-role:${list.id}:${role.principalBinding}`);
+      const grant = oneRole(flow, `permission-grant:${list.id}:${role.principalBinding}`);
+      const readback = oneRole(flow, `permission-readback:${list.id}:${role.principalBinding}`);
+      const grantAssert = oneRole(flow, `permission-grant-assert:${list.id}:${role.principalBinding}`);
+      const principalLiteral = role.principalBinding.replaceAll("'", "''");
+      const roleLiteral = role.role.replaceAll("'", "''");
+      const grantPath = `${listEndpoint(list.titleBinding)}/roleassignments/addroleassignment(`
+        + `principalid=@{body('${principal?.id ?? ""}')['Id']},`
+        + `roledefid=@{body('${roleRead?.id ?? ""}')['Id']})`;
+      const grantAssertion = `@and(`
+        + `contains(string(body('${readback?.id ?? ""}')),'${principalLiteral}'),`
+        + `contains(string(body('${readback?.id ?? ""}')),'${roleLiteral}'))`;
+      if (
+        !connectorMatches(
+          principal,
+          "GET",
+          "/_api/web/siteusers/getbyloginname(@p)",
+          { "@p": `'${principalLiteral}'` },
+        )
+        || !connectorMatches(
+          roleRead,
+          "GET",
+          `/_api/web/roledefinitions/getbyname('${roleLiteral}')`,
+          { $select: "Id,Name" },
+        )
+        || !connectorMatches(grant, "POST", grantPath)
+        || !connectorMatches(
+          readback,
+          "GET",
+          `${listEndpoint(list.titleBinding)}/roleassignments`,
+          { $expand: "Member,RoleDefinitionBindings" },
+        )
+        || !succeedsAfter(principal, predecessor)
+        || !succeedsAfter(roleRead, principal)
+        || !succeedsAfter(grant, roleRead)
+        || !succeedsAfter(readback, grant)
+        || grantAssert === undefined
+        || !succeedsAfter(grantAssert, readback)
+        || !conditionMatches(grantAssert, grantAssertion)
+        || !conditionFailsClosed(flow, grantAssert)
+      ) return undefined;
+      grants.push({
+        principalKind: "binding",
+        principalBinding: role.principalBinding,
+        role: role.role,
+        allowedOperations: [...role.allowedOperations],
+      });
       const probeRole = `permission-probe:${list.id}:${role.principalBinding}`;
       const assertRole = `permission-assert:${list.id}:${role.principalBinding}`;
       const probe = oneRole(flow, probeRole);
       const assertion = oneRole(flow, assertRole);
-      const probeParams = probe === undefined ? undefined : actionParameters(probe);
-      const expression = conditionExpression(assertion);
-      const operations = probeParams === undefined ? undefined : booleanMap(probeParams.operations);
+      const operations = Object.fromEntries(operationUniverse.map((operation) => [
+        operation,
+        role.allowedOperations.includes(operation),
+      ]));
+      const expectedAssertion = `@and(${operationUniverse.map((operation) =>
+        `equals(body('${probe?.id ?? ""}')['operations/${operation}'],${operations[operation]})`
+      ).join(",")})`;
       if (
-        !connectorMatches(probe, "GET", [list.titleBinding, "getusereffectivepermissions", role.principalBinding])
-        || assertion === undefined
-        || !succeedsAfter(assertion, probe)
-        || probeParams?.listId !== list.id
-        || probeParams.principalBinding !== role.principalBinding
-        || operations === undefined
-        || expression === undefined
-        || !Object.entries(operations).every(([operation, allowed]) =>
-          expression.includes(`operations/${operation}`) && expression.includes(`${allowed}`)
+        !connectorMatches(
+          probe,
+          "GET",
+          `${listEndpoint(list.titleBinding)}/getusereffectivepermissions(@p)`,
+          { "@p": `'${principalLiteral}'` },
         )
+        || assertion === undefined
+        || !succeedsAfter(probe, grantAssert)
+        || !succeedsAfter(assertion, probe)
+        || !conditionMatches(assertion, expectedAssertion)
+        || !conditionFailsClosed(flow, assertion)
       ) return undefined;
       probes.push({
-        listId: probeParams.listId,
-        principalBinding: probeParams.principalBinding,
-        operations: structuredClone(operations),
+        listId: list.id,
+        principalBinding: role.principalBinding,
+        operations,
       });
+      predecessor = assertion;
+      finalReadback = readback;
     }
+    if (list.permissions.minimumRoles.length === 0 || finalReadback === undefined) return undefined;
   }
+  if (rolesByPrefix(flow, "permission-grant").length !== expectedGrantCount) return undefined;
   return { models, probes };
 }
 
@@ -590,8 +802,12 @@ function fieldOperationsFromDefinition(
       const parameters = write === undefined ? undefined : actionParameters(write);
       const body = write === undefined ? undefined : actionInputs(write)?.body;
       if (
-        !connectorMatches(read, "GET", [list.titleBinding, `getbyinternalnameortitle('${field.internalName}')`])
-        || !connectorMatches(write, "POST", [list.titleBinding, "/fields"])
+        !connectorMatches(
+          read,
+          "GET",
+          `${listEndpoint(list.titleBinding)}/fields/getbyinternalnameortitle('${field.internalName}')`,
+        )
+        || !connectorMatches(write, "POST", `${listEndpoint(list.titleBinding)}/fields`)
         || !succeedsAfter(write, read)
         || parameters === undefined
         || parameters.listId !== list.id
@@ -604,6 +820,7 @@ function fieldOperationsFromDefinition(
         || !isRecord(body.__metadata)
         || body.__metadata.type !== parameters.metadataType
         || body.FieldTypeKind !== parameters.fieldTypeKind
+        || body.InternalName !== field.internalName
       ) return undefined;
       operations.push({
         listId: parameters.listId,
@@ -635,17 +852,55 @@ function fieldOperationsFromDefinition(
 }
 
 function httpFromDefinition(
+  contract: ProjectContract,
   flow: NonNullable<DefinitionRuleEvidence["flow"]>,
 ): readonly unknown[] | undefined {
+  if (contract.commands.length !== 1) return undefined;
+  const command = contract.commands[0]!;
+  const target = contract.sharePoint.lists.find(({ id }) => id === command.targetListId);
+  if (target === undefined) return undefined;
+  const observation = oneRole(flow, "http-observation");
   const classifier = oneRole(flow, "http-classifier");
-  const expression = conditionExpression(classifier);
-  return expression !== undefined
-      && expression.includes("400")
-      && expression.includes("-2147024809")
-      && expression.includes("404")
-      && expression.includes("preflight")
-      && expression.includes("initial-get")
-    ? [
+  if (observation === undefined || classifier === undefined) return undefined;
+  const other400 = childRole(flow, classifier, "condition-false", "http-classifier:other-400");
+  if (other400 === undefined) return undefined;
+  const preflight404 = childRole(flow, other400, "condition-false", "http-classifier:preflight-404");
+  if (preflight404 === undefined) return undefined;
+  const strict404 = childRole(flow, preflight404, "condition-false", "http-classifier:strict-404");
+  if (strict404 === undefined) return undefined;
+  const targetPath = `${listEndpoint(target.titleBinding)}/items(@{triggerBody()['${command.targetIdField}']})`;
+  const missingExpression = `@and(equals(outputs('${observation.id}')['statusCode'],400),`
+    + `or(equals(body('${observation.id}')['error/code'],'-2147024809'),`
+    + `equals(body('${observation.id}')['messageCategory'],'column-does-not-exist')))`;
+  const other400Expression = `@equals(outputs('${observation.id}')['statusCode'],400)`;
+  const preflight404Expression = `@and(equals(outputs('${observation.id}')['statusCode'],404),`
+    + `equals(triggerBody()['Phase'],'preflight'),`
+    + `equals(triggerBody()['RequestKind'],'initial-get'),`
+    + `equals(triggerBody()['AllowCreateMissing404'],true))`;
+  const strict404Expression = `@equals(outputs('${observation.id}')['statusCode'],404)`;
+  const resultMatches = (
+    parent: NormalizedAction,
+    branch: NormalizedAction["controlBranch"],
+    role: string,
+    expected: string,
+  ): boolean => {
+    const action = childRole(flow, parent, branch, role);
+    return action?.type === "Compose" && action.inputs === expected;
+  };
+  if (
+    !connectorMatches(observation, "GET", targetPath, { $select: target.readAllowlist.join(",") })
+    || !runsAfterStatuses(classifier, observation, ["Failed", "Succeeded"])
+    || !conditionMatches(classifier, missingExpression)
+    || !conditionMatches(other400, other400Expression)
+    || !conditionMatches(preflight404, preflight404Expression)
+    || !conditionMatches(strict404, strict404Expression)
+    || !resultMatches(classifier, "condition-true", "http-result:missing-column", "MISSING_OBJECT")
+    || !resultMatches(other400, "condition-true", "http-result:other-400", "GET_FAILED")
+    || !resultMatches(preflight404, "condition-true", "http-result:preflight-404", "CREATE_MISSING")
+    || !resultMatches(strict404, "condition-true", "http-result:strict-404", "GET_FAILED")
+    || !resultMatches(strict404, "condition-false", "http-result:default", "GET_FAILED")
+  ) return undefined;
+  return [
         {
           status: 400,
           phase: "preflight",
@@ -678,8 +933,7 @@ function httpFromDefinition(
           error: { platformCode: "NOT_FOUND" },
           classification: "GET_FAILED",
         },
-      ]
-    : undefined;
+      ];
 }
 
 function indexPlansFromDefinition(
@@ -689,86 +943,120 @@ function indexPlansFromDefinition(
   const plans: unknown[] = [];
   const indexedLists = contract.sharePoint.lists.filter(({ indexes }) => indexes.length > 0);
   for (const list of indexedLists) {
+    const requiredFields = [...list.indexes]
+      .filter(({ required }) => required)
+      .sort((left, right) => left.order - right.order || left.field.localeCompare(right.field, "en"))
+      .map(({ field }) => field);
+    if (requiredFields.length === 0) return undefined;
     const read = oneRole(flow, `index-read:${list.id}`);
-    const digest = oneRole(flow, `index-digest:${list.id}`);
+    const guard = oneRole(flow, `index-plan-guard:${list.id}`);
+    const planDigest = oneRole(flow, `index-plan-digest:${list.id}`);
+    const requestDigest = oneRole(flow, `index-request-digest:${list.id}`);
     const finalReadback = oneRole(flow, `index-final-readback:${list.id}`);
-    const readParams = read === undefined ? undefined : actionParameters(read);
-    const digestParams = digest === undefined ? undefined : actionParameters(digest);
-    const finalParams = finalReadback === undefined ? undefined : actionParameters(finalReadback);
-    const writes = [...rolesByPrefix(flow, `index-write:${list.id}`)]
-      .sort((left, right) => {
-        const leftSequence = Number(actionParameters(left)?.sequence ?? Number.MAX_SAFE_INTEGER);
-        const rightSequence = Number(actionParameters(right)?.sequence ?? Number.MAX_SAFE_INTEGER);
-        return leftSequence - rightSequence;
-      });
+    const finalAssert = oneRole(flow, `index-final-assert:${list.id}`);
+    const listPath = listEndpoint(list.titleBinding);
+    const filter = requiredFields.map((field) =>
+      `InternalName eq '${field.replaceAll("'", "''")}'`
+    ).join(" or ");
+    const fieldQuery = {
+      $select: "InternalName,Indexed",
+      $filter: filter,
+      $orderby: "InternalName",
+    };
+    const guardExpression = `@and(${requiredFields.flatMap((field, index) => [
+      `equals(body('${read?.id ?? ""}')['value'][${index}]['InternalName'],'${field.replaceAll("'", "''")}')`,
+      `equals(body('${read?.id ?? ""}')['value'][${index}]['Indexed'],false)`,
+    ]).join(",")})`;
+    const digestExpression = `@sha256(concat(string(body('${read?.id ?? ""}')['value']),'|','${requiredFields.join(",")}'))`;
+    const finalExpression = `@and(${requiredFields.flatMap((field, index) => [
+      `equals(body('${finalReadback?.id ?? ""}')['value'][${index}]['InternalName'],'${field.replaceAll("'", "''")}')`,
+      `equals(body('${finalReadback?.id ?? ""}')['value'][${index}]['Indexed'],true)`,
+    ]).join(",")})`;
     if (
-      !connectorMatches(read, "GET", [list.titleBinding, "/fields", "$select=InternalName,Indexed"])
-      || !connectorMatches(digest, "POST", ["/_api/contextinfo"])
-      || !succeedsAfter(digest, read)
-      || readParams?.listId !== list.id
-      || digestParams?.listId !== list.id
-      || digestParams.bindsCurrent !== true
-      || digestParams.bindsRequired !== true
-      || stringArrayValue(readParams.currentFields) === undefined
-      || stringArrayValue(readParams.requiredFields) === undefined
-      || finalParams?.listId !== list.id
-      || stringArrayValue(finalParams.observedFields) === undefined
+      read === undefined
+      || guard === undefined
+      || planDigest === undefined
+      || requestDigest === undefined
+      || finalReadback === undefined
+      || finalAssert === undefined
+      || !connectorMatches(read, "GET", `${listPath}/fields`, fieldQuery)
+      || !succeedsAfter(guard, read)
+      || !conditionMatches(guard, guardExpression)
+      || planDigest.parentId !== guard.id
+      || planDigest.controlBranch !== "condition-true"
+      || planDigest.type !== "Compose"
+      || planDigest.inputs !== digestExpression
+      || !connectorMatches(requestDigest, "POST", "/_api/contextinfo")
+      || requestDigest.parentId !== guard.id
+      || requestDigest.controlBranch !== "condition-true"
+      || !succeedsAfter(requestDigest, planDigest)
+      || !connectorMatches(finalReadback, "GET", `${listPath}/fields`, fieldQuery)
+      || !succeedsAfter(finalReadback, guard)
+      || !succeedsAfter(finalAssert, finalReadback)
+      || !conditionMatches(finalAssert, finalExpression)
+      || !conditionFailsClosed(flow, finalAssert)
     ) return undefined;
     const operations: unknown[] = [];
-    let predecessor = digest;
-    for (const [index, write] of writes.entries()) {
-      const parameters = actionParameters(write);
-      const field = parameters?.field;
-      const operation = parameters?.operation;
-      const sequence = parameters?.sequence;
-      const body = actionInputs(write)?.body;
-      const headers = actionInputs(write)?.headers;
-      const readback = typeof field === "string"
-        ? oneRole(flow, `index-step-readback:${list.id}:${field}`)
-        : undefined;
-      const readbackParams = readback === undefined ? undefined : actionParameters(readback);
+    let predecessor = requestDigest;
+    for (const [index, field] of requiredFields.entries()) {
+      const write = oneRole(flow, `index-write:${list.id}:${field}`);
+      const body = write === undefined ? undefined : actionInputs(write)?.body;
+      const headers = write === undefined ? undefined : actionInputs(write)?.headers;
+      const readback = oneRole(flow, `index-step-readback:${list.id}:${field}`);
+      const assertion = oneRole(flow, `index-step-assert:${list.id}:${field}`);
+      const readbackExpression = `@and(`
+        + `equals(body('${readback?.id ?? ""}')['InternalName'],'${field.replaceAll("'", "''")}'),`
+        + `equals(body('${readback?.id ?? ""}')['Indexed'],true))`;
       if (
-        typeof field !== "string"
-        || !["add", "remove"].includes(String(operation))
-        || sequence !== index + 1
-        || !connectorMatches(write, "POST", [list.titleBinding, `getbyinternalnameortitle('${field}')`])
+        write === undefined
+        || readback === undefined
+        || assertion === undefined
+        || write.parentId !== guard.id
+        || write.controlBranch !== "condition-true"
+        || readback.parentId !== guard.id
+        || readback.controlBranch !== "condition-true"
+        || assertion.parentId !== guard.id
+        || assertion.controlBranch !== "condition-true"
+        || !connectorMatches(write, "POST", `${listPath}/fields/getbyinternalnameortitle('${field}')`)
         || !succeedsAfter(write, predecessor)
         || !isRecord(headers)
-        || typeof headers["X-RequestDigest"] !== "string"
-        || !String(headers["X-RequestDigest"]).includes(digest.id)
+        || headers["X-RequestDigest"] !== `@{body('${requestDigest.id}')['FormDigestValue']}`
         || !isRecord(body)
         || !isRecord(body.__metadata)
         || body.__metadata.type !== "SP.Field"
-        || body.Indexed !== (operation === "add")
-        || !connectorMatches(readback, "GET", [list.titleBinding, "/fields", "$select=InternalName,Indexed"])
+        || body.Indexed !== true
+        || !connectorMatches(
+          readback,
+          "GET",
+          `${listPath}/fields/getbyinternalnameortitle('${field}')`,
+          { $select: "InternalName,Indexed" },
+        )
         || !succeedsAfter(readback, write)
-        || stringArrayValue(readbackParams?.observedFields) === undefined
+        || !succeedsAfter(assertion, readback)
+        || !conditionMatches(assertion, readbackExpression)
+        || !conditionFailsClosed(flow, assertion)
       ) return undefined;
       operations.push({
-        sequence,
-        kind: operation,
+        sequence: index + 1,
+        kind: "add",
         field,
-        ...(operation === "add" ? { payloadMetadataType: "SP.Field" } : {}),
-        readback: { performed: true, observedFields: readbackParams!.observedFields },
+        payloadMetadataType: "SP.Field",
+        readback: { performed: true, observedFields: [field] },
       });
-      predecessor = readback;
+      predecessor = assertion;
     }
-    if (
-      finalReadback === undefined
-      || !connectorMatches(finalReadback, "GET", [list.titleBinding, "/fields", "$select=InternalName,Indexed"])
-      || !succeedsAfter(finalReadback, predecessor)
-    ) return undefined;
+    if (rolesByPrefix(flow, `index-write:${list.id}`).length !== requiredFields.length) return undefined;
     plans.push({
-      listId: readParams.listId,
-      currentFields: readParams.currentFields,
-      requiredFields: readParams.requiredFields,
+      listId: list.id,
+      currentFields: [],
+      requiredFields,
       execution: "serial",
       digest: { fresh: true, bindsCurrent: true, bindsRequired: true },
-      result: writes.length === 0 ? "NO_OP" : "APPLY",
-      maximumWrites: writes.length,
-      writeCount: writes.length,
+      result: "APPLY",
+      maximumWrites: requiredFields.length,
+      writeCount: requiredFields.length,
       operations,
-      finalReadback: finalParams.observedFields,
+      finalReadback: requiredFields,
     });
   }
   return plans;
@@ -787,23 +1075,18 @@ function builderSections(
   const authority = authorityFromDefinition(contract, flow);
   const permissions = permissionSections(contract, flow);
   const fields = fieldOperationsFromDefinition(contract, flow);
-  const http = httpFromDefinition(flow);
+  const http = httpFromDefinition(contract, flow);
   const indexes = indexPlansFromDefinition(contract, flow);
-  if (
-    authority === undefined
-    || permissions === undefined
-    || fields === undefined
-    || http === undefined
-    || indexes === undefined
-  ) return undefined;
-  return new Map([
-    ["authorityChecks", authority],
-    ["permissionModels", permissions.models],
-    ["permissionProbes", permissions.probes],
-    ["fieldOperations", fields],
-    ["httpClassifications", http],
-    ["indexPlans", indexes],
-  ]);
+  const sections = new Map<Wp06AdapterDerivation["section"], readonly unknown[]>();
+  if (authority !== undefined) sections.set("authorityChecks", authority);
+  if (permissions !== undefined) {
+    sections.set("permissionModels", permissions.models);
+    sections.set("permissionProbes", permissions.probes);
+  }
+  if (fields !== undefined) sections.set("fieldOperations", fields);
+  if (http !== undefined) sections.set("httpClassifications", http);
+  if (indexes !== undefined && indexes.length > 0) sections.set("indexPlans", indexes);
+  return sections.size === 0 ? undefined : sections;
 }
 
 function derivation(

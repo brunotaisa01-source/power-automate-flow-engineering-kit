@@ -1,5 +1,10 @@
 # WP-07 Semantic Authority Remediation Record
 
+> Historical local record. A later independent review blocked this commit for
+> conditional early exits, substring URI matching, non-executable permission,
+> HTTP, and index claims, and missing compiled-process coverage. Current claims
+> are defined by the WP-08 records; this file must not be used as release proof.
+
 ## Scope
 
 - Baseline: `bf42ebaa9215f8b6bf8dadf2ce566debbca5c293`

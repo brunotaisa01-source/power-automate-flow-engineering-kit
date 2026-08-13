@@ -157,11 +157,14 @@ function ruleFinding(code: string, path: string, message: string): ReportFinding
 export async function validateOfflineContext(
   command: string,
   context: ValidationContext,
+  options: { readonly requiredOnly?: boolean } = {},
 ): Promise<CommandReport> {
-  const requested = [...new Set([
-    ...ruleRegistry.keys(),
-    ...context.contract.verification.requiredRuleIds,
-  ])].sort();
+  const requested = [...new Set(options.requiredOnly === true
+    ? context.contract.verification.requiredRuleIds
+    : [
+        ...ruleRegistry.keys(),
+        ...context.contract.verification.requiredRuleIds,
+      ])].sort();
   const unavailable = requested.filter((ruleId) => !ruleRegistry.has(ruleId));
   const findings: ReportFinding[] = unavailable.map((ruleId) => ({
     exitCode: 8,
@@ -187,6 +190,7 @@ export async function validateOfflineContext(
 export async function validateOfflineRepository(
   root: string,
   command: string,
+  options: { readonly requiredOnly?: boolean } = {},
 ): Promise<CommandReport> {
   const loaded = await loadOfflineValidationContext(
     root,
@@ -195,7 +199,7 @@ export async function validateOfflineRepository(
   );
   return loaded.kind === "failure"
     ? loaded.report
-    : validateOfflineContext(command, loaded.context);
+    : validateOfflineContext(command, loaded.context, options);
 }
 
 export function contractRoot(contractPath: string): string {

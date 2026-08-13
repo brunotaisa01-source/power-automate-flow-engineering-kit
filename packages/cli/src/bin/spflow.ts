@@ -26,7 +26,7 @@ export const HELP_TEXT = [
   "",
   "Commands:",
   "  validate contract <path> [--format text|json]",
-  "  validate rules --root <repository> [--format text|json]",
+  "  validate rules --root <repository> [--required-only] [--format text|json]",
   "  validate artifact <path> --contract <path> [--format text|json]",
   "  evidence validate <path> [--format text|json]",
   "  scan public-data <path> [--history] [--format text|json]",

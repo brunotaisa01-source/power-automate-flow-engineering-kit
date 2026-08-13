@@ -26,6 +26,18 @@ describe("CLI argument parsing", () => {
         command: "validate rules",
         format: "text",
         root: ".",
+        requiredOnly: false,
+      },
+    },
+    {
+      args: ["validate", "rules", "--root", ".", "--required-only", "--format", "json"],
+      expected: {
+        kind: "command",
+        route: "validate-rules",
+        command: "validate rules",
+        format: "json",
+        root: ".",
+        requiredOnly: true,
       },
     },
     {

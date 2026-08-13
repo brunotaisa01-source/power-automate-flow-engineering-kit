@@ -11,6 +11,10 @@ export const validateRulesCommand: CommandHandler = {
       throw new Error("validateRulesCommand received a different command route.");
     }
 
-    return validateOfflineRepository(parsed.root, "validate rules");
+    return validateOfflineRepository(
+      parsed.root,
+      parsed.requiredOnly ? "validate rules --required-only" : "validate rules",
+      { requiredOnly: parsed.requiredOnly },
+    );
   },
 };

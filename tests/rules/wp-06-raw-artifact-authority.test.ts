@@ -1,19 +1,21 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { describe, test } from "node:test";
 
 import type { ProjectContract } from "../../packages/core/src/types/project-contract.ts";
-import { loadOfflineValidationContext } from "../../packages/cli/dist/commands/offline-validation.js";
 import { inspectTrustedProjectArtifacts } from "../../packages/package-adapters/dist/solution-v1.js";
 import {
   ruleRegistry,
   type ValidationContext,
 } from "../../packages/rules/src/registry.ts";
-import { validateRules as validateBuiltRules } from "../../packages/rules/dist/registry.js";
 import { syntheticSolution } from "../artifacts/synthetic-solution.ts";
+
+const REPOSITORY_ROOT = resolve(import.meta.dirname, "../..");
+const BUILT_CLI = resolve(REPOSITORY_ROOT, "packages/cli/dist/bin/spflow.js");
 
 const FRONTEND_RULES = ["APP-PAGINATION-001", "APP-SAVE-001", "SP-ODATA-001"];
 const BUILDER_RULES = [
@@ -503,6 +505,17 @@ function semanticConnector(
   };
 }
 
+function failureElse(id: string) {
+  return {
+    actions: {
+      [id]: {
+        type: "Terminate",
+        inputs: { status: "Failed" },
+      },
+    },
+  };
+}
+
 function builderDefinition(): Record<string, unknown> {
   const protectedUri = "/_api/web/lists/getbytitle('PROTECTED_ITEMS')";
   const accessUri = "/_api/web/lists/getbytitle('ACCESS_CONTROL')";
@@ -602,201 +615,361 @@ function builderDefinition(): Record<string, unknown> {
           CapabilityRead: semanticConnector(
             "capability-read",
             "GET",
-            `${accessUri}/items?$select=Active,PrincipalKey,Capability,Title&$filter=Active eq 1`,
-            {
-              listId: "access-control",
-              capabilityId: "approve-items",
-              activeField: "Active",
-              principalField: "PrincipalKey",
-              capabilityField: "Capability",
-              principalSource: "IdentityRead.LoginName",
-              matchCardinality: "one",
-            },
+            `${accessUri}/items?$select=Active,PrincipalKey,Capability,Title&$filter=Active eq 1 and PrincipalKey eq '@{body('IdentityRead')['LoginName']}' and Capability eq 'approve-items'`,
+            {},
             "IdentityRead",
           ),
           TargetRead: semanticConnector(
             "target-read",
             "GET",
-            `${protectedUri}/items(@{triggerBody()?['TargetItemId']})?$select=Title,Status`,
-            {
-              listId: "protected-items",
-              itemIdSource: "trigger.TargetItemId",
-              fields: ["Title", "Status"],
-            },
+            `${protectedUri}/items(@{triggerBody()['TargetItemId']})?$select=Title,Status`,
+            {},
             "CapabilityRead",
           ),
           AuthorizationGuard: {
             type: "If",
             metadata: { spflowRole: "authorization-guard" },
             runAfter: { TargetRead: ["Succeeded"] },
-            expression: "@and(equals(length(body('CapabilityRead')?['value']),1),equals(first(body('CapabilityRead')?['value'])?['Title'],body('TargetRead')?['Title']),equals(triggerBody()?['CommandType'],'apply-change'),equals(body('TargetRead')?['Status'],'Pending'))",
+            expression: "@and(equals(length(body('CapabilityRead')['value']),1),equals(body('CapabilityRead')['value'][0]['Title'],body('TargetRead')['Title']),equals(triggerBody()['CommandType'],'apply-change'),equals(body('TargetRead')['Status'],'Pending'))",
             actions: {
               Mutation: semanticConnector(
                 "mutation",
                 "POST",
-                `${protectedUri}/items(@{triggerBody()?['TargetItemId']})`,
-                {
-                  listId: "protected-items",
-                  commandType: "apply-change",
-                  transitionId: "apply-transition",
-                  stateFrom: "Pending",
-                  stateTo: "Applied",
-                  scopeTargetField: "Title",
-                  scopeAccessField: "Title",
-                },
+                `${protectedUri}/items(@{triggerBody()['TargetItemId']})`,
+                {},
                 undefined,
                 {
                   headers: {
                     "X-HTTP-Method": "MERGE",
-                    "IF-MATCH": "@{body('TargetRead')?['@odata.etag']}",
+                    "IF-MATCH": "@{body('TargetRead')['@odata.etag']}",
                   },
                   body: { Status: "Applied" },
                 },
               ),
+              MutationReadback: semanticConnector(
+                "mutation-readback",
+                "GET",
+                `${protectedUri}/items(@{triggerBody()['TargetItemId']})?$select=Status`,
+                {},
+                "Mutation",
+              ),
+              MutationReadbackAssert: {
+                type: "If",
+                metadata: { spflowRole: "mutation-readback-assert" },
+                runAfter: { MutationReadback: ["Succeeded"] },
+                expression: "@equals(body('MutationReadback')['Status'],'Applied')",
+                actions: {},
+                else: failureElse("MutationReadbackFailed"),
+              },
             },
-            else: { actions: {} },
+            else: failureElse("AuthorizationFailed"),
           },
           PermissionModelProtected: semanticConnector(
             "permission-model:protected-items",
             "POST",
             `${protectedUri}/breakroleinheritance(copyRoleAssignments=false,clearSubscopes=true)`,
-            {
-              listId: "protected-items",
-              inheritance: "break-clear",
-              directUserGrants: "forbidden",
-              browserOperations: ["read", "update"],
-              grants: [{
-                principalKind: "binding",
-                principalBinding: "PROCESSOR",
-                role: "processor",
-                allowedOperations: ["read", "update"],
-              }],
-            },
+            {},
             "AuthorizationGuard",
           ),
-          PermissionReadbackProtected: semanticConnector(
-            "permission-readback:protected-items",
+          PermissionPrincipalProtected: semanticConnector(
+            "permission-principal:protected-items:PROCESSOR",
             "GET",
-            `${protectedUri}/roleassignments?$expand=Member,RoleDefinitionBindings`,
-            { listId: "protected-items" },
+            "/_api/web/siteusers/getbyloginname(@p)?@p='PROCESSOR'",
+            {},
             "PermissionModelProtected",
           ),
+          PermissionRoleProtected: semanticConnector(
+            "permission-role:protected-items:PROCESSOR",
+            "GET",
+            "/_api/web/roledefinitions/getbyname('processor')?$select=Id,Name",
+            {},
+            "PermissionPrincipalProtected",
+          ),
+          PermissionGrantProtected: semanticConnector(
+            "permission-grant:protected-items:PROCESSOR",
+            "POST",
+            `${protectedUri}/roleassignments/addroleassignment(principalid=@{body('PermissionPrincipalProtected')['Id']},roledefid=@{body('PermissionRoleProtected')['Id']})`,
+            {},
+            "PermissionRoleProtected",
+          ),
+          PermissionReadbackProtected: semanticConnector(
+            "permission-readback:protected-items:PROCESSOR",
+            "GET",
+            `${protectedUri}/roleassignments?$expand=Member,RoleDefinitionBindings`,
+            {},
+            "PermissionGrantProtected",
+          ),
+          PermissionGrantAssertProtected: {
+            type: "If",
+            metadata: { spflowRole: "permission-grant-assert:protected-items:PROCESSOR" },
+            runAfter: { PermissionReadbackProtected: ["Succeeded"] },
+            expression: "@and(contains(string(body('PermissionReadbackProtected')),'PROCESSOR'),contains(string(body('PermissionReadbackProtected')),'processor'))",
+            actions: {},
+            else: failureElse("PermissionGrantProtectedFailed"),
+          },
           PermissionProbeProtected: semanticConnector(
             "permission-probe:protected-items:PROCESSOR",
             "GET",
             `${protectedUri}/getusereffectivepermissions(@p)?@p='PROCESSOR'`,
-            {
-              listId: "protected-items",
-              principalBinding: "PROCESSOR",
-              operations: { create: false, delete: false, read: true, update: true },
-            },
-            "PermissionReadbackProtected",
+            {},
+            "PermissionGrantAssertProtected",
           ),
           PermissionAssertProtected: {
             type: "If",
             metadata: { spflowRole: "permission-assert:protected-items:PROCESSOR" },
             runAfter: { PermissionProbeProtected: ["Succeeded"] },
-            expression: "@and(equals(body('PermissionProbeProtected')?['operations/read'],true),equals(body('PermissionProbeProtected')?['operations/update'],true),equals(body('PermissionProbeProtected')?['operations/create'],false),equals(body('PermissionProbeProtected')?['operations/delete'],false))",
+            expression: "@and(equals(body('PermissionProbeProtected')['operations/create'],false),equals(body('PermissionProbeProtected')['operations/delete'],false),equals(body('PermissionProbeProtected')['operations/read'],true),equals(body('PermissionProbeProtected')['operations/update'],true))",
             actions: {},
-            else: { actions: {} },
+            else: failureElse("PermissionProbeProtectedFailed"),
           },
           PermissionModelAccess: semanticConnector(
             "permission-model:access-control",
             "POST",
             `${accessUri}/breakroleinheritance(copyRoleAssignments=false,clearSubscopes=true)`,
-            {
-              listId: "access-control",
-              inheritance: "break-clear",
-              directUserGrants: "forbidden",
-              browserOperations: [],
-              grants: [{
-                principalKind: "binding",
-                principalBinding: "PROCESSOR",
-                role: "processor",
-                allowedOperations: ["read"],
-              }],
-            },
+            {},
             "PermissionAssertProtected",
           ),
-          PermissionReadbackAccess: semanticConnector(
-            "permission-readback:access-control",
+          PermissionPrincipalAccess: semanticConnector(
+            "permission-principal:access-control:PROCESSOR",
             "GET",
-            `${accessUri}/roleassignments?$expand=Member,RoleDefinitionBindings`,
-            { listId: "access-control" },
+            "/_api/web/siteusers/getbyloginname(@p)?@p='PROCESSOR'",
+            {},
             "PermissionModelAccess",
           ),
+          PermissionRoleAccess: semanticConnector(
+            "permission-role:access-control:PROCESSOR",
+            "GET",
+            "/_api/web/roledefinitions/getbyname('processor')?$select=Id,Name",
+            {},
+            "PermissionPrincipalAccess",
+          ),
+          PermissionGrantAccess: semanticConnector(
+            "permission-grant:access-control:PROCESSOR",
+            "POST",
+            `${accessUri}/roleassignments/addroleassignment(principalid=@{body('PermissionPrincipalAccess')['Id']},roledefid=@{body('PermissionRoleAccess')['Id']})`,
+            {},
+            "PermissionRoleAccess",
+          ),
+          PermissionReadbackAccess: semanticConnector(
+            "permission-readback:access-control:PROCESSOR",
+            "GET",
+            `${accessUri}/roleassignments?$expand=Member,RoleDefinitionBindings`,
+            {},
+            "PermissionGrantAccess",
+          ),
+          PermissionGrantAssertAccess: {
+            type: "If",
+            metadata: { spflowRole: "permission-grant-assert:access-control:PROCESSOR" },
+            runAfter: { PermissionReadbackAccess: ["Succeeded"] },
+            expression: "@and(contains(string(body('PermissionReadbackAccess')),'PROCESSOR'),contains(string(body('PermissionReadbackAccess')),'processor'))",
+            actions: {},
+            else: failureElse("PermissionGrantAccessFailed"),
+          },
           PermissionProbeAccess: semanticConnector(
             "permission-probe:access-control:PROCESSOR",
             "GET",
             `${accessUri}/getusereffectivepermissions(@p)?@p='PROCESSOR'`,
-            {
-              listId: "access-control",
-              principalBinding: "PROCESSOR",
-              operations: { create: false, delete: false, read: true, update: false },
-            },
-            "PermissionReadbackAccess",
+            {},
+            "PermissionGrantAssertAccess",
           ),
           PermissionAssertAccess: {
             type: "If",
             metadata: { spflowRole: "permission-assert:access-control:PROCESSOR" },
             runAfter: { PermissionProbeAccess: ["Succeeded"] },
-            expression: "@and(equals(body('PermissionProbeAccess')?['operations/read'],true),equals(body('PermissionProbeAccess')?['operations/update'],false),equals(body('PermissionProbeAccess')?['operations/create'],false),equals(body('PermissionProbeAccess')?['operations/delete'],false))",
+            expression: "@and(equals(body('PermissionProbeAccess')['operations/create'],false),equals(body('PermissionProbeAccess')['operations/delete'],false),equals(body('PermissionProbeAccess')['operations/read'],true),equals(body('PermissionProbeAccess')['operations/update'],false))",
             actions: {},
-            else: { actions: {} },
+            else: failureElse("PermissionProbeAccessFailed"),
           },
           ...fieldActions,
+          HttpObservation: semanticConnector(
+            "http-observation",
+            "GET",
+            `${protectedUri}/items(@{triggerBody()['TargetItemId']})?$select=ID,Title`,
+            {},
+            fieldPredecessor,
+          ),
           HttpClassifier: {
             type: "If",
             metadata: { spflowRole: "http-classifier" },
-            runAfter: { [fieldPredecessor]: ["Succeeded"] },
-            expression: "@and(equals(400,400),equals('-2147024809','-2147024809'),equals(404,404),equals('preflight','preflight'),equals('initial-get','initial-get'))",
-            actions: {},
-            else: { actions: {} },
+            runAfter: { HttpObservation: ["Failed", "Succeeded"] },
+            expression: "@and(equals(outputs('HttpObservation')['statusCode'],400),or(equals(body('HttpObservation')['error/code'],'-2147024809'),equals(body('HttpObservation')['messageCategory'],'column-does-not-exist')))",
+            actions: {
+              HttpMissingResult: {
+                type: "Compose",
+                metadata: { spflowRole: "http-result:missing-column" },
+                inputs: "MISSING_OBJECT",
+              },
+            },
+            else: {
+              actions: {
+                HttpOther400: {
+                  type: "If",
+                  metadata: { spflowRole: "http-classifier:other-400" },
+                  expression: "@equals(outputs('HttpObservation')['statusCode'],400)",
+                  actions: {
+                    HttpOther400Result: {
+                      type: "Compose",
+                      metadata: { spflowRole: "http-result:other-400" },
+                      inputs: "GET_FAILED",
+                    },
+                  },
+                  else: {
+                    actions: {
+                      HttpPreflight404: {
+                        type: "If",
+                        metadata: { spflowRole: "http-classifier:preflight-404" },
+                        expression: "@and(equals(outputs('HttpObservation')['statusCode'],404),equals(triggerBody()['Phase'],'preflight'),equals(triggerBody()['RequestKind'],'initial-get'),equals(triggerBody()['AllowCreateMissing404'],true))",
+                        actions: {
+                          HttpPreflight404Result: {
+                            type: "Compose",
+                            metadata: { spflowRole: "http-result:preflight-404" },
+                            inputs: "CREATE_MISSING",
+                          },
+                        },
+                        else: {
+                          actions: {
+                            HttpStrict404: {
+                              type: "If",
+                              metadata: { spflowRole: "http-classifier:strict-404" },
+                              expression: "@equals(outputs('HttpObservation')['statusCode'],404)",
+                              actions: {
+                                HttpStrict404Result: {
+                                  type: "Compose",
+                                  metadata: { spflowRole: "http-result:strict-404" },
+                                  inputs: "GET_FAILED",
+                                },
+                              },
+                              else: {
+                                actions: {
+                                  HttpDefaultResult: {
+                                    type: "Compose",
+                                    metadata: { spflowRole: "http-result:default" },
+                                    inputs: "GET_FAILED",
+                                  },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
           },
           IndexRead: semanticConnector(
             "index-read:protected-items",
             "GET",
-            `${protectedUri}/fields?$select=InternalName,Indexed`,
-            { listId: "protected-items", currentFields: [], requiredFields: ["Title"] },
+            `${protectedUri}/fields?$select=InternalName,Indexed&$filter=InternalName eq 'Title'&$orderby=InternalName`,
+            {},
             "HttpClassifier",
           ),
-          DigestRead: semanticConnector(
-            "index-digest:protected-items",
-            "POST",
-            "/_api/contextinfo",
-            { listId: "protected-items", bindsCurrent: true, bindsRequired: true },
-            "IndexRead",
-          ),
-          IndexWrite: semanticConnector(
-            "index-write:protected-items:Title",
-            "POST",
-            `${protectedUri}/fields/getbyinternalnameortitle('Title')`,
-            { listId: "protected-items", field: "Title", operation: "add", sequence: 1 },
-            "DigestRead",
-            {
-              headers: { "X-RequestDigest": "@{body('DigestRead')?['FormDigestValue']}" },
-              body: { __metadata: { type: "SP.Field" }, Indexed: true },
+          IndexPlanGuard: {
+            type: "If",
+            metadata: { spflowRole: "index-plan-guard:protected-items" },
+            runAfter: { IndexRead: ["Succeeded"] },
+            expression: "@and(equals(body('IndexRead')['value'][0]['InternalName'],'Title'),equals(body('IndexRead')['value'][0]['Indexed'],false))",
+            actions: {
+              IndexPlanDigest: {
+                type: "Compose",
+                metadata: { spflowRole: "index-plan-digest:protected-items" },
+                inputs: "@sha256(concat(string(body('IndexRead')['value']),'|','Title'))",
+              },
+              IndexRequestDigest: semanticConnector(
+                "index-request-digest:protected-items",
+                "POST",
+                "/_api/contextinfo",
+                {},
+                "IndexPlanDigest",
+              ),
+              IndexWrite: semanticConnector(
+                "index-write:protected-items:Title",
+                "POST",
+                `${protectedUri}/fields/getbyinternalnameortitle('Title')`,
+                {},
+                "IndexRequestDigest",
+                {
+                  headers: { "X-RequestDigest": "@{body('IndexRequestDigest')['FormDigestValue']}" },
+                  body: { __metadata: { type: "SP.Field" }, Indexed: true },
+                },
+              ),
+              IndexStepReadback: semanticConnector(
+                "index-step-readback:protected-items:Title",
+                "GET",
+                `${protectedUri}/fields/getbyinternalnameortitle('Title')?$select=InternalName,Indexed`,
+                {},
+                "IndexWrite",
+              ),
+              IndexStepAssert: {
+                type: "If",
+                metadata: { spflowRole: "index-step-assert:protected-items:Title" },
+                runAfter: { IndexStepReadback: ["Succeeded"] },
+                expression: "@and(equals(body('IndexStepReadback')['InternalName'],'Title'),equals(body('IndexStepReadback')['Indexed'],true))",
+                actions: {},
+                else: failureElse("IndexStepReadbackFailed"),
+              },
             },
-          ),
-          IndexStepReadback: semanticConnector(
-            "index-step-readback:protected-items:Title",
-            "GET",
-            `${protectedUri}/fields?$select=InternalName,Indexed`,
-            { listId: "protected-items", observedFields: ["Title"] },
-            "IndexWrite",
-          ),
+            else: { actions: {} },
+          },
           IndexFinalReadback: semanticConnector(
             "index-final-readback:protected-items",
             "GET",
-            `${protectedUri}/fields?$select=InternalName,Indexed`,
-            { listId: "protected-items", observedFields: ["Title"] },
-            "IndexStepReadback",
+            `${protectedUri}/fields?$select=InternalName,Indexed&$filter=InternalName eq 'Title'&$orderby=InternalName`,
+            {},
+            "IndexPlanGuard",
           ),
+          IndexFinalAssert: {
+            type: "If",
+            metadata: { spflowRole: "index-final-assert:protected-items" },
+            runAfter: { IndexFinalReadback: ["Succeeded"] },
+            expression: "@and(equals(body('IndexFinalReadback')['value'][0]['InternalName'],'Title'),equals(body('IndexFinalReadback')['value'][0]['Indexed'],true))",
+            actions: {},
+            else: failureElse("IndexFinalReadbackFailed"),
+          },
         },
       },
       connectionReferences: { PROCESSOR: { id: "synthetic" } },
     },
   };
+}
+
+function visitDefinitionActions(
+  definition: Record<string, unknown>,
+  visit: (action: Record<string, unknown>) => void,
+): void {
+  const root = (definition as any).properties.definition.actions as Record<string, unknown>;
+  const walk = (actions: Record<string, unknown>): void => {
+    for (const value of Object.values(actions)) {
+      const action = value as Record<string, unknown>;
+      visit(action);
+      const nested = action.actions as Record<string, unknown> | undefined;
+      if (nested !== undefined) walk(nested);
+      const otherwise = (action.else as { actions?: Record<string, unknown> } | undefined)?.actions;
+      if (otherwise !== undefined) walk(otherwise);
+    }
+  };
+  walk(root);
+}
+
+function removeDefinitionActionsByRole(
+  definition: Record<string, unknown>,
+  rolePrefix: string,
+): void {
+  const root = (definition as any).properties.definition.actions as Record<string, unknown>;
+  const walk = (actions: Record<string, unknown>): void => {
+    for (const [id, value] of Object.entries(actions)) {
+      const action = value as any;
+      const role = action.metadata?.spflowRole;
+      if (typeof role === "string" && (role === rolePrefix || role.startsWith(`${rolePrefix}:`))) {
+        delete actions[id];
+        continue;
+      }
+      if (action.actions !== undefined) walk(action.actions);
+      if (action.else?.actions !== undefined) walk(action.else.actions);
+    }
+  };
+  walk(root);
 }
 
 async function writeContract(root: string, value: ProjectContract): Promise<void> {
@@ -849,6 +1022,49 @@ async function diagnostics(context: ValidationContext, ruleIds: readonly string[
   return results;
 }
 
+async function runBuiltCli(root: string): Promise<{
+  readonly exitCode: number;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly report: {
+    readonly result: string;
+    readonly diagnostics: readonly Array<{ readonly code: string }>;
+  };
+}> {
+  return new Promise((resolveResult, reject) => {
+    const child = spawn(process.execPath, [
+      BUILT_CLI,
+      "validate",
+      "rules",
+      "--root",
+      root,
+      "--required-only",
+      "--format",
+      "json",
+    ], {
+      cwd: REPOSITORY_ROOT,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk: string) => stdout += chunk);
+    child.stderr.setEncoding("utf8").on("data", (chunk: string) => stderr += chunk);
+    child.once("error", reject);
+    child.once("close", (code) => {
+      try {
+        resolveResult({
+          exitCode: code ?? -1,
+          stdout,
+          stderr,
+          report: JSON.parse(stdout),
+        });
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
 describe("WP-06 raw artifact authority", () => {
   test("real frontend inventory and parsed source create trusted evidence", async () => {
     const root = await mkdtemp(join(tmpdir(), "spflow-raw-frontend-"));
@@ -881,6 +1097,37 @@ describe("WP-06 raw artifact authority", () => {
       .replace(
         "export function buildSharePointODataUrl(base, listId, value) {",
         "export function buildSharePointODataUrl(base, listId, value) { return base;",
+      );
+    try {
+      await writeContract(root, value);
+      await writeFrontend(root, unreachable);
+      const context = await validationContext(root, value);
+
+      assert.equal(context.adapterEvidence.wp06Derivations?.length, 0);
+      assert.deepEqual(
+        (await diagnostics(context, FRONTEND_RULES)).map(({ code }) => code),
+        FRONTEND_RULES,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("unconditional conditional exits before frontend behavior fail closed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-frontend-conditional-exit-"));
+    const value = contract(FRONTEND_RULES, false);
+    const unreachable = FRONTEND_SOURCE
+      .replace(
+        "export async function saveSharePointItem(listId, itemUrl, etag, patch) {",
+        "export async function saveSharePointItem(listId, itemUrl, etag, patch) { if (true) return undefined;",
+      )
+      .replace(
+        "export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) {",
+        "export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) { if (true) return [];",
+      )
+      .replace(
+        "export function buildSharePointODataUrl(base, listId, value) {",
+        "export function buildSharePointODataUrl(base, listId, value) { if (true) return base;",
       );
     try {
       await writeContract(root, value);
@@ -992,7 +1239,7 @@ describe("WP-06 raw artifact authority", () => {
     }
   });
 
-  test("built CLI context validates all fourteen WP06 rules from raw artifacts", async () => {
+  test("compiled CLI process validates all fourteen WP06 rules from raw artifacts", async () => {
     const root = await mkdtemp(join(tmpdir(), "spflow-raw-built-cli-"));
     const ruleIds = [...FRONTEND_RULES, ...BUILDER_RULES].sort();
     const value = contract(ruleIds, true);
@@ -1001,15 +1248,12 @@ describe("WP-06 raw artifact authority", () => {
       await writeFrontend(root);
       await writeBuilder(root, builderDefinition());
 
-      const loaded = await loadOfflineValidationContext(
-        root,
-        join(root, "project.contract.json"),
-        "WP07 built CLI raw-artifact integration",
-      );
-      assert.equal(loaded.kind, "context", JSON.stringify(loaded));
-      if (loaded.kind !== "context") return;
+      const result = await runBuiltCli(root);
 
-      assert.deepEqual(await validateBuiltRules(loaded.context, ruleIds), []);
+      assert.equal(result.exitCode, 0, result.stdout);
+      assert.equal(result.report.result, "PASS", result.stdout);
+      assert.deepEqual(result.report.diagnostics, []);
+      assert.equal(result.stderr, "");
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1060,6 +1304,174 @@ describe("WP-06 raw artifact authority", () => {
       assert.deepEqual(
         (await diagnostics(context, BUILDER_RULES)).map(({ code }) => code),
         BUILDER_RULES,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("canonical SharePoint endpoints hidden inside no-op URIs fail closed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-noop-prefix-"));
+    const value = contract(BUILDER_RULES, true);
+    const definition = builderDefinition();
+    visitDefinitionActions(definition, (action) => {
+      const inputs = action.inputs as Record<string, unknown> | undefined;
+      if (typeof inputs?.uri === "string") {
+        inputs.uri = `/_api/noop?claimed=${inputs.uri}`;
+      }
+    });
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const context = await validationContext(root, value);
+
+      assert.equal(context.adapterEvidence.wp06Derivations?.length, 0);
+      assert.deepEqual(
+        (await diagnostics(context, BUILDER_RULES)).map(({ code }) => code),
+        BUILDER_RULES,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("canonical endpoint parsing rejects absolute, suffixed, and duplicate-query identities", async () => {
+    for (const uri of [
+      "https://synthetic.example.test/_api/web/currentuser?$select=Id,LoginName",
+      "/_api/web/currentuser/claimed?$select=Id,LoginName",
+      "/_api/web/currentuser?$select=Id,LoginName&$select=Id,LoginName",
+    ]) {
+      const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-noncanonical-"));
+      const value = contract(BUILDER_RULES, true);
+      const definition = builderDefinition() as any;
+      definition.properties.definition.actions.IdentityRead.inputs.uri = uri;
+      try {
+        await writeContract(root, value);
+        await writeBuilder(root, definition);
+        const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+        assert.equal(
+          adapterEvidence.wp06Derivations?.some(({ section }) => section === "authorityChecks"),
+          false,
+          uri,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test("builder sections require dominating actions and response data flow", async () => {
+    const scenarios = [
+      {
+        section: "authorityChecks",
+        mutate(actions: any) {
+          actions.AuthorizationGuard.runAfter = {};
+        },
+      },
+      {
+        section: "permissionModels",
+        mutate(actions: any) {
+          actions.PermissionGrantProtected.runAfter = { PermissionModelProtected: ["Succeeded"] };
+        },
+      },
+      {
+        section: "httpClassifications",
+        mutate(actions: any) {
+          actions.HttpClassifier.expression = "@equals(outputs('TargetRead')['statusCode'],400)";
+        },
+      },
+      {
+        section: "indexPlans",
+        mutate(actions: any) {
+          actions.IndexPlanGuard.actions.IndexPlanDigest.inputs = "@sha256('Title')";
+        },
+      },
+    ] as const;
+    for (const scenario of scenarios) {
+      const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-${scenario.section}-`));
+      const value = contract(BUILDER_RULES, true);
+      const definition = builderDefinition() as any;
+      scenario.mutate(definition.properties.definition.actions);
+      try {
+        await writeContract(root, value);
+        await writeBuilder(root, definition);
+        const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+        assert.equal(
+          adapterEvidence.wp06Derivations?.some(({ section }) => section === scenario.section),
+          false,
+          scenario.section,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test("permission claims without executable grant assignments fail closed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-no-grants-"));
+    const value = contract(BUILDER_RULES, true);
+    const definition = builderDefinition();
+    removeDefinitionActionsByRole(definition, "permission-grant");
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const context = await validationContext(root, value);
+
+      assert.equal(
+        context.adapterEvidence.wp06Derivations?.some(({ section }) =>
+          section === "permissionModels" || section === "permissionProbes"
+        ),
+        false,
+      );
+      assert.deepEqual(
+        (await diagnostics(context, ["SP-ACL-001", "SP-ACL-002"])).map(({ code }) => code),
+        ["SP-ACL-001", "SP-ACL-002"],
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("tautological HTTP classification does not prove response semantics", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-http-tautology-"));
+    const value = contract(BUILDER_RULES, true);
+    const definition = builderDefinition();
+    visitDefinitionActions(definition, (action) => {
+      if ((action.metadata as any)?.spflowRole === "http-classifier") {
+        action.expression = "@and(equals(400,400),equals('-2147024809','-2147024809'),equals(404,404),equals('preflight','preflight'),equals('initial-get','initial-get'))";
+      }
+    });
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+      assert.equal(
+        adapterEvidence.wp06Derivations?.some(({ section }) => section === "httpClassifications"),
+        false,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("index parameters without executable guards and readback assertions fail closed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-index-parameters-"));
+    const value = contract(BUILDER_RULES, true);
+    const definition = builderDefinition();
+    for (const role of ["index-plan-guard", "index-plan-digest", "index-step-assert", "index-final-assert"]) {
+      removeDefinitionActionsByRole(definition, role);
+    }
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+      assert.equal(
+        adapterEvidence.wp06Derivations?.some(({ section }) => section === "indexPlans"),
+        false,
       );
     } finally {
       await rm(root, { recursive: true, force: true });

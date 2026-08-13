@@ -82,8 +82,10 @@ duplicated, escaping, or mismatched entries fail closed.
 
 Only exact source files from a valid inventory are parsed. Supported source
 structure currently covers explicit conflict-safe Save, guarded continuation
-pagination, and structured OData URL construction. Unsupported source produces
-no derivation.
+pagination, and structured OData URL construction. The recognizer accepts only
+the documented statement shapes and rejects extra early exits, statically
+terminating branches, and ambiguous source structures. It is not a general
+JavaScript control-flow proof. Unsupported source produces no derivation.
 
 ## Definition And Package Authority
 
@@ -93,17 +95,29 @@ unrelated definition does not produce WP-06 derivations. Structural action
 roles select candidates but never authorize them. The adapter checks normalized
 connector method, concrete SharePoint REST URI, connector parameters, request
 payload metadata, non-wildcard ETag source, guard expression, successful
-`runAfter`, and true-branch dominance. Contract values are comparison targets.
-Facts are emitted from accepted source nodes and normalized action inputs, not
-copied from a contract after a token scan. A role label, unrelated property,
-no-op URI, or JSON enumeration order is insufficient.
+`runAfter`, and true-branch dominance. Security-relevant endpoints must be
+relative canonical `/_api/` paths with exact query identities; absolute,
+suffixed, duplicate-query, encoded-separator, and no-op wrapper forms fail
+closed. Contract values are comparison targets. A role label, unrelated
+property, parameter-only claim, no-op URI, or JSON enumeration order is
+insufficient.
 
 The executable builder profile emits all six sections: `authorityChecks`,
 `permissionModels`, `permissionProbes`, `fieldOperations`,
 `httpClassifications`, and `indexPlans`. Index plans require a concrete
 list-field read, fresh digest request, serial writes, per-step readback, and
-final readback. Permission probes require the effective-permission request and
-a dependent assertion over the four operation booleans.
+final readback assertions. The plan hash must consume the field read and the
+contract-required field set. Permission models require principal and role
+resolution, an executable `addroleassignment` call, role-assignment readback,
+and a fail-closed dependent assertion. Permission probes require the
+effective-permission request and a fail-closed dependent assertion over the
+four operation booleans. HTTP facts require a response-dependent 400/404
+decision tree with explicit result actions; literal tautologies are rejected.
+
+The compiled CLI supports two scopes. `validate rules --root <repository>`
+validates every shipped local rule. Adding `--required-only` validates only the
+exact IDs in `verification.requiredRuleIds`; that bounded result is not a
+global rule-catalog PASS.
 
 A required ZIP is always read as bytes and opened by the safe solution adapter.
 The adapter validates archive safety, XML, inventory, workflow JSON, and

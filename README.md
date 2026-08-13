@@ -15,10 +15,13 @@ inventories, and safely inspect native solution ZIP bytes. Repository-authored
 evidence, source IR, projections, and JSON stored under a `.zip` name cannot
 authorize a production PASS.
 
-WP-07 hardening rejects unreachable frontend tokens and inert builder actions,
-derives all fourteen application and SharePoint rules through raw executable
-adapter paths, keeps trust construction internal, and reports the HTTP runtime
-`LIVE_SMOKE` gate as `NOT_RUN` during offline verification.
+WP-08 local hardening recognizes a deliberately narrow set of executable
+patterns. It rejects early-exit frontend variants, non-canonical or disguised
+SharePoint endpoints, permission models without grant assignments,
+response-independent HTTP classifiers, and parameter-only index plans.
+Unsupported or ambiguous structures produce no trusted derivation. A compiled
+CLI process covers the fourteen contract-required WP-06 rules from raw
+synthetic files and real ZIP bytes. This is not a release-readiness claim.
 
 All results are local evidence only. Tenant import, rebinding, enablement,
 execution, mutation, semantic readback, and publication readback are separate
@@ -44,6 +47,21 @@ Validate a project contract:
 ```powershell
 node packages/cli/dist/bin/spflow.js validate contract project.contract.json --format text
 ```
+
+Validate every shipped local rule (the default):
+
+```powershell
+node packages/cli/dist/bin/spflow.js validate rules --root . --format text
+```
+
+Validate only the exact rule IDs declared by the project contract:
+
+```powershell
+node packages/cli/dist/bin/spflow.js validate rules --root . --required-only --format text
+```
+
+`--required-only` is a bounded rule-set check. It must not be reported as a
+global validation pass.
 
 Validate a Power Platform solution artifact against a contract:
 
