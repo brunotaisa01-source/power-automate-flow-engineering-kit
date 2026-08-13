@@ -77,7 +77,8 @@
           "sourceArtifactPath": "synthetic/text-field-proof-source.json",
           "sourceArtifactSha256": "f4ec6843e39d7dc10eeb3cdcde2f1ccdad9fcce747d25ca346004a27bea3289a",
           "sourceArtifactBytes": 554,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -95,17 +96,96 @@
       "projections": {}
     },
     {
-      "id": "builder:synthetic/text-field-proof-source.json:synthetic-source-v1",
+      "id": "builder:synthetic/text-field-proof-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "synthetic/text-field-proof-source.json",
       "digest": "f4ec6843e39d7dc10eeb3cdcde2f1ccdad9fcce747d25ca346004a27bea3289a",
       "byteLength": 554,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "fieldOperations",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "logicalName": "scope-key",
+            "identity": {
+              "source": "field-readback",
+              "internalName": "ScopeKey",
+              "entityPropertyName": "ScopeKeyEntity"
+            },
+            "uses": [
+              {
+                "operation": "view",
+                "fieldName": "ScopeKeyEntity",
+                "source": "entity-property-name"
+              },
+              {
+                "operation": "filter",
+                "fieldName": "ScopeKeyEntity",
+                "source": "entity-property-name"
+              }
+            ]
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "identity": {
+              "source": "field-readback",
+              "internalName": "Title",
+              "entityPropertyName": "Title"
+            },
+            "uses": [
+              {
+                "operation": "patch",
+                "fieldName": "Title",
+                "source": "entity-property-name"
+              },
+              {
+                "operation": "select",
+                "fieldName": "Title",
+                "source": "entity-property-name"
+              }
+            ]
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "amount",
+            "identity": {
+              "source": "field-readback",
+              "internalName": "Amount",
+              "entityPropertyName": "Amount"
+            },
+            "uses": [
+              {
+                "operation": "semantic-readback",
+                "fieldName": "Amount",
+                "source": "entity-property-name"
+              }
+            ]
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:synthetic/text-field-proof.json:wp06-evidence-v1",
+      "to": "builder:synthetic/text-field-proof-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/text-field-proof.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

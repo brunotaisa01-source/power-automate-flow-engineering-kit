@@ -30,7 +30,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "50fdbd06ef3c7fd202c854417c9bb57d0da1538a53a3257befc056664f6bfb36",
           "sourceArtifactBytes": 544,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -48,17 +49,49 @@
       "projections": {}
     },
     {
-      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "50fdbd06ef3c7fd202c854417c9bb57d0da1538a53a3257befc056664f6bfb36",
       "byteLength": 544,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "httpClassifications",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "status": 404,
+            "phase": "apply",
+            "requestKind": "initial-get",
+            "allowCreateMissing404": true,
+            "error": {
+              "platformCode": "NOT_FOUND",
+              "messageCategory": "missing-object"
+            },
+            "classification": "CREATE_MISSING"
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

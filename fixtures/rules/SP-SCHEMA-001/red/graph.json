@@ -35,7 +35,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "71b90e4d2341d668e18147b7237175534a9784c409fef4253c09d45d2a5d5231",
           "sourceArtifactBytes": 540,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -53,17 +54,54 @@
       "projections": {}
     },
     {
-      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "71b90e4d2341d668e18147b7237175534a9784c409fef4253c09d45d2a5d5231",
       "byteLength": 540,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "fieldOperations",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "identity": {
+              "source": "display-name-assumption",
+              "internalName": "Synthetic Title",
+              "entityPropertyName": "Synthetic Title"
+            },
+            "uses": [
+              {
+                "operation": "filter",
+                "fieldName": "Synthetic Title",
+                "source": "display-name"
+              }
+            ]
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

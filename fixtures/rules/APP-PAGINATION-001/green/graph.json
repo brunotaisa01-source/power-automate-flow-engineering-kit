@@ -36,7 +36,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "4790ae618c23a39d848e5e8b23ec66bd71be8c628cfd4d609e195a6b7addf21c",
           "sourceArtifactBytes": 547,
-          "sourceArtifactKind": "frontend"
+          "sourceArtifactKind": "frontend",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -54,17 +55,55 @@
       "projections": {}
     },
     {
-      "id": "frontend:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "frontend:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "frontend",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "4790ae618c23a39d848e5e8b23ec66bd71be8c628cfd4d609e195a6b7addf21c",
       "byteLength": 547,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "frontend",
+        "section": "paginationTraversals",
+        "adapter": {
+          "id": "spflow.frontend-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "completeness": "required",
+            "mode": "exhaust-continuation",
+            "continuation": {
+              "urlParsing": "url-api",
+              "sameOrigin": true,
+              "sitePath": true,
+              "visitedLinks": true,
+              "pageLimit": 50,
+              "onLoop": "fail",
+              "onCrossOrigin": "fail",
+              "onSitePathEscape": "fail",
+              "onPageLimit": "fail"
+            },
+            "accumulation": "append-server-order",
+            "termination": "next-link-absent"
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "frontend:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

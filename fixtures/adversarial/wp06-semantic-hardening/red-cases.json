@@ -1,0 +1,30 @@
+{
+  "unrelatedSource": {
+    "sourceProfile": "synthetic-unrelated-v1",
+    "facts": {
+      "unrelated": true
+    }
+  },
+  "unknownSaveTransactionProperty": {
+    "untrustedClaim": true
+  },
+  "unknownSaveRequestProperty": {
+    "untrustedRequestClaim": true
+  },
+  "foundWithoutBody": {
+    "status": 204,
+    "phase": "preflight",
+    "requestKind": "initial-get",
+    "allowCreateMissing404": false,
+    "error": {},
+    "classification": "FOUND"
+  },
+  "fractionalStatus": {
+    "status": 400.5,
+    "phase": "preflight",
+    "requestKind": "initial-get",
+    "allowCreateMissing404": false,
+    "error": {},
+    "classification": "GET_FAILED"
+  }
+}

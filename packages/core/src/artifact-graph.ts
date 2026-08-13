@@ -22,6 +22,11 @@ import {
 import { assertNoPathCaseCollisions, normalizeRepositoryPath } from "./path-policy.js";
 import type { Diagnostic } from "./types/diagnostics.js";
 import type { ProjectContract } from "./types/project-contract.js";
+import {
+  WP06_ARTIFACT_PROFILE,
+  WP06_SOURCE_PROJECTION_PROFILE,
+  parseNormalizedWp06Evidence,
+} from "./types/wp06-evidence.js";
 
 export interface ArtifactGraphJson {
   readonly nodes: readonly ArtifactNode[];
@@ -431,6 +436,28 @@ export async function buildArtifactGraph(
       for (const manifest of manifests) {
         addEdge(evidence, manifest, "supports");
       }
+    }
+  }
+
+  for (const evidenceNode of nodes.values()) {
+    if (evidenceNode.sourceProfile !== WP06_ARTIFACT_PROFILE) continue;
+    const evidence = parseNormalizedWp06Evidence(evidenceNode.data);
+    if (evidence === undefined) continue;
+    const contractMatches = [...nodes.values()].filter((node) =>
+      node.kind === "contract"
+      && node.sourceProfile === "project-contract-v1"
+      && node.relativePath === evidence.binding.contractArtifactPath
+    );
+    const sourceMatches = [...nodes.values()].filter((node) =>
+      node.kind === evidence.binding.sourceArtifactKind
+      && node.sourceProfile === WP06_SOURCE_PROJECTION_PROFILE
+      && node.relativePath === evidence.binding.sourceArtifactPath
+    );
+    if (contractMatches.length === 1) {
+      addEdge(evidenceNode, contractMatches[0]!, "verifies-contract");
+    }
+    if (sourceMatches.length === 1) {
+      addEdge(evidenceNode, sourceMatches[0]!, "derives-from");
     }
   }
 

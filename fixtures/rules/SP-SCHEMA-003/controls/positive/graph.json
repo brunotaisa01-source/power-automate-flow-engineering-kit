@@ -74,7 +74,8 @@
           "sourceArtifactPath": "synthetic/compatibility-branches-source.json",
           "sourceArtifactSha256": "2841f1c9e52a7bdf72719a73a648bc1ac52e889765f1a31d13187627f895f518",
           "sourceArtifactBytes": 554,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -92,17 +93,93 @@
       "projections": {}
     },
     {
-      "id": "builder:synthetic/compatibility-branches-source.json:synthetic-source-v1",
+      "id": "builder:synthetic/compatibility-branches-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "synthetic/compatibility-branches-source.json",
       "digest": "2841f1c9e52a7bdf72719a73a648bc1ac52e889765f1a31d13187627f895f518",
       "byteLength": 554,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "fieldOperations",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "logicalName": "scope-key",
+            "compatibility": {
+              "response": "GET_FAILED",
+              "comparedProperties": [],
+              "outcome": "GET_FAILED",
+              "writeAction": "none"
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "amount",
+            "compatibility": {
+              "response": "MISSING_OBJECT",
+              "comparedProperties": [],
+              "outcome": "CREATE_MISSING",
+              "writeAction": "create-approved-plan"
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "compatibility": {
+              "response": "FOUND",
+              "comparedProperties": [
+                "maxLength",
+                "sensitive",
+                "immutableAfterCreate",
+                "serverAuthoritative",
+                "clientEditable",
+                "unique",
+                "indexed",
+                "required",
+                "type",
+                "internalName",
+                "logicalName"
+              ],
+              "actual": {
+                "maxLength": 255,
+                "sensitive": false,
+                "immutableAfterCreate": false,
+                "serverAuthoritative": false,
+                "clientEditable": true,
+                "unique": false,
+                "indexed": true,
+                "required": true,
+                "type": "Text",
+                "internalName": "Title",
+                "logicalName": "title"
+              },
+              "outcome": "MATCH",
+              "writeAction": "none"
+            }
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:synthetic/compatibility-branches.json:wp06-evidence-v1",
+      "to": "builder:synthetic/compatibility-branches-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/compatibility-branches.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

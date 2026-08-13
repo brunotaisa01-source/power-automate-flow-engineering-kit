@@ -108,6 +108,7 @@ interface Wp06EvidenceBinding {
   section: Wp06EvidenceSection;
   contractArtifactPath: string;
   contractArtifactSha256: string;
+  contractArtifactBytes: number;
   sourceArtifactPath: string;
   sourceArtifactSha256: string;
   sourceArtifactBytes: number;
@@ -115,16 +116,44 @@ interface Wp06EvidenceBinding {
 }
 ```
 
+The bound source is a deterministic adapter projection and is structurally
+different from the evidence envelope:
+
+```ts
+interface Wp06SourceProjection {
+  sourceProjectionProfile: "wp06-source-projection-v1";
+  projectionRevision: 1;
+  contractRevision: number;
+  sourceKind: "frontend" | "builder";
+  section: Wp06EvidenceSection;
+  adapter: {
+    id: "spflow.frontend-static-v1" | "spflow.power-automate-static-v1";
+    version: 1;
+  };
+  facts: readonly unknown[];
+}
+```
+
 The validator requires all of the following:
 
 - the envelope contains exactly one populated section and `binding.section` names it;
 - the evidence path differs from `sourceArtifactPath` to prevent circular self-binding;
-- exactly one `project-contract-v1` graph node matches the contract path and SHA-256;
-- exactly one non-evidence source node matches source path, SHA-256, byte length, and kind;
+- exactly one `project-contract-v1` graph node matches contract path, SHA-256, and byte length;
+- exactly one `wp06-source-projection-v1` node matches source path, SHA-256, byte length, and kind;
+- the evidence node has exactly one `derives-from` edge to that source node and exactly one
+  `verifies-contract` edge to that contract node;
 - both the evidence node and bound source kind match the rule catalog's `frontend` or `builder` applicability;
-- stale revisions, duplicate section artifacts, undeclared values, duplicate semantic items, unknown envelope keys, and unknown binding keys fail closed.
+- the adapter ID matches the source kind and its projection contains exactly one section;
+- canonical projected facts equal the selected normalized evidence section;
+- stale revisions, duplicate section artifacts, undeclared values, duplicate semantic items, unknown envelope keys, unknown binding keys, unknown section keys, and unknown nested keys fail closed.
 
-The binding proves which exact local source and contract the normalized evidence describes. It does not independently prove that the producer derived every semantic field correctly. Trusted adapters, final artifact inspection, mutation controls, and the external tenant gates remain separate requirements.
+The validator verifies the deterministic adapter output and its exact graph
+binding. It does not infer code semantics from a profile label, and a
+hand-authored evidence envelope cannot independently authorize PASS. Production
+adapters must parse the actual frontend, Power Automate builder or definition,
+generated package, or another declared source into this projection. Adapter
+trust, final artifact inspection, mutation controls, and external tenant gates
+remain separate requirements.
 
 ## 5. Claim Support Matrix
 

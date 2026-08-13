@@ -281,6 +281,7 @@ export const spSchema003: RuleDetector = Object.freeze({
         if (compatibility.response === "FOUND") {
           const actual = compatibility.actual;
           const exact = isRecord(actual)
+            && sameStringSet(Object.keys(actual), expectedProperties)
             && expectedProperties.every((property) =>
               Object.hasOwn(actual, property)
               && isDeepStrictEqual(actual[property], expected[property])

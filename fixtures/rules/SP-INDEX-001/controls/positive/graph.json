@@ -44,7 +44,8 @@
           "sourceArtifactPath": "synthetic/compatible-index-plan-source.json",
           "sourceArtifactSha256": "ed7ff883bd068fdd7109d8f96162e6bb12e6988f4e4d3f1f6292d2836e299104",
           "sourceArtifactBytes": 553,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -62,17 +63,63 @@
       "projections": {}
     },
     {
-      "id": "builder:synthetic/compatible-index-plan-source.json:synthetic-source-v1",
+      "id": "builder:synthetic/compatible-index-plan-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "synthetic/compatible-index-plan-source.json",
       "digest": "ed7ff883bd068fdd7109d8f96162e6bb12e6988f4e4d3f1f6292d2836e299104",
       "byteLength": 553,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "indexPlans",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "currentFields": [
+              "ScopeKey",
+              "Title"
+            ],
+            "requiredFields": [
+              "Title",
+              "ScopeKey"
+            ],
+            "execution": "serial",
+            "digest": {
+              "fresh": true,
+              "bindsCurrent": true,
+              "bindsRequired": true
+            },
+            "result": "NO_OP",
+            "maximumWrites": 0,
+            "writeCount": 0,
+            "operations": [],
+            "finalReadback": [
+              "Title",
+              "ScopeKey"
+            ]
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:synthetic/compatible-index-plan.json:wp06-evidence-v1",
+      "to": "builder:synthetic/compatible-index-plan-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/compatible-index-plan.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

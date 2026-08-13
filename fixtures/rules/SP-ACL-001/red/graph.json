@@ -50,7 +50,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "129f4a7af637eb69a51b7c868679d2089710245b0e524929176dcd807ace5156",
           "sourceArtifactBytes": 537,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -68,17 +69,69 @@
       "projections": {}
     },
     {
-      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "129f4a7af637eb69a51b7c868679d2089710245b0e524929176dcd807ace5156",
       "byteLength": 537,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "permissionModels",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "command-queue",
+            "inheritance": "break-clear",
+            "directUserGrants": "present",
+            "browserOperations": [
+              "read",
+              "create",
+              "update"
+            ],
+            "grants": [
+              {
+                "principalKind": "user",
+                "principalBinding": "BROWSERS",
+                "role": "contribute-limited",
+                "allowedOperations": [
+                  "read",
+                  "create",
+                  "update"
+                ]
+              },
+              {
+                "principalKind": "binding",
+                "principalBinding": "PROCESSOR",
+                "role": "processor",
+                "allowedOperations": [
+                  "read",
+                  "update"
+                ]
+              }
+            ]
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

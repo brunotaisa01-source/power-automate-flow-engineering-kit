@@ -170,7 +170,12 @@ type ReadClassification =
 
 Rules:
 
-- HTTP 200-299 with valid expected body: `FOUND`.
+- HTTP status evidence is an integer from 100 through 599.
+- HTTP 200-299 is `FOUND` only when the request kind expects an object and the
+  evidence contains a strict parsed body with `bodyKind: "sharepoint-object"`,
+  `parsed: true`, and `schemaValid: true`.
+- HTTP 204/205, a missing body, an invalid body, or an unknown body property
+  cannot authorize `FOUND`.
 - HTTP 400: `MISSING_OBJECT` only when the structured platform error code or normalized semantic message identifies a missing column. Status alone is insufficient.
 - Every other HTTP 400: `GET_FAILED`.
 - HTTP 404: `CREATE_MISSING` only for an initial Preflight GET whose operation contract explicitly sets `allowCreateMissing404: true`.
@@ -257,4 +262,3 @@ Offline tests MUST include:
 - same-origin continuation enforcement.
 
 Tenant-only tests are effective permission probes, separate-user authorization, import/rebind/enable readback, special-character queries, concurrency with real ETags, controlled mutation, semantic readback, and rollback. Their absence MUST NOT be reported as an offline failure, but MUST remain an explicit residual gate.
-

@@ -15,6 +15,10 @@ const CONTRACT_DIGEST = "c".repeat(64);
 const SOURCE_DIGEST = "d".repeat(64);
 const CONTRACT_BYTES = 2048;
 const SOURCE_BYTES = 512;
+const HARDENING_CASES_PATH = resolve(
+  ROOT,
+  "fixtures/adversarial/wp06-semantic-hardening/red-cases.json",
+);
 
 type ExpectedKind = "builder" | "frontend";
 type EvidenceSection =
@@ -353,6 +357,7 @@ async function fixture(ruleId: string, expectedKind: ExpectedKind, section: Evid
     section,
     contractArtifactPath: "project.contract.json",
     contractArtifactSha256: CONTRACT_DIGEST,
+    contractArtifactBytes: CONTRACT_BYTES,
     sourceArtifactPath: sourcePath,
     sourceArtifactSha256: SOURCE_DIGEST,
     sourceArtifactBytes: SOURCE_BYTES,
@@ -370,17 +375,70 @@ async function fixture(ruleId: string, expectedKind: ExpectedKind, section: Evid
       projections: {},
     },
     {
-      id: `${expectedKind}:${sourcePath}:synthetic-source-v1`,
+      id: `${expectedKind}:${sourcePath}:wp06-source-projection-v1`,
       kind: expectedKind,
       relativePath: sourcePath,
       digest: SOURCE_DIGEST,
       byteLength: SOURCE_BYTES,
-      sourceProfile: "synthetic-source-v1",
-      data: { synthetic: true },
+      sourceProfile: "wp06-source-projection-v1",
+      data: {
+        sourceProjectionProfile: "wp06-source-projection-v1",
+        projectionRevision: 1,
+        contractRevision: 2,
+        sourceKind: expectedKind,
+        section,
+        adapter: {
+          id: expectedKind === "frontend"
+            ? "spflow.frontend-static-v1"
+            : "spflow.power-automate-static-v1",
+          version: 1,
+        },
+        facts: structuredClone(evidenceData[section]),
+      },
       projections: {},
     },
   );
+  graph.edges = [
+    { from: evidence.id, to: graph.nodes[2]!.id, relation: "derives-from" },
+    { from: evidence.id, to: graph.nodes[1]!.id, relation: "verifies-contract" },
+  ];
   return graph;
+}
+
+function addProjectionAndRelations(
+  graph: ArtifactGraphInput & { nodes: Array<Record<string, unknown>> },
+  section: EvidenceSection,
+  expectedKind: ExpectedKind,
+): void {
+  const evidence = graph.nodes[0]!;
+  const contract = graph.nodes[1]!;
+  const source = graph.nodes[2]!;
+  const evidenceData = evidence.data as Record<string, unknown>;
+  source.sourceProfile = "wp06-source-projection-v1";
+  source.data = {
+    sourceProjectionProfile: "wp06-source-projection-v1",
+    projectionRevision: 1,
+    contractRevision: 2,
+    sourceKind: expectedKind,
+    section,
+    adapter: {
+      id: expectedKind === "frontend"
+        ? "spflow.frontend-static-v1"
+        : "spflow.power-automate-static-v1",
+      version: 1,
+    },
+    facts: structuredClone(evidenceData[section]),
+  };
+  graph.edges = [
+    { from: evidence.id, to: source.id, relation: "derives-from" },
+    { from: evidence.id, to: contract.id, relation: "verifies-contract" },
+  ];
+}
+
+function projectionFacts(
+  graph: ArtifactGraphInput & { nodes: Array<Record<string, unknown>> },
+): unknown[] {
+  return (graph.nodes[2]!.data as { facts: unknown[] }).facts;
 }
 
 function context(graph: ArtifactGraphInput): ValidationContext {
@@ -552,5 +610,223 @@ describe("WP-06 remediation adversarial cases", () => {
     const httpData = http.nodes[0]!.data as { httpClassifications: unknown[] };
     httpData.httpClassifications.push(structuredClone(httpData.httpClassifications[0]));
     await expectFailure("HTTP-SEMANTIC-001", http);
+  });
+
+  test("evidence requires matching source projection and exact graph relations", async () => {
+    const cases = await readJson<{ unrelatedSource: Record<string, unknown> }>(
+      HARDENING_CASES_PATH,
+    );
+    const unrelated = await fixture("APP-SAVE-001", "frontend", "saveTransactions");
+    addProjectionAndRelations(unrelated, "saveTransactions", "frontend");
+    unrelated.nodes[2]!.data = cases.unrelatedSource;
+    await expectFailure("APP-SAVE-001", unrelated);
+
+    const missingEdges = await fixture("APP-SAVE-001", "frontend", "saveTransactions");
+    addProjectionAndRelations(missingEdges, "saveTransactions", "frontend");
+    missingEdges.edges = [];
+    await expectFailure("APP-SAVE-001", missingEdges);
+  });
+
+  test("contract binding includes exact byte length", async () => {
+    const graph = await fixture("APP-SAVE-001", "frontend", "saveTransactions");
+    addProjectionAndRelations(graph, "saveTransactions", "frontend");
+    graph.nodes[1]!.byteLength = CONTRACT_BYTES + 1;
+    await expectFailure("APP-SAVE-001", graph);
+  });
+
+  test("unknown nested claims fail even when source projection repeats them", async () => {
+    const cases = await readJson<{
+      unknownSaveTransactionProperty: Record<string, unknown>;
+      unknownSaveRequestProperty: Record<string, unknown>;
+    }>(HARDENING_CASES_PATH);
+    const graph = await fixture("APP-SAVE-001", "frontend", "saveTransactions");
+    addProjectionAndRelations(graph, "saveTransactions", "frontend");
+    const evidence = graph.nodes[0]!.data as {
+      saveTransactions: Array<Record<string, unknown>>;
+    };
+    Object.assign(evidence.saveTransactions[0]!, cases.unknownSaveTransactionProperty);
+    Object.assign(
+      evidence.saveTransactions[0]!.request as Record<string, unknown>,
+      cases.unknownSaveRequestProperty,
+    );
+    const source = projectionFacts(graph) as Array<Record<string, unknown>>;
+    Object.assign(source[0]!, cases.unknownSaveTransactionProperty);
+    Object.assign(
+      source[0]!.request as Record<string, unknown>,
+      cases.unknownSaveRequestProperty,
+    );
+    await expectFailure("APP-SAVE-001", graph);
+  });
+
+  test("duplicate index fields and schema uses fail even when source projection matches", async () => {
+    const index = await fixture("SP-INDEX-001", "builder", "indexPlans");
+    addProjectionAndRelations(index, "indexPlans", "builder");
+    const indexEvidence = index.nodes[0]!.data as {
+      indexPlans: Array<{ currentFields: string[] }>;
+    };
+    indexEvidence.indexPlans[0]!.currentFields.push(
+      indexEvidence.indexPlans[0]!.currentFields[0]!,
+    );
+    const indexSource = projectionFacts(index) as Array<{ currentFields: string[] }>;
+    indexSource[0]!.currentFields.push(indexSource[0]!.currentFields[0]!);
+    await expectFailure("SP-INDEX-001", index);
+
+    const schema = await fixture("SP-SCHEMA-001", "builder", "fieldOperations");
+    addProjectionAndRelations(schema, "fieldOperations", "builder");
+    const schemaEvidence = schema.nodes[0]!.data as {
+      fieldOperations: Array<{ uses: unknown[] }>;
+    };
+    schemaEvidence.fieldOperations[0]!.uses.push(
+      structuredClone(schemaEvidence.fieldOperations[0]!.uses[0]),
+    );
+    const schemaSource = projectionFacts(schema) as Array<{ uses: unknown[] }>;
+    schemaSource[0]!.uses.push(structuredClone(schemaSource[0]!.uses[0]));
+    await expectFailure("SP-SCHEMA-001", schema);
+  });
+
+  test("HTTP FOUND requires a valid body and status is an integer in range", async () => {
+    const cases = await readJson<{
+      foundWithoutBody: Record<string, unknown>;
+      fractionalStatus: Record<string, unknown>;
+    }>(HARDENING_CASES_PATH);
+    for (const value of [cases.foundWithoutBody, cases.fractionalStatus]) {
+      const graph = await fixture("HTTP-SEMANTIC-001", "builder", "httpClassifications");
+      addProjectionAndRelations(graph, "httpClassifications", "builder");
+      const evidence = graph.nodes[0]!.data as { httpClassifications: unknown[] };
+      evidence.httpClassifications = [structuredClone(value)];
+      (graph.nodes[2]!.data as { facts: unknown[] }).facts = [structuredClone(value)];
+      await expectFailure("HTTP-SEMANTIC-001", graph);
+    }
+  });
+
+  test("remaining semantic collections reject duplicate values", async () => {
+    for (const field of ["requiredFields", "finalReadback"] as const) {
+      const graph = await fixture("SP-INDEX-001", "builder", "indexPlans");
+      const evidence = graph.nodes[0]!.data as {
+        indexPlans: Array<Record<typeof field, string[]>>;
+      };
+      evidence.indexPlans[0]![field].push(evidence.indexPlans[0]![field][0]!);
+      const source = projectionFacts(graph) as Array<Record<typeof field, string[]>>;
+      source[0]![field].push(source[0]![field][0]!);
+      await expectFailure("SP-INDEX-001", graph);
+    }
+
+    const operations = await fixture("SP-INDEX-001", "builder", "indexPlans");
+    const operationEvidence = operations.nodes[0]!.data as {
+      indexPlans: Array<{ operations: unknown[] }>;
+    };
+    operationEvidence.indexPlans[0]!.operations.push(
+      structuredClone(operationEvidence.indexPlans[0]!.operations[0]),
+    );
+    const operationSource = projectionFacts(operations) as Array<{ operations: unknown[] }>;
+    operationSource[0]!.operations.push(structuredClone(operationSource[0]!.operations[0]));
+    await expectFailure("SP-INDEX-001", operations);
+
+    const grants = await fixture("SP-ACL-001", "builder", "permissionModels");
+    const grantEvidence = grants.nodes[0]!.data as {
+      permissionModels: Array<{ grants: Array<{ allowedOperations: string[] }> }>;
+    };
+    grantEvidence.permissionModels[0]!.grants.push(
+      structuredClone(grantEvidence.permissionModels[0]!.grants[0]!),
+    );
+    const grantSource = projectionFacts(grants) as Array<{
+      grants: Array<{ allowedOperations: string[] }>;
+    }>;
+    grantSource[0]!.grants.push(structuredClone(grantSource[0]!.grants[0]!));
+    await expectFailure("SP-ACL-001", grants);
+
+    const allowed = await fixture("SP-ACL-001", "builder", "permissionModels");
+    const allowedEvidence = allowed.nodes[0]!.data as {
+      permissionModels: Array<{ grants: Array<{ allowedOperations: string[] }> }>;
+    };
+    allowedEvidence.permissionModels[0]!.grants[0]!.allowedOperations.push(
+      allowedEvidence.permissionModels[0]!.grants[0]!.allowedOperations[0]!,
+    );
+    const allowedSource = projectionFacts(allowed) as Array<{
+      grants: Array<{ allowedOperations: string[] }>;
+    }>;
+    allowedSource[0]!.grants[0]!.allowedOperations.push(
+      allowedSource[0]!.grants[0]!.allowedOperations[0]!,
+    );
+    await expectFailure("SP-ACL-001", allowed);
+
+    const probes = await fixture("SP-ACL-002", "builder", "permissionProbes");
+    const probeEvidence = probes.nodes[0]!.data as { permissionProbes: unknown[] };
+    probeEvidence.permissionProbes.push(structuredClone(probeEvidence.permissionProbes[0]));
+    (probes.nodes[2]!.data as { facts: unknown[] }).facts.push(
+      structuredClone((probes.nodes[2]!.data as { facts: unknown[] }).facts[0]),
+    );
+    await expectFailure("SP-ACL-002", probes);
+
+    const fields = await fixture("SP-SCHEMA-001", "builder", "fieldOperations");
+    const fieldEvidence = fields.nodes[0]!.data as { fieldOperations: unknown[] };
+    fieldEvidence.fieldOperations.push(structuredClone(fieldEvidence.fieldOperations[0]));
+    (fields.nodes[2]!.data as { facts: unknown[] }).facts.push(
+      structuredClone((fields.nodes[2]!.data as { facts: unknown[] }).facts[0]),
+    );
+    await expectFailure("SP-SCHEMA-001", fields);
+  });
+
+  test("every section object rejects unknown claims", async () => {
+    const cases: ReadonlyArray<readonly [string, ExpectedKind, EvidenceSection]> = [
+      ["SP-AUTHZ-001", "builder", "authorityChecks"],
+      ["SP-ACL-001", "builder", "permissionModels"],
+      ["SP-ACL-002", "builder", "permissionProbes"],
+      ["APP-SAVE-001", "frontend", "saveTransactions"],
+      ["APP-PAGINATION-001", "frontend", "paginationTraversals"],
+      ["SP-ODATA-001", "frontend", "odataRequests"],
+      ["SP-SCHEMA-001", "builder", "fieldOperations"],
+      ["HTTP-SEMANTIC-001", "builder", "httpClassifications"],
+      ["SP-INDEX-001", "builder", "indexPlans"],
+    ];
+    for (const [ruleId, kind, section] of cases) {
+      const graph = await fixture(ruleId, kind, section);
+      const evidence = graph.nodes[0]!.data as Record<string, Array<Record<string, unknown>>>;
+      evidence[section]![0]!.untrustedClaim = true;
+      const source = projectionFacts(graph) as Array<Record<string, unknown>>;
+      source[0]!.untrustedClaim = true;
+      await expectFailure(ruleId, graph);
+    }
+  });
+
+  test("HTTP FOUND accepts only a strict parsed object body", async () => {
+    const graph = await fixture("HTTP-SEMANTIC-001", "builder", "httpClassifications");
+    const found = {
+      status: 200,
+      phase: "preflight",
+      requestKind: "initial-get",
+      allowCreateMissing404: false,
+      error: {},
+      responseBody: {
+        bodyKind: "sharepoint-object",
+        parsed: true,
+        schemaValid: true,
+      },
+      classification: "FOUND",
+    };
+    (graph.nodes[0]!.data as { httpClassifications: unknown[] }).httpClassifications = [found];
+    (graph.nodes[2]!.data as { facts: unknown[] }).facts = [structuredClone(found)];
+    assert.deepEqual(
+      await ruleRegistry.get("HTTP-SEMANTIC-001")!.validate(context(graph)),
+      [],
+    );
+
+    (found.responseBody as Record<string, unknown>).untrustedClaim = true;
+    (graph.nodes[2]!.data as { facts: Array<{ responseBody: Record<string, unknown> }> })
+      .facts[0]!.responseBody.untrustedClaim = true;
+    await expectFailure("HTTP-SEMANTIC-001", graph);
+  });
+
+  test("field compatibility actual body rejects contract-undeclared properties", async () => {
+    const graph = await fixture("SP-SCHEMA-003", "builder", "fieldOperations");
+    const evidence = graph.nodes[0]!.data as {
+      fieldOperations: Array<{ compatibility: { actual: Record<string, unknown> } }>;
+    };
+    evidence.fieldOperations[0]!.compatibility.actual.dateTimeMode = "date-only";
+    const source = projectionFacts(graph) as Array<{
+      compatibility: { actual: Record<string, unknown> };
+    }>;
+    source[0]!.compatibility.actual.dateTimeMode = "date-only";
+    await expectFailure("SP-SCHEMA-003", graph);
   });
 });

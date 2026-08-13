@@ -116,7 +116,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "57740faf495eb90f955a7289c26ed5479b97dd85b73644dfb77c86f11404890f",
           "sourceArtifactBytes": 539,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -134,17 +135,135 @@
       "projections": {}
     },
     {
-      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "57740faf495eb90f955a7289c26ed5479b97dd85b73644dfb77c86f11404890f",
       "byteLength": 539,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "permissionModels",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "inheritance": "break-clear",
+            "directUserGrants": "forbidden",
+            "browserOperations": [
+              "read",
+              "update"
+            ],
+            "grants": [
+              {
+                "principalKind": "binding",
+                "principalBinding": "READERS",
+                "role": "read",
+                "allowedOperations": [
+                  "read"
+                ]
+              },
+              {
+                "principalKind": "binding",
+                "principalBinding": "PROCESSOR",
+                "role": "processor",
+                "allowedOperations": [
+                  "read",
+                  "update"
+                ]
+              }
+            ]
+          },
+          {
+            "listId": "command-queue",
+            "inheritance": "break-clear",
+            "directUserGrants": "forbidden",
+            "browserOperations": [
+              "read",
+              "create"
+            ],
+            "grants": [
+              {
+                "principalKind": "binding",
+                "principalBinding": "BROWSERS",
+                "role": "contribute-limited",
+                "allowedOperations": [
+                  "read",
+                  "create"
+                ]
+              },
+              {
+                "principalKind": "binding",
+                "principalBinding": "PROCESSOR",
+                "role": "processor",
+                "allowedOperations": [
+                  "read",
+                  "update"
+                ]
+              }
+            ]
+          },
+          {
+            "listId": "audit-log",
+            "inheritance": "break-clear",
+            "directUserGrants": "forbidden",
+            "browserOperations": [],
+            "grants": [
+              {
+                "principalKind": "binding",
+                "principalBinding": "PROCESSOR",
+                "role": "processor",
+                "allowedOperations": [
+                  "create"
+                ]
+              },
+              {
+                "principalKind": "binding",
+                "principalBinding": "REVIEWERS",
+                "role": "audit-read",
+                "allowedOperations": [
+                  "read"
+                ]
+              }
+            ]
+          },
+          {
+            "listId": "access-control",
+            "inheritance": "break-clear",
+            "directUserGrants": "forbidden",
+            "browserOperations": [],
+            "grants": [
+              {
+                "principalKind": "binding",
+                "principalBinding": "PROCESSOR",
+                "role": "processor",
+                "allowedOperations": [
+                  "read"
+                ]
+              }
+            ]
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

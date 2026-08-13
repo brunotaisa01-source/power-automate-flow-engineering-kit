@@ -39,7 +39,8 @@
           "sourceArtifactPath": "synthetic/http-404-strict-source.json",
           "sourceArtifactSha256": "d8b751db5d90265c9e4909dedab6390f00b7a996671745f3a078bb23d920327d",
           "sourceArtifactBytes": 558,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -57,17 +58,58 @@
       "projections": {}
     },
     {
-      "id": "builder:synthetic/http-404-strict-source.json:synthetic-source-v1",
+      "id": "builder:synthetic/http-404-strict-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "synthetic/http-404-strict-source.json",
       "digest": "d8b751db5d90265c9e4909dedab6390f00b7a996671745f3a078bb23d920327d",
       "byteLength": 558,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "httpClassifications",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "status": 404,
+            "phase": "preflight",
+            "requestKind": "initial-get",
+            "allowCreateMissing404": false,
+            "error": {
+              "platformCode": "NOT_FOUND"
+            },
+            "classification": "GET_FAILED"
+          },
+          {
+            "status": 404,
+            "phase": "preflight",
+            "requestKind": "other-get",
+            "allowCreateMissing404": true,
+            "error": {
+              "messageCategory": "missing-object"
+            },
+            "classification": "GET_FAILED"
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:synthetic/http-404-strict.json:wp06-evidence-v1",
+      "to": "builder:synthetic/http-404-strict-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/http-404-strict.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

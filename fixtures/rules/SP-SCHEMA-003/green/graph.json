@@ -122,7 +122,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "51706819c09e84f1f759f7d3ef244ebedf64f170273e3962a146ae57c3a3f41a",
           "sourceArtifactBytes": 542,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -140,17 +141,141 @@
       "projections": {}
     },
     {
-      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "51706819c09e84f1f759f7d3ef244ebedf64f170273e3962a146ae57c3a3f41a",
       "byteLength": 542,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "fieldOperations",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "compatibility": {
+              "response": "FOUND",
+              "comparedProperties": [
+                "logicalName",
+                "internalName",
+                "type",
+                "required",
+                "indexed",
+                "unique",
+                "clientEditable",
+                "serverAuthoritative",
+                "immutableAfterCreate",
+                "sensitive",
+                "maxLength"
+              ],
+              "actual": {
+                "logicalName": "title",
+                "internalName": "Title",
+                "type": "Text",
+                "required": true,
+                "indexed": true,
+                "unique": false,
+                "clientEditable": true,
+                "serverAuthoritative": false,
+                "immutableAfterCreate": false,
+                "sensitive": false,
+                "maxLength": 255
+              },
+              "outcome": "MATCH",
+              "writeAction": "none"
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "amount",
+            "compatibility": {
+              "response": "FOUND",
+              "comparedProperties": [
+                "logicalName",
+                "internalName",
+                "type",
+                "required",
+                "indexed",
+                "unique",
+                "clientEditable",
+                "serverAuthoritative",
+                "immutableAfterCreate",
+                "sensitive"
+              ],
+              "actual": {
+                "logicalName": "amount",
+                "internalName": "Amount",
+                "type": "Currency",
+                "required": true,
+                "indexed": false,
+                "unique": false,
+                "clientEditable": false,
+                "serverAuthoritative": true,
+                "immutableAfterCreate": false,
+                "sensitive": false
+              },
+              "outcome": "MATCH",
+              "writeAction": "none"
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "scope-key",
+            "compatibility": {
+              "response": "FOUND",
+              "comparedProperties": [
+                "logicalName",
+                "internalName",
+                "type",
+                "required",
+                "indexed",
+                "unique",
+                "clientEditable",
+                "serverAuthoritative",
+                "immutableAfterCreate",
+                "sensitive",
+                "maxLength"
+              ],
+              "actual": {
+                "logicalName": "scope-key",
+                "internalName": "ScopeKey",
+                "type": "Text",
+                "required": true,
+                "indexed": true,
+                "unique": false,
+                "clientEditable": false,
+                "serverAuthoritative": true,
+                "immutableAfterCreate": true,
+                "sensitive": false,
+                "maxLength": 64
+              },
+              "outcome": "MATCH",
+              "writeAction": "none"
+            }
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

@@ -504,16 +504,29 @@ describe("WP-06 Wave 2 rules", () => {
         resolve(ROOT, "fixtures/rules", ruleId, "red/graph.json"),
       );
       const changed = structuredClone(red) as {
-        nodes: Array<{ data: Record<string, unknown> }>;
+        nodes: Array<{
+          id: string;
+          kind: string;
+          relativePath: string;
+          digest: string;
+          sourceProfile: string;
+          data: Record<string, unknown>;
+          projections: Record<string, unknown>;
+        }>;
         edges: unknown[];
       };
       changed.nodes.reverse();
-      changed.nodes.forEach((node) => {
-        if ((node as { sourceProfile?: string }).sourceProfile === "wp06-evidence-v1") return;
-        node.data.decoy = {
+      changed.nodes.push({
+        id: `documentation:synthetic/${ruleId.toLowerCase()}-decoy.json:synthetic-decoy-v1`,
+        kind: "documentation",
+        relativePath: `synthetic/${ruleId.toLowerCase()}-decoy.json`,
+        digest: "a".repeat(64),
+        sourceProfile: "synthetic-decoy-v1",
+        data: {
           label: `safe-${ruleId.toLowerCase()}`,
           text: "server-system-identity active-access-row exact-etag SP.Field MISSING_OBJECT",
-        };
+        },
+        projections: {},
       });
       assert.deepEqual(
         await detector.validate(fixtureContext(changed as ArtifactGraphInput)),
@@ -557,7 +570,11 @@ describe("WP-06 Wave 2 rules", () => {
         resolve(ROOT, "fixtures/rules", ruleId, "green/graph.json"),
       );
       const reordered = structuredClone(green) as ArtifactGraphInput & {
-        nodes: Array<{ data: Record<string, unknown> }>;
+        nodes: Array<{
+          relativePath: string;
+          sourceProfile: string;
+          data: Record<string, unknown>;
+        }>;
       };
       reordered.nodes.reverse();
       for (const node of reordered.nodes) {
@@ -569,6 +586,18 @@ describe("WP-06 Wave 2 rules", () => {
           for (const plan of plans) {
             if (isRecord(plan) && Array.isArray(plan.operations)) plan.operations.reverse();
           }
+        }
+      }
+      for (const evidenceNode of reordered.nodes) {
+        if (evidenceNode.sourceProfile !== "wp06-evidence-v1") continue;
+        const binding = evidenceNode.data.binding;
+        if (!isRecord(binding) || typeof binding.section !== "string") continue;
+        const source = reordered.nodes.find((node) =>
+          node.relativePath === binding.sourceArtifactPath
+          && node.sourceProfile === "wp06-source-projection-v1"
+        );
+        if (source !== undefined) {
+          source.data.facts = structuredClone(evidenceNode.data[binding.section]);
         }
       }
       const context = fixtureContext(reordered);

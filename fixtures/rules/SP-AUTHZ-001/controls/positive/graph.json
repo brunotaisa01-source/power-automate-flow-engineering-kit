@@ -94,7 +94,8 @@
           "sourceArtifactPath": "synthetic/processor-proof-source.json",
           "sourceArtifactSha256": "a19edcc3e8719ae7cad3bead11c9ecb02f9f998085aeeec4e38bb7fcf301e203",
           "sourceArtifactBytes": 553,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -112,17 +113,82 @@
       "projections": {}
     },
     {
-      "id": "builder:synthetic/processor-proof-source.json:synthetic-source-v1",
+      "id": "builder:synthetic/processor-proof-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "synthetic/processor-proof-source.json",
       "digest": "a19edcc3e8719ae7cad3bead11c9ecb02f9f998085aeeec4e38bb7fcf301e203",
       "byteLength": 553,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "authorityChecks",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "commandType": "apply-change",
+            "targetListId": "protected-items",
+            "sequence": {
+              "identityRead": 2,
+              "capabilityRead": 1,
+              "targetRead": 5,
+              "mutation": 9
+            },
+            "authoritySources": {
+              "actor": "server-system-identity",
+              "role": "active-access-row",
+              "scope": "active-access-row",
+              "protectedState": "current-target-read",
+              "owner": "current-target-read",
+              "amount": "current-target-read",
+              "approval": "server-contract"
+            },
+            "capability": {
+              "id": "approve-items",
+              "accessListId": "access-control",
+              "activeField": "Active",
+              "principalField": "PrincipalKey",
+              "capabilityField": "Capability",
+              "source": "active-access-row",
+              "activeOnly": true,
+              "matchCardinality": "one",
+              "commandDeclared": true,
+              "stateTransitionDeclared": true
+            },
+            "scope": {
+              "mode": "field-match",
+              "targetField": "ScopeKey",
+              "accessField": "ScopeKey",
+              "targetValueSource": "current-target-read",
+              "capabilityValueSource": "active-access-row",
+              "evaluation": "exact-match",
+              "checkedBeforeMutation": true
+            },
+            "effectiveOperation": {
+              "operation": "update",
+              "allowed": true
+            }
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:synthetic/processor-proof.json:wp06-evidence-v1",
+      "to": "builder:synthetic/processor-proof-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/processor-proof.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

@@ -69,7 +69,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "5dc6b47aa6ffd50a7b7643bb8ffa73c3120a876ce1bdabc62ce22ac1f4dd6455",
           "sourceArtifactBytes": 541,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -87,17 +88,88 @@
       "projections": {}
     },
     {
-      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "5dc6b47aa6ffd50a7b7643bb8ffa73c3120a876ce1bdabc62ce22ac1f4dd6455",
       "byteLength": 541,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "indexPlans",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "currentFields": [
+              "LegacyField",
+              "Title"
+            ],
+            "requiredFields": [
+              "Title",
+              "ScopeKey"
+            ],
+            "execution": "serial",
+            "digest": {
+              "fresh": true,
+              "bindsCurrent": true,
+              "bindsRequired": true
+            },
+            "result": "APPLY",
+            "maximumWrites": 2,
+            "writeCount": 2,
+            "operations": [
+              {
+                "sequence": 1,
+                "kind": "remove",
+                "field": "LegacyField",
+                "readback": {
+                  "performed": true,
+                  "observedFields": [
+                    "Title"
+                  ]
+                }
+              },
+              {
+                "sequence": 2,
+                "kind": "add",
+                "field": "ScopeKey",
+                "payloadMetadataType": "SP.Field",
+                "readback": {
+                  "performed": true,
+                  "observedFields": [
+                    "Title",
+                    "ScopeKey"
+                  ]
+                }
+              }
+            ],
+            "finalReadback": [
+              "ScopeKey",
+              "Title"
+            ]
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

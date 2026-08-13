@@ -51,7 +51,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "6e68fbfc6c9d57a371bdb7505da6460a6ca29c20376ff8c1bf17102e2bcf2b83",
           "sourceArtifactBytes": 539,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -69,17 +70,70 @@
       "projections": {}
     },
     {
-      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "6e68fbfc6c9d57a371bdb7505da6460a6ca29c20376ff8c1bf17102e2bcf2b83",
       "byteLength": 539,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "indexPlans",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "currentFields": [
+              "ScopeKey",
+              "Title"
+            ],
+            "requiredFields": [
+              "Title",
+              "ScopeKey"
+            ],
+            "execution": "serial",
+            "digest": {
+              "fresh": true,
+              "bindsCurrent": true,
+              "bindsRequired": true
+            },
+            "result": "APPLY",
+            "maximumWrites": 1,
+            "writeCount": 1,
+            "operations": [
+              {
+                "sequence": 1,
+                "kind": "add",
+                "field": "ScopeKey",
+                "payloadMetadataType": "SP.Field",
+                "readback": false
+              }
+            ],
+            "finalReadback": [
+              "Title"
+            ]
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

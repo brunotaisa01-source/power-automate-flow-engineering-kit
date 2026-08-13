@@ -47,7 +47,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "45f862e1cc38ebbad72e68e194486ffd1709e422545837fe8bc2291f47d31dd3",
           "sourceArtifactBytes": 539,
-          "sourceArtifactKind": "frontend"
+          "sourceArtifactKind": "frontend",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -65,17 +66,66 @@
       "projections": {}
     },
     {
-      "id": "frontend:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "frontend:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "frontend",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "45f862e1cc38ebbad72e68e194486ffd1709e422545837fe8bc2291f47d31dd3",
       "byteLength": 539,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "frontend",
+        "section": "saveTransactions",
+        "adapter": {
+          "id": "spflow.frontend-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "trigger": "autosave",
+            "patchedFields": [
+              "Title",
+              "Amount"
+            ],
+            "request": {
+              "method": "POST",
+              "methodOverride": "MERGE",
+              "serialization": "structured-json",
+              "digest": "shared-session",
+              "ifMatch": "wildcard"
+            },
+            "conflict": {
+              "status": 412,
+              "action": "automatic-replay"
+            },
+            "ambiguousFailure": {
+              "action": "automatic-replay",
+              "writeRetry": true
+            },
+            "readback": {
+              "method": "GET",
+              "semantic": false,
+              "beforeSuccess": false
+            }
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "frontend:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

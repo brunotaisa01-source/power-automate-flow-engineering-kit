@@ -89,7 +89,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "cdd2e357783df986c96ac4fe5bdf0edfeacecff875d770d49f3c92fb11fb70f4",
           "sourceArtifactBytes": 539,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -107,17 +108,108 @@
       "projections": {}
     },
     {
-      "id": "builder:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "cdd2e357783df986c96ac4fe5bdf0edfeacecff875d770d49f3c92fb11fb70f4",
       "byteLength": 539,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "permissionProbes",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "principalBinding": "READERS",
+            "operations": {
+              "read": true,
+              "create": false,
+              "update": false,
+              "delete": false
+            }
+          },
+          {
+            "listId": "protected-items",
+            "principalBinding": "PROCESSOR",
+            "operations": {
+              "read": true,
+              "create": false,
+              "update": true,
+              "delete": false
+            }
+          },
+          {
+            "listId": "command-queue",
+            "principalBinding": "BROWSERS",
+            "operations": {
+              "read": true,
+              "create": true,
+              "update": false,
+              "delete": false
+            }
+          },
+          {
+            "listId": "command-queue",
+            "principalBinding": "PROCESSOR",
+            "operations": {
+              "read": true,
+              "create": false,
+              "update": true,
+              "delete": false
+            }
+          },
+          {
+            "listId": "audit-log",
+            "principalBinding": "PROCESSOR",
+            "operations": {
+              "read": false,
+              "create": true,
+              "update": false,
+              "delete": false
+            }
+          },
+          {
+            "listId": "audit-log",
+            "principalBinding": "REVIEWERS",
+            "operations": {
+              "read": true,
+              "create": false,
+              "update": false,
+              "delete": false
+            }
+          },
+          {
+            "listId": "access-control",
+            "principalBinding": "PROCESSOR",
+            "operations": {
+              "read": true,
+              "create": false,
+              "update": false,
+              "delete": false
+            }
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

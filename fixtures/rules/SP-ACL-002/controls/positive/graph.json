@@ -89,7 +89,8 @@
           "sourceArtifactPath": "synthetic/browser-probes-source.json",
           "sourceArtifactSha256": "aaabf4e1b92a2a51550381872995c523727ac073b169681eec096702471d809e",
           "sourceArtifactBytes": 551,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -107,17 +108,108 @@
       "projections": {}
     },
     {
-      "id": "builder:synthetic/browser-probes-source.json:synthetic-source-v1",
+      "id": "builder:synthetic/browser-probes-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "synthetic/browser-probes-source.json",
       "digest": "aaabf4e1b92a2a51550381872995c523727ac073b169681eec096702471d809e",
       "byteLength": 551,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "permissionProbes",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "command-queue",
+            "principalBinding": "BROWSERS",
+            "operations": {
+              "delete": false,
+              "update": false,
+              "create": true,
+              "read": true
+            }
+          },
+          {
+            "listId": "protected-items",
+            "principalBinding": "READERS",
+            "operations": {
+              "delete": false,
+              "update": false,
+              "create": false,
+              "read": true
+            }
+          },
+          {
+            "listId": "audit-log",
+            "principalBinding": "REVIEWERS",
+            "operations": {
+              "delete": false,
+              "update": false,
+              "create": false,
+              "read": true
+            }
+          },
+          {
+            "listId": "access-control",
+            "principalBinding": "PROCESSOR",
+            "operations": {
+              "delete": false,
+              "update": false,
+              "create": false,
+              "read": true
+            }
+          },
+          {
+            "listId": "audit-log",
+            "principalBinding": "PROCESSOR",
+            "operations": {
+              "delete": false,
+              "update": false,
+              "create": true,
+              "read": false
+            }
+          },
+          {
+            "listId": "command-queue",
+            "principalBinding": "PROCESSOR",
+            "operations": {
+              "delete": false,
+              "update": true,
+              "create": false,
+              "read": true
+            }
+          },
+          {
+            "listId": "protected-items",
+            "principalBinding": "PROCESSOR",
+            "operations": {
+              "delete": false,
+              "update": true,
+              "create": false,
+              "read": true
+            }
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:synthetic/browser-probes.json:wp06-evidence-v1",
+      "to": "builder:synthetic/browser-probes-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/browser-probes.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

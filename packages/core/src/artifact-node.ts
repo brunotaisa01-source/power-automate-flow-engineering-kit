@@ -38,7 +38,9 @@ export type ArtifactRelation =
   | "packages"
   | "hashes"
   | "documents"
-  | "supports";
+  | "supports"
+  | "derives-from"
+  | "verifies-contract";
 
 export interface ArtifactEdge {
   readonly from: string;

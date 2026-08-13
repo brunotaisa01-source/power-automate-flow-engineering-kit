@@ -15,18 +15,36 @@ const MISSING_COLUMN_CODE = "-2147024809";
 
 function isClassification(value: unknown): value is NormalizedHttpClassification {
   return isRecord(value)
-    && typeof value.status === "number"
+    && Number.isSafeInteger(value.status)
+    && (value.status as number) >= 100
+    && (value.status as number) <= 599
     && typeof value.phase === "string"
     && typeof value.requestKind === "string"
     && typeof value.allowCreateMissing404 === "boolean"
     && isRecord(value.error)
     && (value.error.platformCode === undefined || typeof value.error.platformCode === "string")
     && (value.error.messageCategory === undefined || typeof value.error.messageCategory === "string")
+    && (value.responseBody === undefined
+      || (isRecord(value.responseBody)
+        && value.responseBody.bodyKind === "sharepoint-object"
+        && value.responseBody.parsed === true
+        && value.responseBody.schemaValid === true))
     && typeof value.classification === "string";
 }
 
+function hasValidFoundBody(value: NormalizedHttpClassification): boolean {
+  return value.status !== 204
+    && value.status !== 205
+    && (value.requestKind === "initial-get" || value.requestKind === "other-get")
+    && value.responseBody?.bodyKind === "sharepoint-object"
+    && value.responseBody.parsed
+    && value.responseBody.schemaValid;
+}
+
 function expectedClassification(value: NormalizedHttpClassification): string {
-  if (value.status >= 200 && value.status <= 299) return "FOUND";
+  if (value.status >= 200 && value.status <= 299) {
+    return hasValidFoundBody(value) ? "FOUND" : "GET_FAILED";
+  }
   if (value.status === 400) {
     return value.error.platformCode === MISSING_COLUMN_CODE
         || value.error.messageCategory === "column-does-not-exist"
@@ -55,6 +73,7 @@ function classificationKey(value: NormalizedHttpClassification): string {
     value.allowCreateMissing404,
     value.error.platformCode ?? null,
     value.error.messageCategory ?? null,
+    value.responseBody ?? null,
     value.classification,
   ]);
 }

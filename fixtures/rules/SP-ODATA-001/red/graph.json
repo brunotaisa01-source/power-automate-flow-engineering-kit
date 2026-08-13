@@ -31,7 +31,8 @@
           "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
           "sourceArtifactSha256": "0e747793ee8831059550c765a92e8eccfcacaa3a449642411a225a686c5933a3",
           "sourceArtifactBytes": 539,
-          "sourceArtifactKind": "frontend"
+          "sourceArtifactKind": "frontend",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -49,17 +50,50 @@
       "projections": {}
     },
     {
-      "id": "frontend:artifacts/wp06-evidence-source.json:synthetic-source-v1",
+      "id": "frontend:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
       "kind": "frontend",
       "relativePath": "artifacts/wp06-evidence-source.json",
       "digest": "0e747793ee8831059550c765a92e8eccfcacaa3a449642411a225a686c5933a3",
       "byteLength": 539,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "frontend",
+        "section": "odataRequests",
+        "adapter": {
+          "id": "spflow.frontend-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "fieldNames": [
+              "Title"
+            ],
+            "fieldSource": "caller-input",
+            "queryConstruction": "string-concatenation",
+            "pathConstruction": "string-concatenation",
+            "stringLiteralEscaping": "none",
+            "rawFragmentsAccepted": true,
+            "parameterEncoding": "none"
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "frontend:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }

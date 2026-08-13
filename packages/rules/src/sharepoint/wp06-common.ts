@@ -2,31 +2,16 @@ import type { Diagnostic } from "@spflow/core/types/diagnostics";
 import {
   WP06_ARTIFACT_PROFILE,
   WP06_EVIDENCE_PROFILE,
-  WP06_EVIDENCE_SECTIONS,
+  WP06_SOURCE_PROJECTION_PROFILE,
+  parseNormalizedWp06Evidence,
+  parseNormalizedWp06SourceProjection,
+  wp06ProjectionMatchesEvidence,
   type NormalizedWp06Evidence,
-  type NormalizedWp06EvidenceBinding,
   type Wp06SourceArtifactKind,
   type Wp06EvidenceSection,
 } from "@spflow/core/types/wp06-evidence";
 
 import type { ArtifactNodeInput, ValidationContext } from "../registry.ts";
-
-const SHA256 = /^[0-9a-f]{64}$/;
-const BINDING_KEYS = new Set([
-  "section",
-  "contractArtifactPath",
-  "contractArtifactSha256",
-  "sourceArtifactPath",
-  "sourceArtifactSha256",
-  "sourceArtifactBytes",
-  "sourceArtifactKind",
-]);
-const EVIDENCE_KEYS = new Set([
-  "evidenceProfile",
-  "contractRevision",
-  "binding",
-  ...WP06_EVIDENCE_SECTIONS,
-]);
 
 export interface Wp06EvidenceItem<T> {
   readonly artifact: ArtifactNodeInput;
@@ -73,42 +58,6 @@ export function hasUniqueStrings(value: readonly string[]): boolean {
   return new Set(value).size === value.length;
 }
 
-function isBinding(value: unknown): value is NormalizedWp06EvidenceBinding {
-  return isRecord(value)
-    && Object.keys(value).length === BINDING_KEYS.size
-    && Object.keys(value).every((key) => BINDING_KEYS.has(key))
-    && typeof value.section === "string"
-    && (WP06_EVIDENCE_SECTIONS as readonly string[]).includes(value.section)
-    && typeof value.contractArtifactPath === "string"
-    && value.contractArtifactPath.length > 0
-    && typeof value.contractArtifactSha256 === "string"
-    && SHA256.test(value.contractArtifactSha256)
-    && typeof value.sourceArtifactPath === "string"
-    && value.sourceArtifactPath.length > 0
-    && typeof value.sourceArtifactSha256 === "string"
-    && SHA256.test(value.sourceArtifactSha256)
-    && Number.isSafeInteger(value.sourceArtifactBytes)
-    && (value.sourceArtifactBytes as number) > 0
-    && (value.sourceArtifactKind === "builder" || value.sourceArtifactKind === "frontend");
-}
-
-function isEvidence(value: unknown): value is NormalizedWp06Evidence {
-  if (
-    !isRecord(value)
-    || value.evidenceProfile !== WP06_EVIDENCE_PROFILE
-    || !Number.isSafeInteger(value.contractRevision)
-    || !isBinding(value.binding)
-    || Object.keys(value).some((key) => !EVIDENCE_KEYS.has(key))
-  ) {
-    return false;
-  }
-  const sections = WP06_EVIDENCE_SECTIONS.filter((section) => value[section] !== undefined);
-  return sections.length === 1
-    && sections[0] === value.binding.section
-    && Array.isArray(value[sections[0]])
-    && (value[sections[0]] as readonly unknown[]).length > 0;
-}
-
 function bindingDiagnostic(
   ruleId: string,
   artifact: ArtifactNodeInput | undefined,
@@ -122,25 +71,26 @@ function bindingDiagnostic(
   });
 }
 
-function validatesBinding(
+function validatedEvidence(
   context: ValidationContext,
   evidenceArtifact: ArtifactNodeInput,
   expectedKind: Wp06SourceArtifactKind,
   section: Wp06EvidenceSection,
-): evidenceArtifact is ArtifactNodeInput & { readonly data: NormalizedWp06Evidence } {
+): NormalizedWp06Evidence | undefined {
+  const evidence = parseNormalizedWp06Evidence(evidenceArtifact.data);
   if (
     evidenceArtifact.sourceProfile !== WP06_ARTIFACT_PROFILE
     || evidenceArtifact.kind !== expectedKind
-    || !isEvidence(evidenceArtifact.data)
-    || evidenceArtifact.data.contractRevision !== context.contract.project.contractRevision
-    || evidenceArtifact.data.binding.section !== section
-    || evidenceArtifact.data.binding.sourceArtifactKind !== expectedKind
-    || evidenceArtifact.data.binding.sourceArtifactPath === evidenceArtifact.relativePath
+    || evidence === undefined
+    || evidence.contractRevision !== context.contract.project.contractRevision
+    || evidence.binding.section !== section
+    || evidence.binding.sourceArtifactKind !== expectedKind
+    || evidence.binding.sourceArtifactPath === evidenceArtifact.relativePath
   ) {
-    return false;
+    return undefined;
   }
 
-  const binding = evidenceArtifact.data.binding;
+  const binding = evidence.binding;
   const contractNodes = context.graph.nodes.filter((node) =>
     node.kind === "contract"
     && node.sourceProfile === "project-contract-v1"
@@ -148,18 +98,40 @@ function validatesBinding(
   );
   const sourceNodes = context.graph.nodes.filter((node) =>
     node.relativePath === binding.sourceArtifactPath
+    && node.kind === expectedKind
+    && node.sourceProfile === WP06_SOURCE_PROJECTION_PROFILE
   );
   const contractNode = contractNodes[0];
   const sourceNode = sourceNodes[0];
-  return contractNodes.length === 1
-    && contractNode?.digest === binding.contractArtifactSha256
-    && sourceNodes.length === 1
-    && sourceNode !== undefined
-    && sourceNode.id !== evidenceArtifact.id
-    && sourceNode.kind === expectedKind
-    && sourceNode.sourceProfile !== WP06_ARTIFACT_PROFILE
-    && sourceNode.digest === binding.sourceArtifactSha256
-    && sourceNode.byteLength === binding.sourceArtifactBytes;
+  if (
+    contractNodes.length !== 1
+    || contractNode?.digest !== binding.contractArtifactSha256
+    || contractNode.byteLength !== binding.contractArtifactBytes
+    || sourceNodes.length !== 1
+    || sourceNode === undefined
+    || sourceNode.id === evidenceArtifact.id
+    || sourceNode.digest !== binding.sourceArtifactSha256
+    || sourceNode.byteLength !== binding.sourceArtifactBytes
+  ) return undefined;
+
+  const projection = parseNormalizedWp06SourceProjection(sourceNode.data);
+  if (projection === undefined || !wp06ProjectionMatchesEvidence(projection, evidence)) {
+    return undefined;
+  }
+
+  const relationEdges = context.graph.edges.filter((edge) =>
+    edge.from === evidenceArtifact.id
+    && (edge.relation === "derives-from" || edge.relation === "verifies-contract")
+  );
+  const sourceEdges = relationEdges.filter((edge) =>
+    edge.to === sourceNode.id && edge.relation === "derives-from"
+  );
+  const contractEdges = relationEdges.filter((edge) =>
+    edge.to === contractNode.id && edge.relation === "verifies-contract"
+  );
+  return relationEdges.length === 2 && sourceEdges.length === 1 && contractEdges.length === 1
+    ? evidence
+    : undefined;
 }
 
 export function evidenceItems<T>(
@@ -186,10 +158,13 @@ export function evidenceItems<T>(
       compareText(left.relativePath, right.relativePath) || compareText(left.id, right.id)
     );
   const artifact = candidates[0];
+  const evidence = artifact === undefined
+    ? undefined
+    : validatedEvidence(context, artifact, expectedKind, section);
   if (
     candidates.length !== 1
     || artifact === undefined
-    || !validatesBinding(context, artifact, expectedKind, section)
+    || evidence === undefined
   ) {
     return {
       applicable: true,
@@ -198,7 +173,7 @@ export function evidenceItems<T>(
     };
   }
 
-  const values = artifact.data[section];
+  const values = evidence[section];
   const items = Array.isArray(values)
     ? values.map((value) => ({ artifact, value: value as T }))
     : [];

@@ -54,7 +54,8 @@
           "sourceArtifactPath": "synthetic/indexed-payloads-source.json",
           "sourceArtifactSha256": "d3de3d240482f56fc85ea2706c6de2bafd1d82ce35202f3b690350a8494200e9",
           "sourceArtifactBytes": 554,
-          "sourceArtifactKind": "builder"
+          "sourceArtifactKind": "builder",
+          "contractArtifactBytes": 2048
         }
       },
       "projections": {}
@@ -72,17 +73,73 @@
       "projections": {}
     },
     {
-      "id": "builder:synthetic/indexed-payloads-source.json:synthetic-source-v1",
+      "id": "builder:synthetic/indexed-payloads-source.json:wp06-source-projection-v1",
       "kind": "builder",
       "relativePath": "synthetic/indexed-payloads-source.json",
       "digest": "d3de3d240482f56fc85ea2706c6de2bafd1d82ce35202f3b690350a8494200e9",
       "byteLength": 554,
-      "sourceProfile": "synthetic-source-v1",
+      "sourceProfile": "wp06-source-projection-v1",
       "data": {
-        "synthetic": true
+        "sourceProjectionProfile": "wp06-source-projection-v1",
+        "projectionRevision": 1,
+        "contractRevision": 2,
+        "sourceKind": "builder",
+        "section": "fieldOperations",
+        "adapter": {
+          "id": "spflow.power-automate-static-v1",
+          "version": 1
+        },
+        "facts": [
+          {
+            "listId": "protected-items",
+            "logicalName": "scope-key",
+            "createPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.FieldText",
+              "fieldTypeKind": 2
+            },
+            "indexPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.Field"
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "title",
+            "createPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.FieldText",
+              "fieldTypeKind": 2
+            },
+            "indexPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.Field"
+            }
+          },
+          {
+            "listId": "protected-items",
+            "logicalName": "amount",
+            "createPayload": {
+              "serialization": "structured-json",
+              "metadataType": "SP.FieldCurrency",
+              "fieldTypeKind": 10
+            }
+          }
+        ]
       },
       "projections": {}
     }
   ],
-  "edges": []
+  "edges": [
+    {
+      "from": "builder:synthetic/indexed-payloads.json:wp06-evidence-v1",
+      "to": "builder:synthetic/indexed-payloads-source.json:wp06-source-projection-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/indexed-payloads.json:wp06-evidence-v1",
+      "to": "contract:project.contract.json:project-contract-v1",
+      "relation": "verifies-contract"
+    }
+  ]
 }
