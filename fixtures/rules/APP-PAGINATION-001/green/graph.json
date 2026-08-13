@@ -1,11 +1,11 @@
 {
-  "fixtureProfile": "synthetic-wp06-v1",
   "nodes": [
     {
       "id": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
       "kind": "frontend",
       "relativePath": "artifacts/wp06-evidence.json",
-      "digest": "6060606060606060606060606060606060606060606060606060606060606060",
+      "digest": "c92ff17249d609584bb5dc1bcb4dffd05d7ac6e3122cf6f0b53b058d97f4eb8b",
+      "byteLength": 1083,
       "sourceProfile": "wp06-evidence-v1",
       "data": {
         "evidenceProfile": "wp06-offline-v1",
@@ -33,11 +33,14 @@
           "section": "paginationTraversals",
           "contractArtifactPath": "project.contract.json",
           "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
-          "sourceArtifactSha256": "4790ae618c23a39d848e5e8b23ec66bd71be8c628cfd4d609e195a6b7addf21c",
-          "sourceArtifactBytes": 547,
+          "sourceArtifactPath": "frontend/source-paginationTraversals.json",
+          "sourceArtifactSha256": "10e682f767f60ea6e84d1b10b88423bafecfc00e797381cca0a757d4126402a3",
+          "sourceArtifactBytes": 473,
           "sourceArtifactKind": "frontend",
-          "contractArtifactBytes": 2048
+          "contractArtifactBytes": 2048,
+          "projectionArtifactPath": ".spflow-derived/wp06/frontend/frontend/source-paginationTraversals.json.paginationTraversals.json",
+          "projectionArtifactSha256": "6048fc2b24e7263aded5946f69802a83440dd9d22f7e2d954b853fc15929cd06",
+          "projectionArtifactBytes": 548
         }
       },
       "projections": {}
@@ -55,12 +58,12 @@
       "projections": {}
     },
     {
-      "id": "frontend:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
-      "kind": "frontend",
-      "relativePath": "artifacts/wp06-evidence-source.json",
-      "digest": "4790ae618c23a39d848e5e8b23ec66bd71be8c628cfd4d609e195a6b7addf21c",
-      "byteLength": 547,
-      "sourceProfile": "wp06-source-projection-v1",
+      "id": "projection:.spflow-derived/wp06/frontend/frontend/source-paginationTraversals.json.paginationTraversals.json:wp06-derived-projection-v1",
+      "kind": "projection",
+      "relativePath": ".spflow-derived/wp06/frontend/frontend/source-paginationTraversals.json.paginationTraversals.json",
+      "digest": "6048fc2b24e7263aded5946f69802a83440dd9d22f7e2d954b853fc15929cd06",
+      "byteLength": 548,
+      "sourceProfile": "wp06-derived-projection-v1",
       "data": {
         "sourceProjectionProfile": "wp06-source-projection-v1",
         "projectionRevision": 1,
@@ -92,18 +95,99 @@
         ]
       },
       "projections": {}
+    },
+    {
+      "id": "frontend:frontend/source-paginationTraversals.json:spflow.frontend-source-ir-v1",
+      "kind": "frontend",
+      "relativePath": "frontend/source-paginationTraversals.json",
+      "digest": "10e682f767f60ea6e84d1b10b88423bafecfc00e797381cca0a757d4126402a3",
+      "byteLength": 473,
+      "sourceProfile": "spflow.frontend-source-ir-v1",
+      "data": {
+        "sourceIrProfile": "spflow.frontend-source-ir-v1",
+        "sourceRevision": 1,
+        "contractRevision": 2,
+        "section": "paginationTraversals",
+        "model": {
+          "loaders": [
+            {
+              "requirement": "required",
+              "strategy": "exhaust-continuation",
+              "nextLink": {
+                "parser": "url-api",
+                "sameOrigin": true,
+                "siteBoundary": true,
+                "trackVisited": true,
+                "maximumPages": 50,
+                "loopAction": "fail",
+                "crossOriginAction": "fail",
+                "siteEscapeAction": "fail",
+                "limitAction": "fail"
+              },
+              "collection": "append-server-order",
+              "finish": "next-link-absent"
+            }
+          ]
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "frontend:frontend/bundle-paginationTraversals.json:spflow.frontend-bundle-v1",
+      "kind": "frontend",
+      "relativePath": "frontend/bundle-paginationTraversals.json",
+      "digest": "ec4b8707b1c9ac9c28ad81116149800583a10ed3891899e2eb143de94d151ebe",
+      "byteLength": 289,
+      "sourceProfile": "spflow.frontend-bundle-v1",
+      "data": {
+        "artifactProfile": "spflow.frontend-bundle-v1",
+        "artifactRevision": 1,
+        "contractRevision": 2,
+        "entrypoint": "index.js",
+        "files": [
+          "index.js"
+        ],
+        "sources": [
+          {
+            "path": "frontend/source-paginationTraversals.json",
+            "sha256": "10e682f767f60ea6e84d1b10b88423bafecfc00e797381cca0a757d4126402a3",
+            "bytes": 473
+          }
+        ]
+      },
+      "projections": {}
     }
   ],
   "edges": [
     {
-      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
-      "to": "frontend:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "from": "projection:.spflow-derived/wp06/frontend/frontend/source-paginationTraversals.json.paginationTraversals.json:wp06-derived-projection-v1",
+      "to": "frontend:frontend/source-paginationTraversals.json:spflow.frontend-source-ir-v1",
       "relation": "derives-from"
+    },
+    {
+      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "frontend:frontend/source-paginationTraversals.json:spflow.frontend-source-ir-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "projection:.spflow-derived/wp06/frontend/frontend/source-paginationTraversals.json.paginationTraversals.json:wp06-derived-projection-v1",
+      "relation": "matches-projection"
     },
     {
       "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
       "to": "contract:project.contract.json:project-contract-v1",
       "relation": "verifies-contract"
+    },
+    {
+      "from": "frontend:frontend/source-paginationTraversals.json:spflow.frontend-source-ir-v1",
+      "to": "frontend:frontend/bundle-paginationTraversals.json:spflow.frontend-bundle-v1",
+      "relation": "generates"
+    },
+    {
+      "from": "contract:project.contract.json:project-contract-v1",
+      "to": "frontend:frontend/bundle-paginationTraversals.json:spflow.frontend-bundle-v1",
+      "relation": "declares"
     }
   ]
 }

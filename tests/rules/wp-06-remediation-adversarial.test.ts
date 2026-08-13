@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { describe, test } from "node:test";
 
 import type { ProjectContract } from "../../packages/core/src/types/project-contract.ts";
+import { hydrateWp06FixtureGraph } from "../helpers/wp06-fixture-graph.ts";
 import {
   ruleRegistry,
   type ArtifactGraphInput,
@@ -18,6 +19,10 @@ const SOURCE_BYTES = 512;
 const HARDENING_CASES_PATH = resolve(
   ROOT,
   "fixtures/adversarial/wp06-semantic-hardening/red-cases.json",
+);
+const EXECUTABLE_ADAPTER_CASES_PATH = resolve(
+  ROOT,
+  "fixtures/adversarial/wp06-executable-adapters/red-cases.json",
 );
 
 type ExpectedKind = "builder" | "frontend";
@@ -258,8 +263,25 @@ function fixtureContract(): ProjectContract {
         assertions: [{ field: "Status", operator: "equals", expected: "Applied" }],
       },
     }],
-    flows: [],
-    packages: [],
+    flows: [{
+      id: "synthetic-processor",
+      definitionPath: "flows/synthetic/definition.json",
+      trigger: "manual",
+      processorForCommandTypes: ["apply-change"],
+      connectionReferences: ["PROCESSOR"],
+      actionBudget: 50,
+      concurrency: { enabled: true, degree: 1 },
+      packageId: "synthetic-package",
+    }],
+    packages: [{
+      id: "synthetic-package",
+      path: "artifacts/packages/synthetic-package.zip",
+      profile: "power-platform-solution-v1",
+      manifestPath: "artifacts/packages/synthetic-package.manifest.json",
+      flowIds: ["synthetic-processor"],
+      importMode: "disabled",
+      nestedArchives: "forbidden",
+    }],
     frontend: {
       root: "frontend",
       authModel: "existing-m365-session",
@@ -402,7 +424,9 @@ async function fixture(ruleId: string, expectedKind: ExpectedKind, section: Evid
     { from: evidence.id, to: graph.nodes[2]!.id, relation: "derives-from" },
     { from: evidence.id, to: graph.nodes[1]!.id, relation: "verifies-contract" },
   ];
-  return graph;
+  return hydrateWp06FixtureGraph(graph, fixtureContract()) as ArtifactGraphInput & {
+    nodes: Array<Record<string, unknown>>;
+  };
 }
 
 function addProjectionAndRelations(
@@ -410,29 +434,8 @@ function addProjectionAndRelations(
   section: EvidenceSection,
   expectedKind: ExpectedKind,
 ): void {
-  const evidence = graph.nodes[0]!;
-  const contract = graph.nodes[1]!;
-  const source = graph.nodes[2]!;
-  const evidenceData = evidence.data as Record<string, unknown>;
-  source.sourceProfile = "wp06-source-projection-v1";
-  source.data = {
-    sourceProjectionProfile: "wp06-source-projection-v1",
-    projectionRevision: 1,
-    contractRevision: 2,
-    sourceKind: expectedKind,
-    section,
-    adapter: {
-      id: expectedKind === "frontend"
-        ? "spflow.frontend-static-v1"
-        : "spflow.power-automate-static-v1",
-      version: 1,
-    },
-    facts: structuredClone(evidenceData[section]),
-  };
-  graph.edges = [
-    { from: evidence.id, to: source.id, relation: "derives-from" },
-    { from: evidence.id, to: contract.id, relation: "verifies-contract" },
-  ];
+  assert.equal((graph.nodes[0]!.data as { binding: { section: string } }).binding.section, section);
+  assert.equal((graph.nodes[3]!.kind as string), expectedKind);
 }
 
 function projectionFacts(
@@ -441,13 +444,16 @@ function projectionFacts(
   return (graph.nodes[2]!.data as { facts: unknown[] }).facts;
 }
 
-function context(graph: ArtifactGraphInput): ValidationContext {
+function context(
+  graph: ArtifactGraphInput,
+  adapterEvidence: ValidationContext["adapterEvidence"] = { packages: [], flows: [] },
+): ValidationContext {
   return {
     root: ".",
     offline: true,
     contract: fixtureContract(),
     graph,
-    adapterEvidence: { packages: [], flows: [] },
+    adapterEvidence,
   };
 }
 
@@ -790,27 +796,25 @@ describe("WP-06 remediation adversarial cases", () => {
   });
 
   test("HTTP FOUND accepts only a strict parsed object body", async () => {
-    const graph = await fixture("HTTP-SEMANTIC-001", "builder", "httpClassifications");
-    const found = {
+    let graph = await fixture("HTTP-SEMANTIC-001", "builder", "httpClassifications");
+    (graph.nodes[0]!.data as { httpClassifications: unknown[] }).httpClassifications = [{
       status: 200,
       phase: "preflight",
       requestKind: "initial-get",
       allowCreateMissing404: false,
       error: {},
-      responseBody: {
-        bodyKind: "sharepoint-object",
-        parsed: true,
-        schemaValid: true,
-      },
+      responseBody: { bodyKind: "sharepoint-object", parsed: true, schemaValid: true },
       classification: "FOUND",
-    };
-    (graph.nodes[0]!.data as { httpClassifications: unknown[] }).httpClassifications = [found];
-    (graph.nodes[2]!.data as { facts: unknown[] }).facts = [structuredClone(found)];
+    }];
+    graph = hydrateWp06FixtureGraph(graph, fixtureContract()) as typeof graph;
     assert.deepEqual(
       await ruleRegistry.get("HTTP-SEMANTIC-001")!.validate(context(graph)),
       [],
     );
 
+    const found = (graph.nodes[0]!.data as {
+      httpClassifications: Array<{ responseBody: Record<string, unknown> }>;
+    }).httpClassifications[0]!;
     (found.responseBody as Record<string, unknown>).untrustedClaim = true;
     (graph.nodes[2]!.data as { facts: Array<{ responseBody: Record<string, unknown> }> })
       .facts[0]!.responseBody.untrustedClaim = true;
@@ -828,5 +832,158 @@ describe("WP-06 remediation adversarial cases", () => {
     }>;
     source[0]!.compatibility.actual.dateTimeMode = "date-only";
     await expectFailure("SP-SCHEMA-003", graph);
+  });
+
+  test("hand-authored copied projections cannot authorize a rule", async () => {
+    const graph = await fixture("APP-SAVE-001", "frontend", "saveTransactions");
+    const rawSource = graph.nodes[3]!;
+    rawSource.sourceProfile = "wp06-source-projection-v1";
+    rawSource.data = structuredClone(graph.nodes[2]!.data);
+
+    await expectFailure("APP-SAVE-001", graph);
+  });
+
+  test("adapter identity declared by input is not a trusted adapter selection", async () => {
+    const cases = await readJson<{ spoofedAdapter: Record<string, unknown> }>(
+      EXECUTABLE_ADAPTER_CASES_PATH,
+    );
+    const graph = await fixture("APP-SAVE-001", "frontend", "saveTransactions");
+    const rawSource = graph.nodes[3]!;
+    rawSource.sourceProfile = "wp06-source-projection-v1";
+    rawSource.data = {
+      ...structuredClone(graph.nodes[2]!.data as Record<string, unknown>),
+      adapter: cases.spoofedAdapter,
+    };
+
+    await expectFailure("APP-SAVE-001", graph);
+  });
+
+  test("required final artifacts are independent fail-closed gates", async () => {
+    const graph = await fixture("SP-AUTHZ-001", "builder", "authorityChecks");
+    graph.nodes = graph.nodes.filter(({ kind }) => kind !== "definition" && kind !== "zip");
+    graph.edges = graph.edges.filter((edge) =>
+      graph.nodes.some(({ id }) => id === edge.from) && graph.nodes.some(({ id }) => id === edge.to)
+    );
+    assert.equal(graph.nodes.some(({ kind }) => kind === "definition" || kind === "zip"), false);
+
+    await expectFailure("SP-AUTHZ-001", graph);
+  });
+
+  test("required ZIP and manifest nodes reject arbitrary or mismatched content", async () => {
+    const accepted: string[] = [];
+    const mutations = [
+      ["zip-arbitrary", "zip", () => ({ unrelated: true })],
+      ["zip-package", "zip", (data: any) => ({ ...data, packageId: "other-package" })],
+      ["zip-flows", "zip", (data: any) => ({ ...data, flowIds: ["other-flow"] })],
+      ["zip-inventory", "zip", (data: any) => ({ ...data, inventory: ["other-definition.json"] })],
+      ["manifest-arbitrary", "manifest", () => ({ unrelated: true })],
+      ["manifest-package", "manifest", (data: any) => ({ ...data, packageId: "other-package" })],
+      ["manifest-digest", "manifest", (data: any) => ({
+        ...data,
+        artifact: { ...data.artifact, sha256: "0".repeat(64) },
+      })],
+      ["manifest-bytes", "manifest", (data: any) => ({
+        ...data,
+        artifact: { ...data.artifact, bytes: data.artifact.bytes + 1 },
+      })],
+    ] as const;
+    for (const [label, kind, mutate] of mutations) {
+      const graph = await fixture("SP-AUTHZ-001", "builder", "authorityChecks");
+      const artifact = graph.nodes.find((node) => node.kind === kind)!;
+      artifact.data = mutate(structuredClone(artifact.data));
+      const diagnostics = await ruleRegistry.get("SP-AUTHZ-001")!.validate(context(graph));
+      if (diagnostics.at(0)?.code !== "SP-AUTHZ-001") accepted.push(label);
+    }
+    assert.deepEqual(accepted, []);
+  });
+
+  test("exact safe-adapter package inspection satisfies the ZIP content gate", async () => {
+    const graph = await fixture("SP-AUTHZ-001", "builder", "authorityChecks");
+    const zip = graph.nodes.find((node) => node.kind === "zip")!;
+    zip.data = { bytes: zip.byteLength };
+    const diagnostics = await ruleRegistry.get("SP-AUTHZ-001")!.validate(context(graph, {
+      packages: [{
+        packageId: "synthetic-package",
+        relativePath: zip.relativePath,
+        bytes: zip.byteLength,
+        sha256: zip.digest,
+        contract: fixtureContract().packages[0]!,
+        inspection: {
+          profile: "power-platform-solution-v1",
+          valid: true,
+          inventory: ["Workflows/synthetic-processor.json"],
+          expectedInventory: ["Workflows/synthetic-processor.json"],
+          flows: [{ id: "synthetic-processor" }] as any,
+          diagnostics: [],
+        },
+      }],
+      flows: [],
+    }));
+    assert.deepEqual(diagnostics, []);
+  });
+
+  test("HTTP FOUND rejects boolean-only response claims", async () => {
+    const cases = await readJson<{ falseFoundBody: Record<string, unknown> }>(
+      EXECUTABLE_ADAPTER_CASES_PATH,
+    );
+    const graph = await fixture("HTTP-SEMANTIC-001", "builder", "httpClassifications");
+    addProjectionAndRelations(graph, "httpClassifications", "builder");
+    (graph.nodes[0]!.data as { httpClassifications: unknown[] }).httpClassifications = [
+      structuredClone(cases.falseFoundBody),
+    ];
+    (graph.nodes[2]!.data as { facts: unknown[] }).facts = [
+      structuredClone(cases.falseFoundBody),
+    ];
+
+    await expectFailure("HTTP-SEMANTIC-001", graph);
+  });
+
+  test("HTTP FOUND rejects partial no-body, no-content, wrong-schema, and undeclared-field bodies", async () => {
+    const strictBody = {
+      schemaId: "sharepoint-list-item-v1:protected-items",
+      targetListId: "protected-items",
+      expectedFields: ["ID", "Title"],
+      actual: {
+        kind: "object",
+        itemCount: 1,
+        fields: [
+          { name: "ID", valueKind: "number" },
+          { name: "Title", valueKind: "string" },
+        ],
+      },
+    };
+    const values = [
+      { status: 206, responseBody: undefined },
+      { status: 204, responseBody: strictBody },
+      { status: 200, responseBody: { ...strictBody, schemaId: "sharepoint-list-item-v1:other-list" } },
+      {
+        status: 200,
+        responseBody: {
+          ...strictBody,
+          expectedFields: ["ID", "UndeclaredField"],
+          actual: {
+            ...strictBody.actual,
+            fields: [
+              { name: "ID", valueKind: "number" },
+              { name: "UndeclaredField", valueKind: "string" },
+            ],
+          },
+        },
+      },
+    ];
+    for (const value of values) {
+      let graph = await fixture("HTTP-SEMANTIC-001", "builder", "httpClassifications");
+      (graph.nodes[0]!.data as { httpClassifications: unknown[] }).httpClassifications = [{
+        status: value.status,
+        phase: "preflight",
+        requestKind: "initial-get",
+        allowCreateMissing404: false,
+        error: {},
+        ...(value.responseBody === undefined ? {} : { responseBody: value.responseBody }),
+        classification: "FOUND",
+      }];
+      graph = hydrateWp06FixtureGraph(graph, fixtureContract()) as typeof graph;
+      await expectFailure("HTTP-SEMANTIC-001", graph);
+    }
   });
 });

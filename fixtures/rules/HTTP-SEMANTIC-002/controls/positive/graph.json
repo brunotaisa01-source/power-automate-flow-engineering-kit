@@ -1,11 +1,11 @@
 {
-  "fixtureProfile": "synthetic-wp06-v1",
   "nodes": [
     {
       "id": "builder:synthetic/http-404-strict.json:wp06-evidence-v1",
       "kind": "builder",
       "relativePath": "synthetic/http-404-strict.json",
-      "digest": "cccccccc00000000cccccccc00000000cccccccc00000000cccccccc00000000",
+      "digest": "06bbf2536b1a5e281462390a6ee98c9393904168f3777e2a1e2f0d1f2cc72edc",
+      "byteLength": 1108,
       "sourceProfile": "wp06-evidence-v1",
       "data": {
         "evidenceProfile": "wp06-offline-v1",
@@ -36,11 +36,14 @@
           "section": "httpClassifications",
           "contractArtifactPath": "project.contract.json",
           "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-          "sourceArtifactPath": "synthetic/http-404-strict-source.json",
-          "sourceArtifactSha256": "d8b751db5d90265c9e4909dedab6390f00b7a996671745f3a078bb23d920327d",
-          "sourceArtifactBytes": 558,
+          "sourceArtifactPath": "flows/synthetic/builder-source-httpClassifications.json",
+          "sourceArtifactSha256": "4d93ab51f2d9342b57582bc60e743b43bd7a8ada2e149faa0b34e226f508cfd9",
+          "sourceArtifactBytes": 423,
           "sourceArtifactKind": "builder",
-          "contractArtifactBytes": 2048
+          "contractArtifactBytes": 2048,
+          "projectionArtifactPath": ".spflow-derived/wp06/builder/flows/synthetic/builder-source-httpClassifications.json.httpClassifications.json",
+          "projectionArtifactSha256": "75f8f7755a185c830f485d0e914259fd143d0349fd038225542f5ab584bbb693",
+          "projectionArtifactBytes": 554
         }
       },
       "projections": {}
@@ -58,12 +61,12 @@
       "projections": {}
     },
     {
-      "id": "builder:synthetic/http-404-strict-source.json:wp06-source-projection-v1",
-      "kind": "builder",
-      "relativePath": "synthetic/http-404-strict-source.json",
-      "digest": "d8b751db5d90265c9e4909dedab6390f00b7a996671745f3a078bb23d920327d",
-      "byteLength": 558,
-      "sourceProfile": "wp06-source-projection-v1",
+      "id": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-httpClassifications.json.httpClassifications.json:wp06-derived-projection-v1",
+      "kind": "projection",
+      "relativePath": ".spflow-derived/wp06/builder/flows/synthetic/builder-source-httpClassifications.json.httpClassifications.json",
+      "digest": "75f8f7755a185c830f485d0e914259fd143d0349fd038225542f5ab584bbb693",
+      "byteLength": 554,
+      "sourceProfile": "wp06-derived-projection-v1",
       "data": {
         "sourceProjectionProfile": "wp06-source-projection-v1",
         "projectionRevision": 1,
@@ -98,18 +101,154 @@
         ]
       },
       "projections": {}
+    },
+    {
+      "id": "builder:flows/synthetic/builder-source-httpClassifications.json:spflow.power-automate-source-ir-v1",
+      "kind": "builder",
+      "relativePath": "flows/synthetic/builder-source-httpClassifications.json",
+      "digest": "4d93ab51f2d9342b57582bc60e743b43bd7a8ada2e149faa0b34e226f508cfd9",
+      "byteLength": 423,
+      "sourceProfile": "spflow.power-automate-source-ir-v1",
+      "data": {
+        "sourceIrProfile": "spflow.power-automate-source-ir-v1",
+        "sourceRevision": 1,
+        "contractRevision": 2,
+        "section": "httpClassifications",
+        "model": {
+          "requests": [
+            {
+              "status": 404,
+              "phase": "preflight",
+              "kind": "initial-get",
+              "permitInitial404": false,
+              "error": {
+                "code": "NOT_FOUND"
+              },
+              "result": "GET_FAILED"
+            },
+            {
+              "status": 404,
+              "phase": "preflight",
+              "kind": "other-get",
+              "permitInitial404": true,
+              "error": {
+                "category": "missing-object"
+              },
+              "result": "GET_FAILED"
+            }
+          ]
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "kind": "definition",
+      "relativePath": "flows/synthetic/definition.json",
+      "digest": "7b9672c2c1f061a7775e0326e0f5c277e326552153f4d2f6ec1834322d0d925c",
+      "byteLength": 166,
+      "sourceProfile": "normalized-flow-v1",
+      "data": {
+        "properties": {
+          "definition": {
+            "triggers": {
+              "SyntheticTrigger": {
+                "type": "Request",
+                "inputs": {}
+              }
+            },
+            "actions": {
+              "SyntheticAction": {
+                "type": "Compose",
+                "inputs": "synthetic"
+              }
+            }
+          }
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/packages/synthetic-package.zip",
+      "digest": "d040fbd053659c5f8eba06ee77b5f6ca84e832797d74f60f9ffb3c8b277b01bf",
+      "byteLength": 117,
+      "sourceProfile": "package-bytes-v1",
+      "data": {
+        "packageId": "synthetic-package",
+        "flowIds": [
+          "synthetic-processor"
+        ],
+        "inventory": [
+          "flows/synthetic/definition.json"
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "manifest:artifacts/packages/synthetic-package.manifest.json:package-manifest-v1",
+      "kind": "manifest",
+      "relativePath": "artifacts/packages/synthetic-package.manifest.json",
+      "digest": "d77c0f359ac73e612c450c8955f33f1a879726eecb926ac3881a3408ac7dd366",
+      "byteLength": 186,
+      "sourceProfile": "package-manifest-v1",
+      "data": {
+        "packageId": "synthetic-package",
+        "artifact": {
+          "path": "artifacts/packages/synthetic-package.zip",
+          "sha256": "d040fbd053659c5f8eba06ee77b5f6ca84e832797d74f60f9ffb3c8b277b01bf",
+          "bytes": 117
+        }
+      },
+      "projections": {}
     }
   ],
   "edges": [
     {
-      "from": "builder:synthetic/http-404-strict.json:wp06-evidence-v1",
-      "to": "builder:synthetic/http-404-strict-source.json:wp06-source-projection-v1",
+      "from": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-httpClassifications.json.httpClassifications.json:wp06-derived-projection-v1",
+      "to": "builder:flows/synthetic/builder-source-httpClassifications.json:spflow.power-automate-source-ir-v1",
       "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/http-404-strict.json:wp06-evidence-v1",
+      "to": "builder:flows/synthetic/builder-source-httpClassifications.json:spflow.power-automate-source-ir-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/http-404-strict.json:wp06-evidence-v1",
+      "to": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-httpClassifications.json.httpClassifications.json:wp06-derived-projection-v1",
+      "relation": "matches-projection"
     },
     {
       "from": "builder:synthetic/http-404-strict.json:wp06-evidence-v1",
       "to": "contract:project.contract.json:project-contract-v1",
       "relation": "verifies-contract"
+    },
+    {
+      "from": "builder:flows/synthetic/builder-source-httpClassifications.json:spflow.power-automate-source-ir-v1",
+      "to": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "relation": "generates"
+    },
+    {
+      "from": "contract:project.contract.json:project-contract-v1",
+      "to": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "relation": "declares"
+    },
+    {
+      "from": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "packages"
+    },
+    {
+      "from": "contract:project.contract.json:project-contract-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "declares"
+    },
+    {
+      "from": "manifest:artifacts/packages/synthetic-package.manifest.json:package-manifest-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "hashes"
     }
   ]
 }

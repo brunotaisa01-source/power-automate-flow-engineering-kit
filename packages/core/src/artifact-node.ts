@@ -40,7 +40,8 @@ export type ArtifactRelation =
   | "documents"
   | "supports"
   | "derives-from"
-  | "verifies-contract";
+  | "verifies-contract"
+  | "matches-projection";
 
 export interface ArtifactEdge {
   readonly from: string;

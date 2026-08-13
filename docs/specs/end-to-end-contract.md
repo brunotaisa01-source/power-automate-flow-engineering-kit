@@ -171,9 +171,13 @@ type ReadClassification =
 Rules:
 
 - HTTP status evidence is an integer from 100 through 599.
-- HTTP 200-299 is `FOUND` only when the request kind expects an object and the
-  evidence contains a strict parsed body with `bodyKind: "sharepoint-object"`,
-  `parsed: true`, and `schemaValid: true`.
+- HTTP 200-299 is `FOUND` only when the request kind expects an object or list
+  and the executable adapter projects an actual parsed body. The projection
+  identifies the target list schema, expected field names, body shape, item
+  count, and the observed primitive type of every field.
+- The schema ID must be `sharepoint-list-item-v1:<list-id>`, expected fields
+  must exactly match the projected body fields, and every field must be on the
+  contract read allowlist with a compatible contract type.
 - HTTP 204/205, a missing body, an invalid body, or an unknown body property
   cannot authorize `FOUND`.
 - HTTP 400: `MISSING_OBJECT` only when the structured platform error code or normalized semantic message identifies a missing column. Status alone is insufficient.
@@ -181,6 +185,16 @@ Rules:
 - HTTP 404: `CREATE_MISSING` only for an initial Preflight GET whose operation contract explicitly sets `allowCreateMissing404: true`.
 - HTTP 404 during Apply, post-write readback, or any undeclared phase: `GET_FAILED`.
 - Authentication, authorization, throttling, and server errors remain failures and are never interpreted as absence.
+
+WP-06 rules with catalog `finalArtifact.required: true` also require a graph
+artifact connected to the same bound source and contract. Frontend rules use a
+strict frontend bundle manifest. Builder rules use a declared generated
+definition, and rules that list `zip` additionally require the declared ZIP,
+package flow relationship, and manifest-to-ZIP edge. The package content must
+either parse as the strict synthetic package IR or match exact path, SHA-256,
+byte length, flow inventory, and definition inventory from the safe solution
+adapter. The manifest must bind the same ZIP path, SHA-256, and byte length.
+Applicability and final artifact readiness are evaluated separately.
 
 The missing-column classifier MUST have positive and negative fixtures, including unrelated 400 responses.
 

@@ -1,11 +1,11 @@
 {
-  "fixtureProfile": "synthetic-wp06-v1",
   "nodes": [
     {
       "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
       "kind": "builder",
       "relativePath": "artifacts/wp06-evidence.json",
-      "digest": "9999999999999999999999999999999999999999999999999999999999999999",
+      "digest": "4b9a6758bacaab4af91669d4acdc9daed3153c10e30cda57623faab6ee93bbc3",
+      "byteLength": 995,
       "sourceProfile": "wp06-evidence-v1",
       "data": {
         "evidenceProfile": "wp06-offline-v1",
@@ -29,11 +29,14 @@
           "section": "fieldOperations",
           "contractArtifactPath": "project.contract.json",
           "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
-          "sourceArtifactSha256": "48674ea43bff758df9815decca98236fc4f81dcc29faa19b09ff57fb7f6869ad",
-          "sourceArtifactBytes": 540,
+          "sourceArtifactPath": "flows/synthetic/builder-source-fieldOperations.json",
+          "sourceArtifactSha256": "8b8e6749fc0dc63bd0a15ddc8844c333d1fc9777374c71e26bfc8d2d56225832",
+          "sourceArtifactBytes": 347,
           "sourceArtifactKind": "builder",
-          "contractArtifactBytes": 2048
+          "contractArtifactBytes": 2048,
+          "projectionArtifactPath": ".spflow-derived/wp06/builder/flows/synthetic/builder-source-fieldOperations.json.fieldOperations.json",
+          "projectionArtifactSha256": "ef2837aea89218ea6f3ad4d023d98d802b3fe33ce9e930050e89ce1fcb1df369",
+          "projectionArtifactBytes": 457
         }
       },
       "projections": {}
@@ -51,12 +54,12 @@
       "projections": {}
     },
     {
-      "id": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
-      "kind": "builder",
-      "relativePath": "artifacts/wp06-evidence-source.json",
-      "digest": "48674ea43bff758df9815decca98236fc4f81dcc29faa19b09ff57fb7f6869ad",
-      "byteLength": 540,
-      "sourceProfile": "wp06-source-projection-v1",
+      "id": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-fieldOperations.json.fieldOperations.json:wp06-derived-projection-v1",
+      "kind": "projection",
+      "relativePath": ".spflow-derived/wp06/builder/flows/synthetic/builder-source-fieldOperations.json.fieldOperations.json",
+      "digest": "ef2837aea89218ea6f3ad4d023d98d802b3fe33ce9e930050e89ce1fcb1df369",
+      "byteLength": 457,
+      "sourceProfile": "wp06-derived-projection-v1",
       "data": {
         "sourceProjectionProfile": "wp06-source-projection-v1",
         "projectionRevision": 1,
@@ -84,18 +87,147 @@
         ]
       },
       "projections": {}
+    },
+    {
+      "id": "builder:flows/synthetic/builder-source-fieldOperations.json:spflow.power-automate-source-ir-v1",
+      "kind": "builder",
+      "relativePath": "flows/synthetic/builder-source-fieldOperations.json",
+      "digest": "8b8e6749fc0dc63bd0a15ddc8844c333d1fc9777374c71e26bfc8d2d56225832",
+      "byteLength": 347,
+      "sourceProfile": "spflow.power-automate-source-ir-v1",
+      "data": {
+        "sourceIrProfile": "spflow.power-automate-source-ir-v1",
+        "sourceRevision": 1,
+        "contractRevision": 2,
+        "section": "fieldOperations",
+        "model": {
+          "fields": [
+            {
+              "targetList": "protected-items",
+              "fieldKey": "title",
+              "createRequest": {
+                "codec": "string-concatenation",
+                "metadata": "untyped",
+                "kind": 2
+              },
+              "indexRequest": {
+                "codec": "string-concatenation",
+                "metadata": "untyped"
+              }
+            }
+          ]
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "kind": "definition",
+      "relativePath": "flows/synthetic/definition.json",
+      "digest": "7b9672c2c1f061a7775e0326e0f5c277e326552153f4d2f6ec1834322d0d925c",
+      "byteLength": 166,
+      "sourceProfile": "normalized-flow-v1",
+      "data": {
+        "properties": {
+          "definition": {
+            "triggers": {
+              "SyntheticTrigger": {
+                "type": "Request",
+                "inputs": {}
+              }
+            },
+            "actions": {
+              "SyntheticAction": {
+                "type": "Compose",
+                "inputs": "synthetic"
+              }
+            }
+          }
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/packages/synthetic-package.zip",
+      "digest": "d040fbd053659c5f8eba06ee77b5f6ca84e832797d74f60f9ffb3c8b277b01bf",
+      "byteLength": 117,
+      "sourceProfile": "package-bytes-v1",
+      "data": {
+        "packageId": "synthetic-package",
+        "flowIds": [
+          "synthetic-processor"
+        ],
+        "inventory": [
+          "flows/synthetic/definition.json"
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "manifest:artifacts/packages/synthetic-package.manifest.json:package-manifest-v1",
+      "kind": "manifest",
+      "relativePath": "artifacts/packages/synthetic-package.manifest.json",
+      "digest": "d77c0f359ac73e612c450c8955f33f1a879726eecb926ac3881a3408ac7dd366",
+      "byteLength": 186,
+      "sourceProfile": "package-manifest-v1",
+      "data": {
+        "packageId": "synthetic-package",
+        "artifact": {
+          "path": "artifacts/packages/synthetic-package.zip",
+          "sha256": "d040fbd053659c5f8eba06ee77b5f6ca84e832797d74f60f9ffb3c8b277b01bf",
+          "bytes": 117
+        }
+      },
+      "projections": {}
     }
   ],
   "edges": [
     {
-      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-      "to": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "from": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-fieldOperations.json.fieldOperations.json:wp06-derived-projection-v1",
+      "to": "builder:flows/synthetic/builder-source-fieldOperations.json:spflow.power-automate-source-ir-v1",
       "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "builder:flows/synthetic/builder-source-fieldOperations.json:spflow.power-automate-source-ir-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-fieldOperations.json.fieldOperations.json:wp06-derived-projection-v1",
+      "relation": "matches-projection"
     },
     {
       "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
       "to": "contract:project.contract.json:project-contract-v1",
       "relation": "verifies-contract"
+    },
+    {
+      "from": "builder:flows/synthetic/builder-source-fieldOperations.json:spflow.power-automate-source-ir-v1",
+      "to": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "relation": "generates"
+    },
+    {
+      "from": "contract:project.contract.json:project-contract-v1",
+      "to": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "relation": "declares"
+    },
+    {
+      "from": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "packages"
+    },
+    {
+      "from": "contract:project.contract.json:project-contract-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "declares"
+    },
+    {
+      "from": "manifest:artifacts/packages/synthetic-package.manifest.json:package-manifest-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "hashes"
     }
   ]
 }

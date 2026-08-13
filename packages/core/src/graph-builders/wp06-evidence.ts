@@ -1,11 +1,15 @@
 import {
   WP06_ARTIFACT_PROFILE,
-  WP06_SOURCE_PROJECTION_PROFILE,
   parseNormalizedWp06Evidence,
   parseNormalizedWp06SourceProjection,
   type NormalizedWp06Evidence,
   type NormalizedWp06SourceProjection,
 } from "../types/wp06-evidence.js";
+import {
+  WP06_FRONTEND_BUNDLE_PROFILE,
+  parseWp06FrontendBundle,
+  wp06SourceProfile,
+} from "../wp06-source-adapters.js";
 import { isRecord, type ArtifactSource } from "./common.js";
 
 function compareText(left: string, right: string): number {
@@ -47,12 +51,11 @@ export function normalizeWp06ArtifactSource(source: ArtifactSource): ArtifactSou
       sourceProfile: WP06_ARTIFACT_PROFILE,
     };
   }
-  const projection = normalizeWp06SourceProjection(source.data);
-  return projection === undefined
+  const sourceProfile = wp06SourceProfile(source.data);
+  if (sourceProfile !== undefined) {
+    return { ...source, sourceProfile };
+  }
+  return parseWp06FrontendBundle(source.data) === undefined
     ? source
-    : {
-      ...source,
-      data: projection,
-      sourceProfile: WP06_SOURCE_PROJECTION_PROFILE,
-    };
+    : { ...source, sourceProfile: WP06_FRONTEND_BUNDLE_PROFILE };
 }

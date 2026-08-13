@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./artifact-graph": "./dist/artifact-graph.js",
+    "./wp06-source-adapters": "./dist/wp06-source-adapters.js",
     "./schema-loader": "./dist/schema-loader.js",
     "./types/*": "./dist/types/*.js"
   },

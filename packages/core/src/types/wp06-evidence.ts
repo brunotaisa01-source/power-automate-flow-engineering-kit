@@ -184,9 +184,17 @@ export interface NormalizedHttpClassification {
 }
 
 export interface NormalizedHttpResponseBody {
-  readonly bodyKind: "sharepoint-object";
-  readonly parsed: true;
-  readonly schemaValid: true;
+  readonly schemaId: string;
+  readonly targetListId: string;
+  readonly expectedFields: readonly string[];
+  readonly actual: {
+    readonly kind: "object" | "list";
+    readonly itemCount: number;
+    readonly fields: readonly {
+      readonly name: string;
+      readonly valueKind: "boolean" | "null" | "number" | "string";
+    }[];
+  };
 }
 
 export interface NormalizedIndexOperation {
@@ -255,6 +263,9 @@ export interface NormalizedWp06EvidenceBinding {
   readonly sourceArtifactSha256: string;
   readonly sourceArtifactBytes: number;
   readonly sourceArtifactKind: Wp06SourceArtifactKind;
+  readonly projectionArtifactPath: string;
+  readonly projectionArtifactSha256: string;
+  readonly projectionArtifactBytes: number;
 }
 
 export interface NormalizedWp06SourceAdapter {
@@ -531,10 +542,25 @@ function isFieldOperation(value: unknown): boolean {
 }
 
 function isHttpResponseBody(value: unknown): boolean {
-  return exactRecord(value, ["bodyKind", "parsed", "schemaValid"])
-    && value.bodyKind === "sharepoint-object"
-    && value.parsed === true
-    && value.schemaValid === true;
+  if (
+    !exactRecord(value, ["schemaId", "targetListId", "expectedFields", "actual"])
+    || typeof value.schemaId !== "string"
+    || value.schemaId.length === 0
+    || typeof value.targetListId !== "string"
+    || value.targetListId.length === 0
+    || !strings(value.expectedFields, false)
+    || !exactRecord(value.actual, ["kind", "itemCount", "fields"])
+    || (value.actual.kind !== "object" && value.actual.kind !== "list")
+    || !isPositiveRevision(value.actual.itemCount)
+    || !records(value.actual.fields, (field) =>
+      exactRecord(field, ["name", "valueKind"])
+      && typeof field.name === "string"
+      && field.name.length > 0
+      && ["boolean", "null", "number", "string"].includes(field.valueKind as string)
+    , false)
+  ) return false;
+  const fields = value.actual.fields as readonly UnknownRecord[];
+  return uniqueBy(fields, (field) => field.name as string);
 }
 
 function isHttpClassification(value: unknown): boolean {
@@ -616,6 +642,7 @@ function isBinding(value: unknown): value is NormalizedWp06EvidenceBinding {
   return exactRecord(value, [
     "section", "contractArtifactPath", "contractArtifactSha256", "contractArtifactBytes",
     "sourceArtifactPath", "sourceArtifactSha256", "sourceArtifactBytes", "sourceArtifactKind",
+    "projectionArtifactPath", "projectionArtifactSha256", "projectionArtifactBytes",
   ])
     && isSection(value.section)
     && typeof value.contractArtifactPath === "string"
@@ -628,7 +655,12 @@ function isBinding(value: unknown): value is NormalizedWp06EvidenceBinding {
     && typeof value.sourceArtifactSha256 === "string"
     && SHA256.test(value.sourceArtifactSha256)
     && isPositiveRevision(value.sourceArtifactBytes)
-    && (value.sourceArtifactKind === "frontend" || value.sourceArtifactKind === "builder");
+    && (value.sourceArtifactKind === "frontend" || value.sourceArtifactKind === "builder")
+    && typeof value.projectionArtifactPath === "string"
+    && value.projectionArtifactPath.length > 0
+    && typeof value.projectionArtifactSha256 === "string"
+    && SHA256.test(value.projectionArtifactSha256)
+    && isPositiveRevision(value.projectionArtifactBytes);
 }
 
 export function parseNormalizedWp06Evidence(data: unknown): NormalizedWp06Evidence | undefined {

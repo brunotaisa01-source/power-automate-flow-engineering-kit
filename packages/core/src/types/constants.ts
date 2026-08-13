@@ -112,6 +112,7 @@ export const ARTIFACT_KINDS = [
   "manifest",
   "documentation",
   "evidence",
+  "projection",
 ] as const;
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];

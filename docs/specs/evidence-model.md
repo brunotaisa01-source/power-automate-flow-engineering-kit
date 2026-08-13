@@ -113,11 +113,30 @@ interface Wp06EvidenceBinding {
   sourceArtifactSha256: string;
   sourceArtifactBytes: number;
   sourceArtifactKind: "frontend" | "builder";
+  projectionArtifactPath: string;
+  projectionArtifactSha256: string;
+  projectionArtifactBytes: number;
 }
 ```
 
-The bound source is a deterministic adapter projection and is structurally
-different from the evidence envelope:
+The bound source is a strict source IR artifact. It is structurally different
+from both the normalized evidence and the derived projection:
+
+```ts
+interface Wp06SourceIr {
+  sourceIrProfile:
+    | "spflow.frontend-source-ir-v1"
+    | "spflow.power-automate-source-ir-v1";
+  sourceRevision: 1;
+  contractRevision: number;
+  section: Wp06EvidenceSection;
+  model: FrontendOrPowerAutomateStructure;
+}
+```
+
+Adapter identity is not accepted from this input. Executable code selects the
+adapter from the exact source IR profile and section. It produces a virtual,
+canonical-byte projection node:
 
 ```ts
 interface Wp06SourceProjection {
@@ -139,21 +158,25 @@ The validator requires all of the following:
 - the envelope contains exactly one populated section and `binding.section` names it;
 - the evidence path differs from `sourceArtifactPath` to prevent circular self-binding;
 - exactly one `project-contract-v1` graph node matches contract path, SHA-256, and byte length;
-- exactly one `wp06-source-projection-v1` node matches source path, SHA-256, byte length, and kind;
-- the evidence node has exactly one `derives-from` edge to that source node and exactly one
-  `verifies-contract` edge to that contract node;
+- exactly one strict source IR node matches source path, kind, profile, SHA-256, and byte length;
+- exactly one `wp06-derived-projection-v1` node matches projection path, SHA-256, and byte length;
+- the validator re-runs the code-selected adapter and requires canonical equality with the projection node;
+- the projection has one `derives-from` edge to the raw source;
+- the evidence has one `derives-from` edge to the raw source, one `matches-projection` edge to the projection, and one `verifies-contract` edge to the contract;
 - both the evidence node and bound source kind match the rule catalog's `frontend` or `builder` applicability;
-- the adapter ID matches the source kind and its projection contains exactly one section;
+- the adapter ID is emitted by executable code and its projection contains exactly one section;
 - canonical projected facts equal the selected normalized evidence section;
 - stale revisions, duplicate section artifacts, undeclared values, duplicate semantic items, unknown envelope keys, unknown binding keys, unknown section keys, and unknown nested keys fail closed.
 
-The validator verifies the deterministic adapter output and its exact graph
-binding. It does not infer code semantics from a profile label, and a
-hand-authored evidence envelope cannot independently authorize PASS. Production
-adapters must parse the actual frontend, Power Automate builder or definition,
-generated package, or another declared source into this projection. Adapter
-trust, final artifact inspection, mutation controls, and external tenant gates
-remain separate requirements.
+The current executable adapters parse the public JSON source IR defined in
+`docs/specs/wp06-source-ir.md`. They do not yet parse arbitrary JavaScript,
+TypeScript, exported Power Automate WDL, or solution ZIP bytes into that IR.
+Such parsers must emit this IR before WP-06 evidence can pass. A hand-authored
+projection or evidence envelope cannot independently authorize PASS. Final
+artifact inspection is a separate gate: a required ZIP must expose a strict
+synthetic package projection or match exact safe-adapter inspection evidence,
+and its manifest must bind the ZIP path, SHA-256, and byte length. Mutation
+controls and external tenant gates remain separate requirements.
 
 ## 5. Claim Support Matrix
 

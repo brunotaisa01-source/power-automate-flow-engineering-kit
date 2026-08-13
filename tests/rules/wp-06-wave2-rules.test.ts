@@ -6,11 +6,13 @@ import { describe, test } from "node:test";
 import { Ajv2020 } from "ajv/dist/2020.js";
 
 import type { ProjectContract } from "../../packages/core/src/types/project-contract.ts";
+import { hydrateWp06FixtureGraph } from "../helpers/wp06-fixture-graph.ts";
 import {
   ruleRegistry,
   type ArtifactGraphInput,
   type ValidationContext,
 } from "../../packages/rules/src/registry.ts";
+import { WP06_FINAL_ARTIFACT_REQUIREMENTS } from "../../packages/rules/src/sharepoint/wp06-common.ts";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const RULE_IDS = [
@@ -347,8 +349,25 @@ function projectContract(): ProjectContract {
         assertions: [{ field: "Status", operator: "equals", expected: "Applied" }],
       },
     }],
-    flows: [],
-    packages: [],
+    flows: [{
+      id: "synthetic-processor",
+      definitionPath: "flows/synthetic/definition.json",
+      trigger: "manual",
+      processorForCommandTypes: ["apply-change"],
+      connectionReferences: ["PROCESSOR"],
+      actionBudget: 50,
+      concurrency: { enabled: true, degree: 1 },
+      packageId: "synthetic-package",
+    }],
+    packages: [{
+      id: "synthetic-package",
+      path: "artifacts/packages/synthetic-package.zip",
+      profile: "power-platform-solution-v1",
+      manifestPath: "artifacts/packages/synthetic-package.manifest.json",
+      flowIds: ["synthetic-processor"],
+      importMode: "disabled",
+      nestedArchives: "forbidden",
+    }],
     frontend: {
       root: "frontend",
       authModel: "existing-m365-session",
@@ -407,10 +426,11 @@ function projectContract(): ProjectContract {
 }
 
 function fixtureContext(graph: ArtifactGraphInput): ValidationContext {
+  const contract = projectContract();
   return {
     root: ".",
     offline: true,
-    contract: projectContract(),
+    contract,
     graph,
     adapterEvidence: { packages: [], flows: [] },
   };
@@ -427,6 +447,10 @@ describe("WP-06 Wave 2 rules", () => {
       const catalog = await readJson<{
         readonly id: string;
         readonly detector: { readonly exportName: string };
+        readonly finalArtifact: {
+          readonly required: boolean;
+          readonly artifactKinds: readonly string[];
+        };
       }>(resolve(ROOT, "rules/catalog", `${ruleId}.json`));
       const expected = await readJson<ExpectedFixture>(resolve(fixtureRoot, "expected.json"));
       const mutation = await readJson<MutationOperation>(resolve(fixtureRoot, "mutation.json"));
@@ -438,6 +462,11 @@ describe("WP-06 Wave 2 rules", () => {
       assert.equal(expected.mutation.diagnosticCode, ruleId);
       assert.equal(mutation.path, "graph.json");
       assert.ok(ruleRegistry.has(ruleId));
+      assert.deepEqual(
+        WP06_FINAL_ARTIFACT_REQUIREMENTS[ruleId] ?? [],
+        catalog.finalArtifact.required ? catalog.finalArtifact.artifactKinds : [],
+        `${ruleId} final-artifact implementation must match its catalog`,
+      );
     }
   });
 
@@ -588,19 +617,14 @@ describe("WP-06 Wave 2 rules", () => {
           }
         }
       }
-      for (const evidenceNode of reordered.nodes) {
-        if (evidenceNode.sourceProfile !== "wp06-evidence-v1") continue;
-        const binding = evidenceNode.data.binding;
-        if (!isRecord(binding) || typeof binding.section !== "string") continue;
-        const source = reordered.nodes.find((node) =>
-          node.relativePath === binding.sourceArtifactPath
-          && node.sourceProfile === "wp06-source-projection-v1"
-        );
-        if (source !== undefined) {
-          source.data.facts = structuredClone(evidenceNode.data[binding.section]);
-        }
-      }
-      const context = fixtureContext(reordered);
+      const contract = projectContract();
+      const context: ValidationContext = {
+        root: ".",
+        offline: true,
+        contract,
+        graph: hydrateWp06FixtureGraph(reordered, contract),
+        adapterEvidence: { packages: [], flows: [] },
+      };
       const lists = context.contract.sharePoint.lists as unknown as Array<{
         fields: unknown[];
         indexes: unknown[];

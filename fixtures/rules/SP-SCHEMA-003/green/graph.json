@@ -1,11 +1,11 @@
 {
-  "fixtureProfile": "synthetic-wp06-v1",
   "nodes": [
     {
       "id": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
       "kind": "builder",
       "relativePath": "artifacts/wp06-evidence.json",
-      "digest": "a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0",
+      "digest": "90cd3c7fa4f8b16d40acbf4bd7d16be2f047c7fc54da35ffa542aa1fbf40cf4d",
+      "byteLength": 2347,
       "sourceProfile": "wp06-evidence-v1",
       "data": {
         "evidenceProfile": "wp06-offline-v1",
@@ -119,11 +119,14 @@
           "section": "fieldOperations",
           "contractArtifactPath": "project.contract.json",
           "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
-          "sourceArtifactSha256": "51706819c09e84f1f759f7d3ef244ebedf64f170273e3962a146ae57c3a3f41a",
-          "sourceArtifactBytes": 542,
+          "sourceArtifactPath": "flows/synthetic/builder-source-fieldOperations.json",
+          "sourceArtifactSha256": "1d65f526082986a0f287ff13c11d7d98fa9aca5e5f38bc3437284d7b079c50d4",
+          "sourceArtifactBytes": 1711,
           "sourceArtifactKind": "builder",
-          "contractArtifactBytes": 2048
+          "contractArtifactBytes": 2048,
+          "projectionArtifactPath": ".spflow-derived/wp06/builder/flows/synthetic/builder-source-fieldOperations.json.fieldOperations.json",
+          "projectionArtifactSha256": "5597f8c0dfdeaaed99ae42a68447be1882082d340d748d544d4ab81695fb5a1d",
+          "projectionArtifactBytes": 1807
         }
       },
       "projections": {}
@@ -141,12 +144,12 @@
       "projections": {}
     },
     {
-      "id": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
-      "kind": "builder",
-      "relativePath": "artifacts/wp06-evidence-source.json",
-      "digest": "51706819c09e84f1f759f7d3ef244ebedf64f170273e3962a146ae57c3a3f41a",
-      "byteLength": 542,
-      "sourceProfile": "wp06-source-projection-v1",
+      "id": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-fieldOperations.json.fieldOperations.json:wp06-derived-projection-v1",
+      "kind": "projection",
+      "relativePath": ".spflow-derived/wp06/builder/flows/synthetic/builder-source-fieldOperations.json.fieldOperations.json",
+      "digest": "5597f8c0dfdeaaed99ae42a68447be1882082d340d748d544d4ab81695fb5a1d",
+      "byteLength": 1807,
+      "sourceProfile": "wp06-derived-projection-v1",
       "data": {
         "sourceProjectionProfile": "wp06-source-projection-v1",
         "projectionRevision": 1,
@@ -264,18 +267,237 @@
         ]
       },
       "projections": {}
+    },
+    {
+      "id": "builder:flows/synthetic/builder-source-fieldOperations.json:spflow.power-automate-source-ir-v1",
+      "kind": "builder",
+      "relativePath": "flows/synthetic/builder-source-fieldOperations.json",
+      "digest": "1d65f526082986a0f287ff13c11d7d98fa9aca5e5f38bc3437284d7b079c50d4",
+      "byteLength": 1711,
+      "sourceProfile": "spflow.power-automate-source-ir-v1",
+      "data": {
+        "sourceIrProfile": "spflow.power-automate-source-ir-v1",
+        "sourceRevision": 1,
+        "contractRevision": 2,
+        "section": "fieldOperations",
+        "model": {
+          "fields": [
+            {
+              "targetList": "protected-items",
+              "fieldKey": "title",
+              "compatibilityRead": {
+                "httpResult": "FOUND",
+                "compare": [
+                  "logicalName",
+                  "internalName",
+                  "type",
+                  "required",
+                  "indexed",
+                  "unique",
+                  "clientEditable",
+                  "serverAuthoritative",
+                  "immutableAfterCreate",
+                  "sensitive",
+                  "maxLength"
+                ],
+                "observed": {
+                  "logicalName": "title",
+                  "internalName": "Title",
+                  "type": "Text",
+                  "required": true,
+                  "indexed": true,
+                  "unique": false,
+                  "clientEditable": true,
+                  "serverAuthoritative": false,
+                  "immutableAfterCreate": false,
+                  "sensitive": false,
+                  "maxLength": 255
+                },
+                "decision": "MATCH",
+                "action": "none"
+              }
+            },
+            {
+              "targetList": "protected-items",
+              "fieldKey": "amount",
+              "compatibilityRead": {
+                "httpResult": "FOUND",
+                "compare": [
+                  "logicalName",
+                  "internalName",
+                  "type",
+                  "required",
+                  "indexed",
+                  "unique",
+                  "clientEditable",
+                  "serverAuthoritative",
+                  "immutableAfterCreate",
+                  "sensitive"
+                ],
+                "observed": {
+                  "logicalName": "amount",
+                  "internalName": "Amount",
+                  "type": "Currency",
+                  "required": true,
+                  "indexed": false,
+                  "unique": false,
+                  "clientEditable": false,
+                  "serverAuthoritative": true,
+                  "immutableAfterCreate": false,
+                  "sensitive": false
+                },
+                "decision": "MATCH",
+                "action": "none"
+              }
+            },
+            {
+              "targetList": "protected-items",
+              "fieldKey": "scope-key",
+              "compatibilityRead": {
+                "httpResult": "FOUND",
+                "compare": [
+                  "logicalName",
+                  "internalName",
+                  "type",
+                  "required",
+                  "indexed",
+                  "unique",
+                  "clientEditable",
+                  "serverAuthoritative",
+                  "immutableAfterCreate",
+                  "sensitive",
+                  "maxLength"
+                ],
+                "observed": {
+                  "logicalName": "scope-key",
+                  "internalName": "ScopeKey",
+                  "type": "Text",
+                  "required": true,
+                  "indexed": true,
+                  "unique": false,
+                  "clientEditable": false,
+                  "serverAuthoritative": true,
+                  "immutableAfterCreate": true,
+                  "sensitive": false,
+                  "maxLength": 64
+                },
+                "decision": "MATCH",
+                "action": "none"
+              }
+            }
+          ]
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "kind": "definition",
+      "relativePath": "flows/synthetic/definition.json",
+      "digest": "7b9672c2c1f061a7775e0326e0f5c277e326552153f4d2f6ec1834322d0d925c",
+      "byteLength": 166,
+      "sourceProfile": "normalized-flow-v1",
+      "data": {
+        "properties": {
+          "definition": {
+            "triggers": {
+              "SyntheticTrigger": {
+                "type": "Request",
+                "inputs": {}
+              }
+            },
+            "actions": {
+              "SyntheticAction": {
+                "type": "Compose",
+                "inputs": "synthetic"
+              }
+            }
+          }
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/packages/synthetic-package.zip",
+      "digest": "d040fbd053659c5f8eba06ee77b5f6ca84e832797d74f60f9ffb3c8b277b01bf",
+      "byteLength": 117,
+      "sourceProfile": "package-bytes-v1",
+      "data": {
+        "packageId": "synthetic-package",
+        "flowIds": [
+          "synthetic-processor"
+        ],
+        "inventory": [
+          "flows/synthetic/definition.json"
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "manifest:artifacts/packages/synthetic-package.manifest.json:package-manifest-v1",
+      "kind": "manifest",
+      "relativePath": "artifacts/packages/synthetic-package.manifest.json",
+      "digest": "d77c0f359ac73e612c450c8955f33f1a879726eecb926ac3881a3408ac7dd366",
+      "byteLength": 186,
+      "sourceProfile": "package-manifest-v1",
+      "data": {
+        "packageId": "synthetic-package",
+        "artifact": {
+          "path": "artifacts/packages/synthetic-package.zip",
+          "sha256": "d040fbd053659c5f8eba06ee77b5f6ca84e832797d74f60f9ffb3c8b277b01bf",
+          "bytes": 117
+        }
+      },
+      "projections": {}
     }
   ],
   "edges": [
     {
-      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
-      "to": "builder:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "from": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-fieldOperations.json.fieldOperations.json:wp06-derived-projection-v1",
+      "to": "builder:flows/synthetic/builder-source-fieldOperations.json:spflow.power-automate-source-ir-v1",
       "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "builder:flows/synthetic/builder-source-fieldOperations.json:spflow.power-automate-source-ir-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-fieldOperations.json.fieldOperations.json:wp06-derived-projection-v1",
+      "relation": "matches-projection"
     },
     {
       "from": "builder:artifacts/wp06-evidence.json:wp06-evidence-v1",
       "to": "contract:project.contract.json:project-contract-v1",
       "relation": "verifies-contract"
+    },
+    {
+      "from": "builder:flows/synthetic/builder-source-fieldOperations.json:spflow.power-automate-source-ir-v1",
+      "to": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "relation": "generates"
+    },
+    {
+      "from": "contract:project.contract.json:project-contract-v1",
+      "to": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "relation": "declares"
+    },
+    {
+      "from": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "packages"
+    },
+    {
+      "from": "contract:project.contract.json:project-contract-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "declares"
+    },
+    {
+      "from": "manifest:artifacts/packages/synthetic-package.manifest.json:package-manifest-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "hashes"
     }
   ]
 }

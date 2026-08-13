@@ -1,0 +1,20 @@
+{
+  "fixtureProfile": "synthetic-wp06-executable-adapters-v1",
+  "spoofedAdapter": {
+    "id": "spflow.frontend-static-v1",
+    "version": 1
+  },
+  "falseFoundBody": {
+    "status": 200,
+    "phase": "preflight",
+    "requestKind": "initial-get",
+    "allowCreateMissing404": false,
+    "error": {},
+    "responseBody": {
+      "bodyKind": "sharepoint-object",
+      "parsed": true,
+      "schemaValid": true
+    },
+    "classification": "FOUND"
+  }
+}

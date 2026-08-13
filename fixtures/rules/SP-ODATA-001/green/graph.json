@@ -1,11 +1,11 @@
 {
-  "fixtureProfile": "synthetic-wp06-v1",
   "nodes": [
     {
       "id": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
       "kind": "frontend",
       "relativePath": "artifacts/wp06-evidence.json",
-      "digest": "7070707070707070707070707070707070707070707070707070707070707070",
+      "digest": "065c50948aac3411678cd2d0e1866fba52e97dfcfdcde297ca597a10784d9198",
+      "byteLength": 1002,
       "sourceProfile": "wp06-evidence-v1",
       "data": {
         "evidenceProfile": "wp06-offline-v1",
@@ -28,11 +28,14 @@
           "section": "odataRequests",
           "contractArtifactPath": "project.contract.json",
           "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-          "sourceArtifactPath": "artifacts/wp06-evidence-source.json",
-          "sourceArtifactSha256": "e19ed29ff6f86ef0aa06a9568d6866df873fbf3d96f3328fce37ee3582f68a33",
-          "sourceArtifactBytes": 541,
+          "sourceArtifactPath": "frontend/source-odataRequests.json",
+          "sourceArtifactSha256": "69862fbb9ba588ebafb76b07e60e2d9d098f5ef7026da7102fae00d3dcf7ecf1",
+          "sourceArtifactBytes": 379,
           "sourceArtifactKind": "frontend",
-          "contractArtifactBytes": 2048
+          "contractArtifactBytes": 2048,
+          "projectionArtifactPath": ".spflow-derived/wp06/frontend/frontend/source-odataRequests.json.odataRequests.json",
+          "projectionArtifactSha256": "9e480a9b0af9e99b0c79a83a62fa04f31e20bfc0ce070596cb9b9ee4e6c17ec2",
+          "projectionArtifactBytes": 495
         }
       },
       "projections": {}
@@ -50,12 +53,12 @@
       "projections": {}
     },
     {
-      "id": "frontend:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
-      "kind": "frontend",
-      "relativePath": "artifacts/wp06-evidence-source.json",
-      "digest": "e19ed29ff6f86ef0aa06a9568d6866df873fbf3d96f3328fce37ee3582f68a33",
-      "byteLength": 541,
-      "sourceProfile": "wp06-source-projection-v1",
+      "id": "projection:.spflow-derived/wp06/frontend/frontend/source-odataRequests.json.odataRequests.json:wp06-derived-projection-v1",
+      "kind": "projection",
+      "relativePath": ".spflow-derived/wp06/frontend/frontend/source-odataRequests.json.odataRequests.json",
+      "digest": "9e480a9b0af9e99b0c79a83a62fa04f31e20bfc0ce070596cb9b9ee4e6c17ec2",
+      "byteLength": 495,
+      "sourceProfile": "wp06-derived-projection-v1",
       "data": {
         "sourceProjectionProfile": "wp06-source-projection-v1",
         "projectionRevision": 1,
@@ -82,18 +85,96 @@
         ]
       },
       "projections": {}
+    },
+    {
+      "id": "frontend:frontend/source-odataRequests.json:spflow.frontend-source-ir-v1",
+      "kind": "frontend",
+      "relativePath": "frontend/source-odataRequests.json",
+      "digest": "69862fbb9ba588ebafb76b07e60e2d9d098f5ef7026da7102fae00d3dcf7ecf1",
+      "byteLength": 379,
+      "sourceProfile": "spflow.frontend-source-ir-v1",
+      "data": {
+        "sourceIrProfile": "spflow.frontend-source-ir-v1",
+        "sourceRevision": 1,
+        "contractRevision": 2,
+        "section": "odataRequests",
+        "model": {
+          "queries": [
+            {
+              "targetList": "protected-items",
+              "select": [
+                "Title"
+              ],
+              "selectionSource": "contract-allowlist",
+              "builders": {
+                "query": "url-api",
+                "path": "url-api",
+                "literal": "double-single-quote-before-encoding"
+              },
+              "rawFragments": false,
+              "encoding": "url-search-params"
+            }
+          ]
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "frontend:frontend/bundle-odataRequests.json:spflow.frontend-bundle-v1",
+      "kind": "frontend",
+      "relativePath": "frontend/bundle-odataRequests.json",
+      "digest": "3f2891e22f48212c1568d76c12ad205b2731e5314cda3fce21bc8386f0095dc4",
+      "byteLength": 282,
+      "sourceProfile": "spflow.frontend-bundle-v1",
+      "data": {
+        "artifactProfile": "spflow.frontend-bundle-v1",
+        "artifactRevision": 1,
+        "contractRevision": 2,
+        "entrypoint": "index.js",
+        "files": [
+          "index.js"
+        ],
+        "sources": [
+          {
+            "path": "frontend/source-odataRequests.json",
+            "sha256": "69862fbb9ba588ebafb76b07e60e2d9d098f5ef7026da7102fae00d3dcf7ecf1",
+            "bytes": 379
+          }
+        ]
+      },
+      "projections": {}
     }
   ],
   "edges": [
     {
-      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
-      "to": "frontend:artifacts/wp06-evidence-source.json:wp06-source-projection-v1",
+      "from": "projection:.spflow-derived/wp06/frontend/frontend/source-odataRequests.json.odataRequests.json:wp06-derived-projection-v1",
+      "to": "frontend:frontend/source-odataRequests.json:spflow.frontend-source-ir-v1",
       "relation": "derives-from"
+    },
+    {
+      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "frontend:frontend/source-odataRequests.json:spflow.frontend-source-ir-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
+      "to": "projection:.spflow-derived/wp06/frontend/frontend/source-odataRequests.json.odataRequests.json:wp06-derived-projection-v1",
+      "relation": "matches-projection"
     },
     {
       "from": "frontend:artifacts/wp06-evidence.json:wp06-evidence-v1",
       "to": "contract:project.contract.json:project-contract-v1",
       "relation": "verifies-contract"
+    },
+    {
+      "from": "frontend:frontend/source-odataRequests.json:spflow.frontend-source-ir-v1",
+      "to": "frontend:frontend/bundle-odataRequests.json:spflow.frontend-bundle-v1",
+      "relation": "generates"
+    },
+    {
+      "from": "contract:project.contract.json:project-contract-v1",
+      "to": "frontend:frontend/bundle-odataRequests.json:spflow.frontend-bundle-v1",
+      "relation": "declares"
     }
   ]
 }

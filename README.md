@@ -8,7 +8,15 @@ It gives an AI or engineer a project contract, deterministic artifact inspection
 
 ## Status
 
-The current implementation contains the first offline validation wave. It is local evidence only. Tenant import, rebinding, enablement, execution, mutation, semantic readback, and publication readback are separate gates and are not performed by this repository.
+The current implementation contains offline package/flow validation plus WP-06
+SharePoint and frontend rules. WP-06 uses executable adapters over strict JSON
+source IR, deterministic derived projections, exact graph lineage, and required
+final-artifact gates. Arbitrary JavaScript, TypeScript, exported WDL, and native
+solution ZIP parsing into the WP-06 IR remain future adapter work.
+
+All results are local evidence only. Tenant import, rebinding, enablement,
+execution, mutation, semantic readback, and publication readback are separate
+gates and are not performed by this repository.
 
 ## Quick Start
 
@@ -66,6 +74,12 @@ The default protected-write model is a typed command queue. The frontend submits
 Direct SharePoint patching is an explicit exception. It requires an explicit save, allowlisted fields, a fresh request digest, exact ETag handling, `412` conflict handling, retry-safe reconciliation, and semantic readback.
 
 Rules are evidence-bound. Every public rule should have a rule ID, synthetic RED fixture, GREEN fixture, independent positive control, mutation test, deterministic diagnostic, remediation guidance, and an explicit external evidence gate where applicable.
+
+WP-06 normalized evidence cannot prove itself. A code-selected adapter derives
+a canonical projection from a strict frontend or Power Automate source IR. The
+evidence must match that projection and bind to the exact source, project
+contract, and required bundle/definition/ZIP graph. See
+[WP-06 Source IR](docs/specs/wp06-source-ir.md).
 
 ## Privacy Boundary
 

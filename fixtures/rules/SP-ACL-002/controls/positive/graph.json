@@ -1,11 +1,11 @@
 {
-  "fixtureProfile": "synthetic-wp06-v1",
   "nodes": [
     {
       "id": "builder:synthetic/browser-probes.json:wp06-evidence-v1",
       "kind": "builder",
       "relativePath": "synthetic/browser-probes.json",
-      "digest": "4444000044440000444400004444000044440000444400004444000044440000",
+      "digest": "121ee226e1610e874eef2e04f93f459a263506bf948491f45eaae66018ffa276",
+      "byteLength": 1671,
       "sourceProfile": "wp06-evidence-v1",
       "data": {
         "evidenceProfile": "wp06-offline-v1",
@@ -86,11 +86,14 @@
           "section": "permissionProbes",
           "contractArtifactPath": "project.contract.json",
           "contractArtifactSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
-          "sourceArtifactPath": "synthetic/browser-probes-source.json",
-          "sourceArtifactSha256": "aaabf4e1b92a2a51550381872995c523727ac073b169681eec096702471d809e",
-          "sourceArtifactBytes": 551,
+          "sourceArtifactPath": "flows/synthetic/builder-source-permissionProbes.json",
+          "sourceArtifactSha256": "12161a542a17398cc654bd277d1224bd435a424aa8021a4189ac989ce9784c7e",
+          "sourceArtifactBytes": 1675,
           "sourceArtifactKind": "builder",
-          "contractArtifactBytes": 2048
+          "contractArtifactBytes": 2048,
+          "projectionArtifactPath": ".spflow-derived/wp06/builder/flows/synthetic/builder-source-permissionProbes.json.permissionProbes.json",
+          "projectionArtifactSha256": "b634e860b22046be682d477d27eec0416a9b9a0263f55fb150c1b5aec44dc090",
+          "projectionArtifactBytes": 1127
         }
       },
       "projections": {}
@@ -108,12 +111,12 @@
       "projections": {}
     },
     {
-      "id": "builder:synthetic/browser-probes-source.json:wp06-source-projection-v1",
-      "kind": "builder",
-      "relativePath": "synthetic/browser-probes-source.json",
-      "digest": "aaabf4e1b92a2a51550381872995c523727ac073b169681eec096702471d809e",
-      "byteLength": 551,
-      "sourceProfile": "wp06-source-projection-v1",
+      "id": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-permissionProbes.json.permissionProbes.json:wp06-derived-projection-v1",
+      "kind": "projection",
+      "relativePath": ".spflow-derived/wp06/builder/flows/synthetic/builder-source-permissionProbes.json.permissionProbes.json",
+      "digest": "b634e860b22046be682d477d27eec0416a9b9a0263f55fb150c1b5aec44dc090",
+      "byteLength": 1127,
+      "sourceProfile": "wp06-derived-projection-v1",
       "data": {
         "sourceProjectionProfile": "wp06-source-projection-v1",
         "projectionRevision": 1,
@@ -198,18 +201,288 @@
         ]
       },
       "projections": {}
+    },
+    {
+      "id": "builder:flows/synthetic/builder-source-permissionProbes.json:spflow.power-automate-source-ir-v1",
+      "kind": "builder",
+      "relativePath": "flows/synthetic/builder-source-permissionProbes.json",
+      "digest": "12161a542a17398cc654bd277d1224bd435a424aa8021a4189ac989ce9784c7e",
+      "byteLength": 1675,
+      "sourceProfile": "spflow.power-automate-source-ir-v1",
+      "data": {
+        "sourceIrProfile": "spflow.power-automate-source-ir-v1",
+        "sourceRevision": 1,
+        "contractRevision": 2,
+        "section": "permissionProbes",
+        "model": {
+          "readbacks": [
+            {
+              "targetList": "command-queue",
+              "principal": "BROWSERS",
+              "checks": [
+                {
+                  "operation": "delete",
+                  "allowed": false
+                },
+                {
+                  "operation": "update",
+                  "allowed": false
+                },
+                {
+                  "operation": "create",
+                  "allowed": true
+                },
+                {
+                  "operation": "read",
+                  "allowed": true
+                }
+              ]
+            },
+            {
+              "targetList": "protected-items",
+              "principal": "READERS",
+              "checks": [
+                {
+                  "operation": "delete",
+                  "allowed": false
+                },
+                {
+                  "operation": "update",
+                  "allowed": false
+                },
+                {
+                  "operation": "create",
+                  "allowed": false
+                },
+                {
+                  "operation": "read",
+                  "allowed": true
+                }
+              ]
+            },
+            {
+              "targetList": "audit-log",
+              "principal": "REVIEWERS",
+              "checks": [
+                {
+                  "operation": "delete",
+                  "allowed": false
+                },
+                {
+                  "operation": "update",
+                  "allowed": false
+                },
+                {
+                  "operation": "create",
+                  "allowed": false
+                },
+                {
+                  "operation": "read",
+                  "allowed": true
+                }
+              ]
+            },
+            {
+              "targetList": "access-control",
+              "principal": "PROCESSOR",
+              "checks": [
+                {
+                  "operation": "delete",
+                  "allowed": false
+                },
+                {
+                  "operation": "update",
+                  "allowed": false
+                },
+                {
+                  "operation": "create",
+                  "allowed": false
+                },
+                {
+                  "operation": "read",
+                  "allowed": true
+                }
+              ]
+            },
+            {
+              "targetList": "audit-log",
+              "principal": "PROCESSOR",
+              "checks": [
+                {
+                  "operation": "delete",
+                  "allowed": false
+                },
+                {
+                  "operation": "update",
+                  "allowed": false
+                },
+                {
+                  "operation": "create",
+                  "allowed": true
+                },
+                {
+                  "operation": "read",
+                  "allowed": false
+                }
+              ]
+            },
+            {
+              "targetList": "command-queue",
+              "principal": "PROCESSOR",
+              "checks": [
+                {
+                  "operation": "delete",
+                  "allowed": false
+                },
+                {
+                  "operation": "update",
+                  "allowed": true
+                },
+                {
+                  "operation": "create",
+                  "allowed": false
+                },
+                {
+                  "operation": "read",
+                  "allowed": true
+                }
+              ]
+            },
+            {
+              "targetList": "protected-items",
+              "principal": "PROCESSOR",
+              "checks": [
+                {
+                  "operation": "delete",
+                  "allowed": false
+                },
+                {
+                  "operation": "update",
+                  "allowed": true
+                },
+                {
+                  "operation": "create",
+                  "allowed": false
+                },
+                {
+                  "operation": "read",
+                  "allowed": true
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "kind": "definition",
+      "relativePath": "flows/synthetic/definition.json",
+      "digest": "7b9672c2c1f061a7775e0326e0f5c277e326552153f4d2f6ec1834322d0d925c",
+      "byteLength": 166,
+      "sourceProfile": "normalized-flow-v1",
+      "data": {
+        "properties": {
+          "definition": {
+            "triggers": {
+              "SyntheticTrigger": {
+                "type": "Request",
+                "inputs": {}
+              }
+            },
+            "actions": {
+              "SyntheticAction": {
+                "type": "Compose",
+                "inputs": "synthetic"
+              }
+            }
+          }
+        }
+      },
+      "projections": {}
+    },
+    {
+      "id": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "kind": "zip",
+      "relativePath": "artifacts/packages/synthetic-package.zip",
+      "digest": "d040fbd053659c5f8eba06ee77b5f6ca84e832797d74f60f9ffb3c8b277b01bf",
+      "byteLength": 117,
+      "sourceProfile": "package-bytes-v1",
+      "data": {
+        "packageId": "synthetic-package",
+        "flowIds": [
+          "synthetic-processor"
+        ],
+        "inventory": [
+          "flows/synthetic/definition.json"
+        ]
+      },
+      "projections": {}
+    },
+    {
+      "id": "manifest:artifacts/packages/synthetic-package.manifest.json:package-manifest-v1",
+      "kind": "manifest",
+      "relativePath": "artifacts/packages/synthetic-package.manifest.json",
+      "digest": "d77c0f359ac73e612c450c8955f33f1a879726eecb926ac3881a3408ac7dd366",
+      "byteLength": 186,
+      "sourceProfile": "package-manifest-v1",
+      "data": {
+        "packageId": "synthetic-package",
+        "artifact": {
+          "path": "artifacts/packages/synthetic-package.zip",
+          "sha256": "d040fbd053659c5f8eba06ee77b5f6ca84e832797d74f60f9ffb3c8b277b01bf",
+          "bytes": 117
+        }
+      },
+      "projections": {}
     }
   ],
   "edges": [
     {
-      "from": "builder:synthetic/browser-probes.json:wp06-evidence-v1",
-      "to": "builder:synthetic/browser-probes-source.json:wp06-source-projection-v1",
+      "from": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-permissionProbes.json.permissionProbes.json:wp06-derived-projection-v1",
+      "to": "builder:flows/synthetic/builder-source-permissionProbes.json:spflow.power-automate-source-ir-v1",
       "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/browser-probes.json:wp06-evidence-v1",
+      "to": "builder:flows/synthetic/builder-source-permissionProbes.json:spflow.power-automate-source-ir-v1",
+      "relation": "derives-from"
+    },
+    {
+      "from": "builder:synthetic/browser-probes.json:wp06-evidence-v1",
+      "to": "projection:.spflow-derived/wp06/builder/flows/synthetic/builder-source-permissionProbes.json.permissionProbes.json:wp06-derived-projection-v1",
+      "relation": "matches-projection"
     },
     {
       "from": "builder:synthetic/browser-probes.json:wp06-evidence-v1",
       "to": "contract:project.contract.json:project-contract-v1",
       "relation": "verifies-contract"
+    },
+    {
+      "from": "builder:flows/synthetic/builder-source-permissionProbes.json:spflow.power-automate-source-ir-v1",
+      "to": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "relation": "generates"
+    },
+    {
+      "from": "contract:project.contract.json:project-contract-v1",
+      "to": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "relation": "declares"
+    },
+    {
+      "from": "definition:flows/synthetic/definition.json:normalized-flow-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "packages"
+    },
+    {
+      "from": "contract:project.contract.json:project-contract-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "declares"
+    },
+    {
+      "from": "manifest:artifacts/packages/synthetic-package.manifest.json:package-manifest-v1",
+      "to": "zip:artifacts/packages/synthetic-package.zip:package-bytes-v1",
+      "relation": "hashes"
     }
   ]
 }

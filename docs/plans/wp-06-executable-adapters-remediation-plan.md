@@ -1,0 +1,125 @@
+# WP-06 Executable Adapters Remediation Plan
+
+> **For agentic workers:** Execute this plan inline. Do not spawn or coordinate other agents. Every production change requires a previously observed failing test.
+
+**Goal:** Replace hand-authored WP-06 semantic claims with deterministic projections produced by executable adapters from strict synthetic source IR, and require matching final artifacts before any affected rule can pass.
+
+**Architecture:** A raw frontend or Power Automate source artifact is parsed by code-selected adapters into an immutable derived projection node. Evidence must bind exactly to the raw source, derived projection, and project contract, and the graph must contain adapter-created lineage edges. Rule validation separately checks the catalog final-artifact requirement. HTTP success evidence is derived from an actual parsed response shape and validated against an identified SharePoint list schema.
+
+**Tech Stack:** TypeScript 5.9, Node.js 22, Node test runner, existing artifact graph and rule registry.
+
+## Global Constraints
+
+- Do not access or modify private source projects.
+- Keep all documentation, fixtures, identifiers, and examples synthetic and in English.
+- Do not include personal, company, tenant, mailbox, site, or production identifiers.
+- Treat scanner unavailability and external tenant gates as `NOT_RUN`, never as PASS.
+- Preserve Wave-1 rule behavior outside the minimum shared graph and type plumbing.
+
+---
+
+### Task 1: Reproduce the remaining false GREEN cases
+
+**Files:**
+- Modify: `tests/rules/wp-06-remediation-adversarial.test.ts`
+- Create: `fixtures/adversarial/wp06-executable-adapters/red-cases.json`
+- Create: `docs/reviews/wp-06-executable-adapters-red-record.md`
+
+**Interfaces:**
+- Consumes: current `ValidationContext`, WP-06 evidence envelopes, and rule registry.
+- Produces: tests that fail because copied projections, spoofed adapter IDs, absent final artifacts, and boolean-only HTTP bodies are currently accepted.
+
+- [x] Add one independent test for each false GREEN class.
+- [x] Run only the new test file against `c423a93d737384c45975aefc636a9ef4b6e53eff`.
+- [x] Record exact failing assertions and command exit status without changing production code.
+
+### Task 2: Add strict source IR and executable adapters
+
+**Files:**
+- Modify: `packages/core/src/types/wp06-evidence.ts`
+- Create: `packages/core/src/wp06-source-adapters.ts`
+- Modify: `packages/core/src/graph-builders/wp06-evidence.ts`
+- Modify: `packages/core/src/artifact-graph.ts`
+- Modify: `packages/core/src/artifact-node.ts`
+- Modify: `packages/core/src/types/constants.ts`
+- Test: `tests/unit/core/wp06-evidence.test.ts`
+- Test: `tests/unit/core/artifact-graph.test.ts`
+
+**Interfaces:**
+- Consumes: strict `spflow.frontend-source-ir-v1` and `spflow.power-automate-source-ir-v1` JSON source models.
+- Produces: `deriveWp06SourceProjection(source)` and virtual `wp06-derived-projection-v1` nodes created only by executable code.
+
+- [x] Define exact-key source IR parsers with no caller-controlled adapter identity.
+- [x] Implement frontend transformations for Save, pagination, and OData structures.
+- [x] Implement Power Automate transformations for authority, ACL, schema, index, and HTTP structures.
+- [x] Create deterministic projection nodes from canonical bytes and add projection-to-source lineage.
+- [x] Stop treating an input `wp06-source-projection-v1` document as trusted source.
+- [x] Run core tests until GREEN.
+
+### Task 3: Bind evidence to trusted projection lineage
+
+**Files:**
+- Modify: `packages/core/src/types/wp06-evidence.ts`
+- Modify: `packages/core/src/artifact-graph.ts`
+- Modify: `packages/rules/src/sharepoint/wp06-common.ts`
+- Test: `tests/rules/wp-06-remediation-adversarial.test.ts`
+
+**Interfaces:**
+- Consumes: exact contract, raw source, and adapter-created projection nodes.
+- Produces: fail-closed evidence selection requiring exact path, kind, profile, SHA-256, byte length, and lineage edges.
+
+- [x] Extend evidence binding with projection identity.
+- [x] Add evidence lineage edges only after executable derivation and canonical evidence equality succeed.
+- [x] Require one exact source, projection, contract, and edge set during rule validation.
+- [x] Prove copied and adapter-spoofed input projections remain RED.
+
+### Task 4: Enforce final artifacts independently
+
+**Files:**
+- Modify: `packages/rules/src/sharepoint/wp06-common.ts`
+- Modify: `packages/core/src/artifact-graph.ts`
+- Modify: `packages/core/src/graph-builders/frontend.ts`
+- Test: `tests/rules/wp-06-remediation-adversarial.test.ts`
+- Test: `tests/integration/wp-06-built-cli.test.ts`
+
+**Interfaces:**
+- Consumes: deterministic WP-06 rule-to-catalog requirement map and graph relationships.
+- Produces: distinct diagnostics for missing `frontend-bundle`, `generated-definition`, or `zip` artifacts.
+
+- [x] Detect a strict synthetic frontend bundle manifest and connect it to its source and contract.
+- [x] Require generated definitions to be generated by the same bound builder source and declared by the contract.
+- [x] Require ZIP nodes through the same definition/package chain where the catalog lists `zip`.
+- [x] Keep rule applicability separate from final-artifact validation.
+
+### Task 5: Replace HTTP body booleans with parsed response projections
+
+**Files:**
+- Modify: `packages/core/src/types/wp06-evidence.ts`
+- Modify: `packages/rules/src/http/semantic.ts`
+- Test: `tests/rules/wp-06-remediation-adversarial.test.ts`
+
+**Interfaces:**
+- Consumes: an actual parsed object/list body in the Power Automate source IR plus a target list and schema identity.
+- Produces: strict normalized field-shape evidence validated against the request kind and contract list fields.
+
+- [x] Reject 200/206 without a parsed body, 204/205, malformed bodies, wrong schema IDs, and undeclared fields.
+- [x] Preserve fail-closed 400 and 404 classification behavior.
+- [x] Add a positive object-response control and a mutation control.
+
+### Task 6: Migrate fixtures, verify, and document
+
+**Files:**
+- Modify: WP-06 fixtures and tests only as required by the new trust model.
+- Create: `docs/reviews/wp-06-executable-adapters-remediation-record.md`
+- Update: `docs/specs/evidence-model.md`
+- Update: `docs/specs/end-to-end-contract.md`
+
+**Interfaces:**
+- Consumes: executable adapters and final-artifact gates.
+- Produces: sanitized RED-to-GREEN evidence and a review-ready commit.
+
+- [x] Migrate positive, RED, and mutation fixtures to raw source IR and adapter-created projections.
+- [x] Run focused WP-06 tests, integration tests, build, full suite, and `git diff --check`.
+- [x] Run the public-data scanner when available; otherwise record `NOT_RUN` and its exact reason.
+- [x] Record all external tenant gates as `NOT_RUN`.
+- [x] Commit only the focused remediation.

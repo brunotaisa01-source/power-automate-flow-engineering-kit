@@ -10,15 +10,23 @@ import type { ProjectContract } from "../../packages/core/src/types/project-cont
 import type { FieldContract, ListContract } from "../../packages/core/src/types/sharepoint.ts";
 import type {
   NormalizedWp06Evidence,
-  NormalizedWp06SourceProjection,
   Wp06EvidenceSection,
   Wp06SourceArtifactKind,
 } from "../../packages/core/src/types/wp06-evidence.ts";
+import { buildFrontendArtifact } from "../../packages/core/dist/graph-builders/frontend.js";
+import {
+  WP06_FRONTEND_BUNDLE_PROFILE,
+  buildWp06ProjectionArtifact,
+} from "../../packages/core/dist/wp06-source-adapters.js";
 import { validateRules as validateBuiltRules } from "../../packages/rules/dist/registry.js";
 import type {
   ArtifactGraphInput,
   ValidationContext,
 } from "../../packages/rules/src/registry.ts";
+import {
+  hydrateWp06FixtureGraph,
+  wp06SourceIrFromFacts,
+} from "../helpers/wp06-fixture-graph.ts";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 const CLI = resolve(ROOT, "packages/cli/dist/bin/spflow.js");
@@ -73,6 +81,9 @@ function field(
 }
 
 function projectContract(requiredRuleIds: readonly string[] = RULE_IDS): ProjectContract {
+  const includeBuilderArtifacts = requiredRuleIds.some((ruleId) =>
+    !(FRONTEND_RULE_IDS as readonly string[]).includes(ruleId)
+  );
   const bindings = [
     ["SITE_URL", "site-url"],
     ["PROTECTED_LIST", "list-title"],
@@ -284,8 +295,25 @@ function projectContract(requiredRuleIds: readonly string[] = RULE_IDS): Project
         assertions: [{ field: "Status", operator: "equals", expected: "Applied" }],
       },
     }],
-    flows: [],
-    packages: [],
+    flows: includeBuilderArtifacts ? [{
+      id: "synthetic-processor",
+      definitionPath: "flows/synthetic/definition.json",
+      trigger: "manual",
+      processorForCommandTypes: ["apply-change"],
+      connectionReferences: ["PROCESSOR"],
+      actionBudget: 50,
+      concurrency: { enabled: true, degree: 1 },
+      packageId: "synthetic-package",
+    }] : [],
+    packages: includeBuilderArtifacts ? [{
+      id: "synthetic-package",
+      path: "artifacts/packages/synthetic-package.zip",
+      profile: "power-platform-solution-v1",
+      manifestPath: "artifacts/packages/synthetic-package.manifest.json",
+      flowIds: ["synthetic-processor"],
+      importMode: "disabled",
+      nestedArchives: "forbidden",
+    }] : [],
     frontend: {
       root: "frontend",
       authModel: "existing-m365-session",
@@ -611,12 +639,19 @@ interface BoundSource {
   readonly bytes: Uint8Array;
 }
 
+interface BoundProjection {
+  readonly path: string;
+  readonly digest: string;
+  readonly bytes: number;
+}
+
 function evidencePayload(
   evidence: Omit<NormalizedWp06Evidence, "binding">,
   section: Wp06EvidenceSection,
   contractDigest: string,
   contractBytes: number,
   source: BoundSource,
+  projection: BoundProjection,
 ): NormalizedWp06Evidence {
   const values = evidence[section];
   assert.ok(Array.isArray(values) && values.length > 0, section);
@@ -633,32 +668,12 @@ function evidencePayload(
       sourceArtifactSha256: sha256(source.bytes),
       sourceArtifactBytes: source.bytes.byteLength,
       sourceArtifactKind: kind,
+      projectionArtifactPath: projection.path,
+      projectionArtifactSha256: projection.digest,
+      projectionArtifactBytes: projection.bytes,
     },
     [section]: values,
   } as NormalizedWp06Evidence;
-}
-
-function sourceProjectionPayload(
-  evidence: Omit<NormalizedWp06Evidence, "binding">,
-  section: Wp06EvidenceSection,
-): NormalizedWp06SourceProjection {
-  const facts = evidence[section];
-  assert.ok(Array.isArray(facts) && facts.length > 0, section);
-  const sourceKind = SECTION_KINDS[section];
-  return {
-    sourceProjectionProfile: "wp06-source-projection-v1",
-    projectionRevision: 1,
-    contractRevision: evidence.contractRevision,
-    sourceKind,
-    section,
-    adapter: {
-      id: sourceKind === "frontend"
-        ? "spflow.frontend-static-v1"
-        : "spflow.power-automate-static-v1",
-      version: 1,
-    },
-    facts,
-  };
 }
 
 async function runCli(args: readonly string[]): Promise<CliResult> {
@@ -697,29 +712,62 @@ describe("WP-06 built CLI", () => {
       const evidenceBySection = new Map<Wp06EvidenceSection, NormalizedWp06Evidence>();
       const evidencePathBySection = new Map<Wp06EvidenceSection, string>();
       const sourcePathBySection = new Map<Wp06EvidenceSection, string>();
+      const sourceBindings = new Map<Wp06EvidenceSection, {
+        path: string;
+        sha256: string;
+        bytes: number;
+      }>();
       for (const section of [
         "paginationTraversals",
         "saveTransactions",
         "odataRequests",
       ] as const) {
         const sourcePath = `frontend/source-${section}.json`;
+        const facts = evidence[section];
+        assert.ok(Array.isArray(facts) && facts.length > 0);
+        const sourceData = wp06SourceIrFromFacts("frontend", section, facts);
         const sourceBytes = await writeJson(
           join(root, sourcePath),
-          sourceProjectionPayload(evidence, section),
+          sourceData,
         );
+        const sourceNode = buildFrontendArtifact({ relativePath: sourcePath, data: sourceData, bytes: sourceBytes });
+        const projectionNode = buildWp06ProjectionArtifact(sourceNode);
+        assert.notEqual(projectionNode, undefined);
+        const normalizedFacts = (projectionNode!.data as { facts: readonly unknown[] }).facts;
         const relativePath = `frontend/evidence-${section}.json`;
         const payload = evidencePayload(
-          evidence,
+          { ...evidence, [section]: normalizedFacts },
           section,
           sha256(contractBytes),
           contractBytes.byteLength,
           { path: sourcePath, bytes: sourceBytes },
+          {
+            path: projectionNode!.relativePath,
+            digest: projectionNode!.digest,
+            bytes: projectionNode!.byteLength!,
+          },
         );
         await writeJson(join(root, relativePath), payload);
         evidenceBySection.set(section, payload);
         evidencePathBySection.set(section, relativePath);
         sourcePathBySection.set(section, sourcePath);
+        sourceBindings.set(section, {
+          path: sourcePath,
+          sha256: sha256(sourceBytes),
+          bytes: sourceBytes.byteLength,
+        });
       }
+      const writeBundle = async (): Promise<void> => {
+        await writeJson(join(root, "frontend/bundle.json"), {
+          artifactProfile: WP06_FRONTEND_BUNDLE_PROFILE,
+          artifactRevision: 1,
+          contractRevision: contract.project.contractRevision,
+          entrypoint: "index.js",
+          files: ["index.js"],
+          sources: [...sourceBindings.values()],
+        });
+      };
+      await writeBundle();
 
       const green = await runCli(["validate", "rules", "--root", root, "--format", "json"]);
       assert.equal(green.exitCode, 0, green.stdout);
@@ -729,22 +777,41 @@ describe("WP-06 built CLI", () => {
 
       const mutated = structuredClone(evidenceBySection.get("saveTransactions")!);
       mutated.saveTransactions![0]!.trigger = "implicit-save";
+      const mutatedSourceData = wp06SourceIrFromFacts(
+        "frontend",
+        "saveTransactions",
+        mutated.saveTransactions as readonly Record<string, any>[],
+      );
       const mutatedSourceBytes = await writeJson(
         join(root, sourcePathBySection.get("saveTransactions")!),
-        {
-          ...sourceProjectionPayload(evidence, "saveTransactions"),
-          facts: mutated.saveTransactions,
-        },
+        mutatedSourceData,
       );
       const sourcePath = sourcePathBySection.get("saveTransactions")!;
+      const mutatedSourceNode = buildFrontendArtifact({
+        relativePath: sourcePath,
+        data: mutatedSourceData,
+        bytes: mutatedSourceBytes,
+      });
+      const mutatedProjection = buildWp06ProjectionArtifact(mutatedSourceNode)!;
       const mutatedPayload = evidencePayload(
         { ...evidence, saveTransactions: mutated.saveTransactions },
         "saveTransactions",
         sha256(contractBytes),
         contractBytes.byteLength,
         { path: sourcePath, bytes: mutatedSourceBytes },
+        {
+          path: mutatedProjection.relativePath,
+          digest: mutatedProjection.digest,
+          bytes: mutatedProjection.byteLength!,
+        },
       );
       await writeJson(join(root, evidencePathBySection.get("saveTransactions")!), mutatedPayload);
+      sourceBindings.set("saveTransactions", {
+        path: sourcePath,
+        sha256: sha256(mutatedSourceBytes),
+        bytes: mutatedSourceBytes.byteLength,
+      });
+      await writeBundle();
       const red = await runCli(["validate", "rules", "--root", root, "--format", "json"]);
 
       assert.equal(red.exitCode, 1, red.stdout);
@@ -760,37 +827,6 @@ describe("WP-06 built CLI", () => {
     const contract = projectContract();
     const contractDigest = "c".repeat(64);
     const evidence = wp06Evidence(contract);
-    const sectionEntries = (Object.keys(SECTION_KINDS) as Wp06EvidenceSection[]).map((section) => {
-      const kind = SECTION_KINDS[section];
-      const sourcePath = `artifacts/${kind}-source-${section}.json`;
-      const sourcePayload = sourceProjectionPayload(evidence, section);
-      const sourceBytes = Buffer.from(`${JSON.stringify(sourcePayload)}\n`, "utf8");
-      const source = { path: sourcePath, bytes: sourceBytes };
-      const evidencePath = `artifacts/${kind}-evidence-${section}.json`;
-      const payload = evidencePayload(evidence, section, contractDigest, 2048, source);
-      const evidenceBytes = Buffer.from(`${JSON.stringify(payload)}\n`, "utf8");
-      const sourceNode = {
-        id: `${kind}:${sourcePath}:wp06-source-projection-v1`,
-        kind,
-        relativePath: sourcePath,
-        digest: sha256(sourceBytes),
-        byteLength: sourceBytes.byteLength,
-        sourceProfile: "wp06-source-projection-v1",
-        data: sourcePayload,
-        projections: {},
-      };
-      const evidenceNode = {
-        id: `${kind}:${evidencePath}:wp06-evidence-v1`,
-        kind,
-        relativePath: evidencePath,
-        digest: sha256(evidenceBytes),
-        byteLength: evidenceBytes.byteLength,
-        sourceProfile: "wp06-evidence-v1",
-        data: payload,
-        projections: {},
-      };
-      return { section, sourceNode, evidenceNode };
-    });
     const contractNode = {
       id: "contract:project.contract.json:project-contract-v1",
       kind: "contract",
@@ -801,15 +837,52 @@ describe("WP-06 built CLI", () => {
       data: contract,
       projections: {},
     };
+    const nodeMap = new Map<string, ArtifactGraphInput["nodes"][number]>();
+    const edgeMap = new Map<string, ArtifactGraphInput["edges"][number]>();
+    for (const section of Object.keys(SECTION_KINDS) as Wp06EvidenceSection[]) {
+      const kind = SECTION_KINDS[section];
+      const evidencePath = `artifacts/${kind}-evidence-${section}.json`;
+      const values = evidence[section];
+      assert.ok(Array.isArray(values) && values.length > 0);
+      const payload = {
+        evidenceProfile: "wp06-offline-v1",
+        contractRevision: contract.project.contractRevision,
+        binding: {
+          section,
+          contractArtifactPath: "project.contract.json",
+          contractArtifactSha256: contractDigest,
+          contractArtifactBytes: 2048,
+          sourceArtifactPath: "synthetic/pending-source.json",
+          sourceArtifactSha256: "d".repeat(64),
+          sourceArtifactBytes: 512,
+          sourceArtifactKind: kind,
+          projectionArtifactPath: "synthetic/pending-projection.json",
+          projectionArtifactSha256: "e".repeat(64),
+          projectionArtifactBytes: 768,
+        },
+        [section]: values,
+      };
+      const evidenceBytes = Buffer.from(`${JSON.stringify(payload)}\n`, "utf8");
+      const evidenceNode = {
+        id: `${kind}:${evidencePath}:wp06-evidence-v1`,
+        kind,
+        relativePath: evidencePath,
+        digest: sha256(evidenceBytes),
+        byteLength: evidenceBytes.byteLength,
+        sourceProfile: "wp06-evidence-v1",
+        data: payload,
+        projections: {},
+      };
+      const hydrated = hydrateWp06FixtureGraph(
+        { nodes: [evidenceNode, contractNode], edges: [] },
+        contract,
+      );
+      hydrated.nodes.forEach((node) => nodeMap.set(node.id, node));
+      hydrated.edges.forEach((edge) => edgeMap.set(`${edge.from}\0${edge.to}\0${edge.relation}`, edge));
+    }
     const graph: ArtifactGraphInput = {
-      nodes: [
-        contractNode,
-        ...sectionEntries.flatMap(({ sourceNode, evidenceNode }) => [sourceNode, evidenceNode]),
-      ],
-      edges: sectionEntries.flatMap(({ sourceNode, evidenceNode }) => [
-        { from: evidenceNode.id, to: sourceNode.id, relation: "derives-from" },
-        { from: evidenceNode.id, to: contractNode.id, relation: "verifies-contract" },
-      ]),
+      nodes: [...nodeMap.values()],
+      edges: [...edgeMap.values()],
     };
     const context: ValidationContext = {
       root: ".",
@@ -830,16 +903,8 @@ describe("WP-06 built CLI", () => {
       authoritySources: { actor: string };
     }>)[0]!;
     check.authoritySources.actor = "client-claim";
-    const authoritySource = mutated.nodes.find(({ data }) =>
-      data.sourceProjectionProfile === "wp06-source-projection-v1"
-      && data.section === "authorityChecks"
-    )!;
-    const sourceCheck = (authoritySource.data.facts as Array<{
-      authoritySources: { actor: string };
-    }>)[0]!;
-    sourceCheck.authoritySources.actor = "client-claim";
     const mutatedContext: ValidationContext = { ...context, graph: mutated };
     const diagnostics = await validateBuiltRules(mutatedContext, RULE_IDS);
-    assert.deepEqual(diagnostics.map(({ code }) => code), ["SP-AUTHZ-001"]);
+    assert.deepEqual(diagnostics.map(({ code }) => code), ["SP-AUTHZ-001", "SP-AUTHZ-002"]);
   });
 });

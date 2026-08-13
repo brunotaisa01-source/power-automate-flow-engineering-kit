@@ -24,26 +24,70 @@ function isClassification(value: unknown): value is NormalizedHttpClassification
     && isRecord(value.error)
     && (value.error.platformCode === undefined || typeof value.error.platformCode === "string")
     && (value.error.messageCategory === undefined || typeof value.error.messageCategory === "string")
-    && (value.responseBody === undefined
-      || (isRecord(value.responseBody)
-        && value.responseBody.bodyKind === "sharepoint-object"
-        && value.responseBody.parsed === true
-        && value.responseBody.schemaValid === true))
+    && (value.responseBody === undefined || isRecord(value.responseBody))
     && typeof value.classification === "string";
 }
 
-function hasValidFoundBody(value: NormalizedHttpClassification): boolean {
-  return value.status !== 204
-    && value.status !== 205
-    && (value.requestKind === "initial-get" || value.requestKind === "other-get")
-    && value.responseBody?.bodyKind === "sharepoint-object"
-    && value.responseBody.parsed
-    && value.responseBody.schemaValid;
+function expectedValueKind(type: string | undefined, fieldName: string): string | undefined {
+  if (fieldName === "ID") return "number";
+  if (fieldName === "Title" && type === undefined) return "string";
+  switch (type) {
+    case "Boolean": return "boolean";
+    case "Currency":
+    case "Number": return "number";
+    case "Choice":
+    case "DateTime":
+    case "Lookup":
+    case "Text":
+    case "User": return "string";
+    default: return undefined;
+  }
 }
 
-function expectedClassification(value: NormalizedHttpClassification): string {
+function hasValidFoundBody(
+  value: NormalizedHttpClassification,
+  context: ValidationContext,
+): boolean {
+  const body = value.responseBody;
+  if (body === undefined) return false;
+  const list = context.contract.sharePoint.lists.find(({ id }) => id === body.targetListId);
+  if (list === undefined || body.schemaId !== `sharepoint-list-item-v1:${list.id}`) return false;
+  const expectedKind = value.requestKind === "collection-get" ? "list" : "object";
+  if (
+    !["initial-get", "other-get", "collection-get"].includes(value.requestKind)
+    || body.actual.kind !== expectedKind
+    || body.actual.itemCount < 1
+  ) return false;
+  const actualNames = body.actual.fields.map(({ name }) => name);
+  if (
+    new Set(body.expectedFields).size !== body.expectedFields.length
+    || new Set(actualNames).size !== actualNames.length
+    || body.expectedFields.length !== actualNames.length
+    || !body.expectedFields.every((field, index) => field === actualNames[index])
+    || !body.expectedFields.every((field) => list.readAllowlist.includes(field))
+  ) return false;
+  return body.actual.fields.every(({ name, valueKind }) => {
+    const field = list.fields.find(({ internalName }) => internalName === name);
+    const expected = expectedValueKind(field?.type, name);
+    return expected !== undefined && valueKind === expected;
+  });
+}
+
+function hasValidFoundStatus(value: NormalizedHttpClassification): boolean {
+  return value.status !== 204
+    && value.status !== 205
+    && value.status >= 200
+    && value.status <= 299;
+}
+
+function expectedClassification(
+  value: NormalizedHttpClassification,
+  context: ValidationContext,
+): string {
   if (value.status >= 200 && value.status <= 299) {
-    return hasValidFoundBody(value) ? "FOUND" : "GET_FAILED";
+    return hasValidFoundStatus(value) && hasValidFoundBody(value, context)
+      ? "FOUND"
+      : "GET_FAILED";
   }
   if (value.status === 400) {
     return value.error.platformCode === MISSING_COLUMN_CODE
@@ -61,8 +105,11 @@ function expectedClassification(value: NormalizedHttpClassification): string {
   return "GET_FAILED";
 }
 
-function isValidClassification(value: unknown): value is NormalizedHttpClassification {
-  return isClassification(value) && value.classification === expectedClassification(value);
+function isValidClassification(
+  value: unknown,
+  context: ValidationContext,
+): value is NormalizedHttpClassification {
+  return isClassification(value) && value.classification === expectedClassification(value, context);
 }
 
 function classificationKey(value: NormalizedHttpClassification): string {
@@ -96,7 +143,7 @@ export const httpSemantic001: RuleDetector = Object.freeze({
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
 
-    const invalid = selection.items.find(({ value }) => !isValidClassification(value));
+    const invalid = selection.items.find(({ value }) => !isValidClassification(value, context));
     const duplicate = !hasUniqueClassifications(selection.items.map(({ value }) => value));
     const artifact = invalid?.artifact ?? selection.items[0]?.artifact;
     return invalid === undefined && !duplicate
@@ -119,7 +166,7 @@ export const httpSemantic002: RuleDetector = Object.freeze({
     if (!selection.applicable) return [];
     if (selection.missing !== undefined) return [selection.missing];
 
-    const invalid = selection.items.find(({ value }) => !isValidClassification(value));
+    const invalid = selection.items.find(({ value }) => !isValidClassification(value, context));
     const duplicate = !hasUniqueClassifications(selection.items.map(({ value }) => value));
     const artifact = invalid?.artifact ?? selection.items[0]?.artifact;
     return invalid === undefined && !duplicate
