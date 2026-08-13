@@ -23,6 +23,49 @@ type WdlLiteral = string | number | boolean | null;
 
 type WdlValue = NormalizedExpressionNode;
 
+interface FunctionSignature {
+  readonly minimumArguments: number;
+  readonly maximumArguments: number;
+}
+
+const VARIADIC = Number.MAX_SAFE_INTEGER;
+const SUPPORTED_FUNCTIONS: Readonly<Record<string, FunctionSignature>> = Object.freeze({
+  action: { minimumArguments: 1, maximumArguments: 1 },
+  actions: { minimumArguments: 1, maximumArguments: 1 },
+  and: { minimumArguments: 2, maximumArguments: VARIADIC },
+  body: { minimumArguments: 1, maximumArguments: 1 },
+  coalesce: { minimumArguments: 2, maximumArguments: VARIADIC },
+  concat: { minimumArguments: 2, maximumArguments: VARIADIC },
+  contains: { minimumArguments: 2, maximumArguments: 2 },
+  createarray: { minimumArguments: 1, maximumArguments: VARIADIC },
+  digest: { minimumArguments: 1, maximumArguments: 1 },
+  empty: { minimumArguments: 1, maximumArguments: 1 },
+  equals: { minimumArguments: 2, maximumArguments: 2 },
+  formatnumber: { minimumArguments: 1, maximumArguments: 3 },
+  greater: { minimumArguments: 2, maximumArguments: 2 },
+  greaterorequals: { minimumArguments: 2, maximumArguments: 2 },
+  hash: { minimumArguments: 1, maximumArguments: 1 },
+  if: { minimumArguments: 3, maximumArguments: 3 },
+  json: { minimumArguments: 1, maximumArguments: 1 },
+  length: { minimumArguments: 1, maximumArguments: 1 },
+  less: { minimumArguments: 2, maximumArguments: 2 },
+  lessorequals: { minimumArguments: 2, maximumArguments: 2 },
+  not: { minimumArguments: 1, maximumArguments: 1 },
+  or: { minimumArguments: 2, maximumArguments: VARIADIC },
+  outputs: { minimumArguments: 1, maximumArguments: 1 },
+  replace: { minimumArguments: 3, maximumArguments: 3 },
+  result: { minimumArguments: 1, maximumArguments: 1 },
+  sha256: { minimumArguments: 1, maximumArguments: 1 },
+  string: { minimumArguments: 1, maximumArguments: 1 },
+  substring: { minimumArguments: 2, maximumArguments: 3 },
+  tolower: { minimumArguments: 1, maximumArguments: 1 },
+  toupper: { minimumArguments: 1, maximumArguments: 1 },
+  triggerbody: { minimumArguments: 0, maximumArguments: 0 },
+  triggeroutputs: { minimumArguments: 0, maximumArguments: 0 },
+  trim: { minimumArguments: 1, maximumArguments: 1 },
+  variables: { minimumArguments: 1, maximumArguments: 1 },
+});
+
 export class WdlParseError extends Error {
   readonly code = "PA-WDL-001" as const;
 
@@ -121,6 +164,14 @@ class Parser {
       throw new WdlParseError();
     }
     this.index += 1;
+    const signature = SUPPORTED_FUNCTIONS[name.toLowerCase()];
+    if (
+      signature === undefined
+      || argumentsFound.length < signature.minimumArguments
+      || argumentsFound.length > signature.maximumArguments
+    ) {
+      throw new WdlParseError();
+    }
     if (
       ["action", "actions", "body", "outputs", "result"].includes(name.toLowerCase())
       && argumentsFound.length > 0

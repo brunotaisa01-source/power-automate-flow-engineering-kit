@@ -38,6 +38,11 @@ function findOperation(
 }
 
 type NormalizedCallExpression = Extract<NormalizedExpressionNode, { readonly kind: "call" }>;
+type StaticExpressionValue =
+  | { readonly known: false }
+  | { readonly known: true; readonly value: unknown };
+
+const UNKNOWN_VALUE: StaticExpressionValue = Object.freeze({ known: false });
 
 function isCall(node: NormalizedExpressionNode): node is NormalizedCallExpression {
   return node.kind === "call";
@@ -52,9 +57,195 @@ function isNamedCall(
     && (argumentCount === undefined || node.arguments.length === argumentCount);
 }
 
+function staticExpressionValue(node: NormalizedExpressionNode): StaticExpressionValue {
+  if (node.kind === "literal") {
+    return { known: true, value: node.value };
+  }
+  if (node.kind !== "call") {
+    return UNKNOWN_VALUE;
+  }
+  const name = node.name.toLowerCase();
+  const values = node.arguments.map(staticExpressionValue);
+  if (
+    name === "equals"
+    && node.arguments.length === 2
+    && node.arguments[0] !== undefined
+    && node.arguments[1] !== undefined
+  ) {
+    if (isDeepStrictEqual(node.arguments[0], node.arguments[1])) {
+      return { known: true, value: true };
+    }
+    const left = values[0]!;
+    const right = values[1]!;
+    return left.known && right.known
+      ? { known: true, value: isDeepStrictEqual(left.value, right.value) }
+      : UNKNOWN_VALUE;
+  }
+  if (
+    ["greater", "greaterorequals", "less", "lessorequals"].includes(name)
+    && node.arguments.length === 2
+    && node.arguments[0] !== undefined
+    && node.arguments[1] !== undefined
+  ) {
+    if (isDeepStrictEqual(node.arguments[0], node.arguments[1])) {
+      return {
+        known: true,
+        value: name === "greaterorequals" || name === "lessorequals",
+      };
+    }
+    const left = values[0]!;
+    const right = values[1]!;
+    if (
+      left.known
+      && right.known
+      && typeof left.value === "number"
+      && typeof right.value === "number"
+    ) {
+      const value = name === "greater"
+        ? left.value > right.value
+        : name === "greaterorequals"
+          ? left.value >= right.value
+          : name === "less"
+            ? left.value < right.value
+            : left.value <= right.value;
+      return { known: true, value };
+    }
+  }
+  if (name === "not" && values.length === 1) {
+    const value = values[0]!;
+    return value.known && typeof value.value === "boolean"
+      ? { known: true, value: !value.value }
+      : UNKNOWN_VALUE;
+  }
+  if (name === "and" && values.length >= 2) {
+    if (values.some((value) => value.known && value.value === false)) {
+      return { known: true, value: false };
+    }
+    return values.every((value) => value.known && value.value === true)
+      ? { known: true, value: true }
+      : UNKNOWN_VALUE;
+  }
+  if (name === "or" && values.length >= 2) {
+    if (values.some((value) => value.known && value.value === true)) {
+      return { known: true, value: true };
+    }
+    return values.every((value) => value.known && value.value === false)
+      ? { known: true, value: false }
+      : UNKNOWN_VALUE;
+  }
+  if (name === "if" && node.arguments.length === 3) {
+    const condition = values[0]!;
+    return condition.known && typeof condition.value === "boolean"
+      ? values[condition.value ? 1 : 2]!
+      : isDeepStrictEqual(node.arguments[1], node.arguments[2])
+        ? values[1]!
+        : UNKNOWN_VALUE;
+  }
+  if (name === "coalesce" && values.length >= 2) {
+    for (const value of values) {
+      if (!value.known) {
+        return UNKNOWN_VALUE;
+      }
+      if (value.value !== null) {
+        return value;
+      }
+    }
+    return { known: true, value: null };
+  }
+  return UNKNOWN_VALUE;
+}
+
+function influentialChildren(
+  node: NormalizedCallExpression,
+): readonly NormalizedExpressionNode[] {
+  if (staticExpressionValue(node).known) {
+    return [];
+  }
+  const name = node.name.toLowerCase();
+  if (name === "if" && node.arguments.length === 3) {
+    const condition = staticExpressionValue(node.arguments[0]!);
+    return condition.known && typeof condition.value === "boolean"
+      ? [node.arguments[condition.value ? 1 : 2]!]
+      : node.arguments;
+  }
+  if (name === "coalesce") {
+    const influential: NormalizedExpressionNode[] = [];
+    for (const argument of node.arguments) {
+      const value = staticExpressionValue(argument);
+      if (value.known && value.value === null) {
+        continue;
+      }
+      influential.push(argument);
+      if (value.known) {
+        break;
+      }
+    }
+    return influential;
+  }
+  if (name === "and") {
+    return node.arguments.filter((argument) => {
+      const value = staticExpressionValue(argument);
+      return !value.known || value.value !== true;
+    });
+  }
+  if (name === "or") {
+    return node.arguments.filter((argument) => {
+      const value = staticExpressionValue(argument);
+      return !value.known || value.value !== false;
+    });
+  }
+  if ([
+    "formatnumber",
+    "replace",
+    "string",
+    "substring",
+    "tolower",
+    "toupper",
+    "trim",
+  ].includes(name)) {
+    return node.arguments[0] === undefined ? [] : [node.arguments[0]];
+  }
+  return [
+    "concat",
+    "contains",
+    "createarray",
+    "empty",
+    "equals",
+    "greater",
+    "greaterorequals",
+    "length",
+    "less",
+    "lessorequals",
+    "not",
+  ].includes(name)
+    ? node.arguments
+    : [];
+}
+
+function influentialNodes(
+  node: NormalizedExpressionNode,
+): readonly NormalizedExpressionNode[] {
+  return node.kind === "call"
+    ? [node, ...influentialChildren(node).flatMap(influentialNodes)]
+    : [node];
+}
+
+function hasInfluentialReference(
+  node: NormalizedExpressionNode,
+  predicate: (candidate: NormalizedExpressionNode) => boolean,
+): boolean {
+  return predicate(node)
+    || node.kind === "call" && influentialChildren(node)
+      .some((child) => hasInfluentialReference(child, predicate));
+}
+
 function conjuncts(
   node: NormalizedExpressionNode,
 ): readonly NormalizedExpressionNode[] | undefined {
+  const constant = staticExpressionValue(node);
+  if (constant.known && typeof constant.value === "boolean") {
+    return constant.value ? [] : undefined;
+  }
   if (isCall(node) && isNamedCall(node, "or")) {
     return undefined;
   }
@@ -137,13 +328,12 @@ function allowlistPredicate(node: NormalizedExpressionNode): boolean {
 
 function digestExpression(action: NormalizedAction): boolean {
   return expressionRoots(action).some((root) =>
-    walkExpression(root).some((node) =>
+    influentialNodes(root).some((node) =>
       node.kind === "call"
       && ["digest", "hash", "sha256"].includes(node.name.toLowerCase())
       && node.arguments.some((argument) =>
-        walkExpression(argument).some((part) =>
-          referencePathMatches(part, /(?:plan|target)/i)
-        )
+        hasInfluentialReference(argument, (part) =>
+          referencePathMatches(part, /(?:plan|target)/i))
       )
     )
   );

@@ -7,6 +7,7 @@ import {
   type ReportFinding,
 } from "../parse-args.ts";
 import { validateOfflineRepository } from "./offline-validation.ts";
+import { scanPublicDataCommand } from "./scan-public-data.ts";
 
 const OFFLINE_RESIDUAL_GATES = [
   "tenant-import",
@@ -18,7 +19,10 @@ const OFFLINE_RESIDUAL_GATES = [
   "publication-readback",
 ] as const;
 
-export function createVerifyCommand(steps: readonly CommandHandler[]): CommandHandler {
+export function createVerifyCommand(
+  steps: readonly CommandHandler[],
+  publicDataStep: CommandHandler = scanPublicDataCommand,
+): CommandHandler {
   return {
     async run(args) {
       const parsed = parseCliArgs(args);
@@ -50,6 +54,12 @@ export function createVerifyCommand(steps: readonly CommandHandler[]): CommandHa
       for (const step of steps) {
         reports.push(await step.run(args));
       }
+      reports.push(await publicDataStep.run([
+        "scan",
+        "public-data",
+        parsed.root,
+        "--history",
+      ]));
       for (const report of reports) {
         if (report.result === "PASS") {
           completedSteps += 1;
@@ -68,6 +78,9 @@ export function createVerifyCommand(steps: readonly CommandHandler[]): CommandHa
           findings.push(...report.diagnostics.map((diagnostic) => ({
             ...diagnostic,
             exitCode: report.exitCode,
+            ...(report.exitCode === 8 && diagnostic.residualGate !== undefined
+              ? { notRun: true }
+              : {}),
           })));
         }
       }

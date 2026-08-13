@@ -146,24 +146,60 @@ describe("CLI command shells", () => {
     }
   });
 
-  test("orchestrates reports and marks tenant residual gates NOT_RUN offline", async () => {
+  test("orchestrates local steps then the public-data gate in fixed offline order", async () => {
     const root = await mkdtemp(join(tmpdir(), "spflow-cli-verify-"));
     try {
       await mkdir(root, { recursive: true });
+      const calls: string[] = [];
       const step: CommandHandler = {
         async run() {
+          calls.push("local");
           return createCommandReport("synthetic step", []);
         },
       };
-      const command = createVerifyCommand([step, step]);
+      const scanner: CommandHandler = {
+        async run(args) {
+          calls.push("public-data");
+          assert.deepEqual(args, ["scan", "public-data", root, "--history"]);
+          return createCommandReport("scan public-data", []);
+        },
+      };
+      const command = createVerifyCommand([step, step], scanner);
 
       const report = await command.run(["verify", "--root", root, "--offline"]);
 
+      assert.deepEqual(calls, ["local", "local", "public-data"]);
       assert.equal(report.exitCode, 0);
       assert.equal(report.result, "PASS");
       assert.ok(report.summary.notRun > 0);
       assert.ok(report.diagnostics.every(({ residualGate }) => residualGate !== undefined));
       assert.ok(report.diagnostics.every(({ code }) => code.endsWith("_NOT_RUN")));
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("preserves unavailable public-data validation as non-successful NOT_RUN", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-cli-verify-deferred-"));
+    try {
+      const localStep: CommandHandler = {
+        async run() {
+          return createCommandReport("synthetic local step", []);
+        },
+      };
+      const command = createVerifyCommand([localStep], scanPublicDataCommand);
+
+      const report = await command.run(["verify", "--root", root, "--offline"]);
+
+      assert.equal(report.exitCode, 8);
+      assert.equal(report.result, "FAIL");
+      assert.equal(report.summary.notRun, 8);
+      assert.ok(report.diagnostics.some(({ code, residualGate }) =>
+        code === "CLI_VALIDATOR_NOT_RUN" && residualGate === "public-data-scanner"
+      ));
+      assert.equal(report.diagnostics.some(({ code }) =>
+        code === "PUBLIC_DATA_SCANNER_PASS"
+      ), false);
     } finally {
       await rm(root, { recursive: true, force: true });
     }

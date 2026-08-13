@@ -231,6 +231,43 @@ describe("package adapter action graph", () => {
     }
   });
 
+  test("rejects unknown WDL functions and invalid supported-function arity", () => {
+    for (const unsupported of [
+      "@unknownFunction('synthetic')",
+      "@equals(true)",
+      "@not(true, false)",
+      "@triggerBody('synthetic')",
+      "@outputs()",
+      "@if(true, 'selected')",
+      "@concat()",
+    ]) {
+      assert.throws(
+        () => parseWdlExpression(unsupported),
+        (error: unknown) => error instanceof Error
+          && "code" in error
+          && error.code === "PA-WDL-001"
+          && error.message === "Workflow expression is malformed or unsupported.",
+        unsupported,
+      );
+    }
+  });
+
+  test("preserves the established supported WDL subset at valid arities", () => {
+    for (const supported of [
+      "@equals(outputs('Authorize'), 'Synthetic')",
+      "@if(equals(length(body('Lookup')?['value']), 0), concat('Synthetic', 'Value'), string(triggerBody()?['TargetId']))",
+      "@and(not(empty(triggerOutputs()?['body']?['TargetId'])), contains(createArray('Synthetic'), 'Synthetic'))",
+      "@coalesce(null, trim(toLower(toUpper('Synthetic'))))",
+      "@replace(substring('Synthetic', 0, 4), 'S', 's')",
+      "@formatNumber(1, '0')",
+      "@lessOrEquals(1, 2)",
+      "@greater(2, 1)",
+      "@sha256(string(triggerBody()?['Plan']))",
+    ]) {
+      assert.doesNotThrow(() => parseWdlExpression(supported), supported);
+    }
+  });
+
   test("sanitizes normalized flow and action identifiers in adapter diagnostics", () => {
     const flowId = "SensitiveFlowIdentifier";
     const actionId = "SensitiveActionIdentifier";

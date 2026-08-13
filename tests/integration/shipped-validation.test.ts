@@ -108,6 +108,7 @@ function semanticProcessorActions(
   readbackOperationId: string,
   readbackTarget: ConnectorTarget = {},
   predicates: {
+    readonly key?: string;
     readonly emptyGuard?: string;
     readonly zeroCardinality?: string;
   } = {},
@@ -116,7 +117,8 @@ function semanticProcessorActions(
     DeriveKey: {
       type: "Compose",
       runAfter: {},
-      inputs: "@concat(triggerBody()?['TargetId'], ':', triggerBody()?['CommandType'])",
+      inputs: predicates.key
+        ?? "@concat(triggerBody()?['TargetId'], ':', triggerBody()?['CommandType'])",
     },
     GuardEmpty: {
       type: "If",
@@ -187,6 +189,10 @@ function semanticProcessorActions(
 
 function destructiveProcessorActions(
   approvalExpression: string,
+  options: {
+    readonly digestExpression?: string;
+    readonly dryRunExpression?: string;
+  } = {},
 ): Readonly<Record<string, RawAction>> {
   return {
     DeriveKey: {
@@ -208,7 +214,8 @@ function destructiveProcessorActions(
             DryRun: {
               type: "If",
               runAfter: {},
-              expression: "@equals(triggerBody()?['DryRun'], true)",
+              expression: options.dryRunExpression
+                ?? "@equals(triggerBody()?['DryRun'], true)",
               actions: {},
               else: {
                 actions: {
@@ -220,7 +227,8 @@ function destructiveProcessorActions(
                       PlanDigest: {
                         type: "Compose",
                         runAfter: {},
-                        inputs: "@sha256(string(triggerBody()?['Plan']))",
+                        inputs: options.digestExpression
+                          ?? "@sha256(string(triggerBody()?['Plan']))",
                       },
                       Approval: {
                         type: "If",
@@ -801,10 +809,14 @@ describe("WP-05S shipped offline validation", () => {
       assert.equal(contract.report.result, "PASS", contract.stdout);
       assert.equal(rules.report.result, "PASS", rules.stdout);
       assert.equal(artifact.report.result, "PASS", artifact.stdout);
-      assert.equal(verify.report.result, "PASS", verify.stdout);
+      assert.equal(verify.exitCode, 8, verify.stdout);
+      assert.equal(verify.report.result, "FAIL", verify.stdout);
       assert.equal(rules.report.summary.notRun, 0);
       assert.equal(artifact.report.summary.notRun, 0);
-      assert.ok(verify.report.summary.notRun > 0);
+      assert.equal(verify.report.summary.notRun, 8);
+      assert.ok(verify.report.diagnostics.some(({ code, residualGate }) =>
+        code === "CLI_VALIDATOR_NOT_RUN" && residualGate === "public-data-scanner"
+      ));
       assert.ok(verify.report.diagnostics
         .filter(({ residualGate }) => residualGate !== undefined)
         .every(({ code }) => code.endsWith("_NOT_RUN")));
@@ -888,11 +900,14 @@ describe("WP-05S shipped offline validation", () => {
     });
   });
 
-  test("built validation rejects malformed WDL argument structure and trailing tokens", async () => {
+  test("built validation rejects malformed, unknown, and invalid-arity WDL calls", async () => {
     for (const expression of [
       "@equals(1 2)",
       "@equals(1, 2) trailing",
       "@concat('a',, 'b')",
+      "@unknownFunction('synthetic')",
+      "@equals(true)",
+      "@triggerBody('synthetic')",
     ]) {
       await withProject({
         actions: { Evaluate: { type: "Compose", runAfter: {}, inputs: expression } },
@@ -988,6 +1003,60 @@ describe("WP-05S shipped offline validation", () => {
 
         assert.equal(result.exitCode, 1, result.stdout);
         assert.ok(diagnosticCodes(result).includes("FLOW-STATUS-001"), result.stdout);
+        assert.equal(result.stdout.includes(privateFlowId), false);
+      });
+    });
+  }
+
+  test("WP-05 follow-up: built validation rejects key fields in irrelevant branches", async () => {
+    const privateFlowId = "sensitive-irrelevant-key-branches";
+    await withProject({
+      flowId: privateFlowId,
+      processor: true,
+      connectionReference: true,
+      actions: semanticProcessorActions("GetItem", {}, {
+        key: "@concat(if(true, 'fixed-target', triggerBody()?['TargetId']), ':', if(equals('fixed', 'fixed'), 'fixed-command', triggerBody()?['CommandType']))",
+      }),
+    }, async (project) => {
+      const result = await runCli([
+        "validate", "rules", "--root", project.root, "--format", "json",
+      ]);
+
+      assert.equal(result.exitCode, 1, result.stdout);
+      assertDiagnosticCodes(result, ["FLOW-IDEMPOTENCY-001"]);
+      assert.equal(result.stdout.includes(privateFlowId), false);
+    });
+  });
+
+  for (const [scenario, options] of [
+    ["dominating dry-run constant", {
+      dryRunExpression: "@and(equals(triggerBody()?['DryRun'], true), equals('fixed', 'different'))",
+    }],
+    ["unselected digest field", {
+      digestExpression: "@sha256(if(true, 'fixed-plan', triggerBody()?['Plan']))",
+    }],
+  ] as const) {
+    test(`WP-05 follow-up: built validation rejects ${scenario}`, async () => {
+      const privateFlowId = `sensitive-${scenario.replaceAll(" ", "-")}`;
+      await withProject({
+        flowId: privateFlowId,
+        processor: true,
+        destructive: true,
+        connectionReference: true,
+        actions: destructiveProcessorActions(
+          "@equals(triggerBody()?['ApprovalToken'], triggerBody()?['PlanDigest'])",
+          options,
+        ),
+      }, async (project) => {
+        const result = await runCli([
+          "validate", "rules", "--root", project.root, "--format", "json",
+        ]);
+
+        assert.equal(result.exitCode, 1, result.stdout);
+        assert.ok(
+          diagnosticCodes(result).includes("FLOW-DESTRUCTIVE-001"),
+          result.stdout,
+        );
         assert.equal(result.stdout.includes(privateFlowId), false);
       });
     });

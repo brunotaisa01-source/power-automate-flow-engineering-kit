@@ -95,6 +95,7 @@ function connector(
 }
 
 function idempotencyActions(options: {
+  readonly keyExpression?: string;
   readonly emptyGuardExpression?: string;
   readonly zeroCardinalityExpression?: string;
 } = {}): Readonly<Record<string, RawAction>> {
@@ -102,7 +103,8 @@ function idempotencyActions(options: {
     DeriveKey: {
       type: "Compose",
       runAfter: {},
-      inputs: "@concat(triggerBody()?['TargetId'], ':', triggerBody()?['CommandType'])",
+      inputs: options.keyExpression
+        ?? "@concat(triggerBody()?['TargetId'], ':', triggerBody()?['CommandType'])",
     },
     GuardEmpty: {
       type: "If",
@@ -145,12 +147,19 @@ function idempotencyActions(options: {
   };
 }
 
-function destructiveActions(approvalExpression: string): Readonly<Record<string, RawAction>> {
+function destructiveActions(
+  approvalExpression: string,
+  options: {
+    readonly digestExpression?: string;
+    readonly dryRunExpression?: string;
+  } = {},
+): Readonly<Record<string, RawAction>> {
   return {
     DryRun: {
       type: "If",
       runAfter: {},
-      expression: "@equals(triggerBody()?['DryRun'], true)",
+      expression: options.dryRunExpression
+        ?? "@equals(triggerBody()?['DryRun'], true)",
       actions: {},
       else: {
         actions: {
@@ -162,7 +171,8 @@ function destructiveActions(approvalExpression: string): Readonly<Record<string,
               PlanDigest: {
                 type: "Compose",
                 runAfter: {},
-                inputs: "@sha256(string(triggerBody()?['Plan']))",
+                inputs: options.digestExpression
+                  ?? "@sha256(string(triggerBody()?['Plan']))",
               },
               Approval: {
                 type: "If",
@@ -482,6 +492,47 @@ describe("WP-05R real adapter boundary counterexamples", () => {
     assert.deepEqual(await diagnostics("FLOW-IDEMPOTENCY-001", context), []);
   });
 
+  test("FLOW-IDEMPOTENCY-001 rejects key fields confined to statically irrelevant branches", async () => {
+    const context = await inspectedContext(flowDefinition(
+      idempotencyActions({
+        keyExpression: "@concat(if(true, 'fixed-target', triggerBody()?['TargetId']), ':', if(equals('fixed', 'fixed'), 'fixed-command', triggerBody()?['CommandType']))",
+      }),
+      ["synthetic_connection"],
+    ));
+
+    assert.deepEqual(await diagnostics("FLOW-IDEMPOTENCY-001", context), [{
+      code: "FLOW-IDEMPOTENCY-001",
+      path: `${PACKAGE_PATH}#/flows/<flow>/idempotency`,
+      message: "Flow does not provide a deterministic non-empty key with explicit zero, one, and many handling.",
+    }]);
+  });
+
+  test("FLOW-IDEMPOTENCY-001 rejects key fields confined to tautological comparisons", async () => {
+    const context = await inspectedContext(flowDefinition(
+      idempotencyActions({
+        keyExpression: "@concat(less(triggerBody()?['TargetId'], triggerBody()?['TargetId']), ':', greaterOrEquals(triggerBody()?['CommandType'], triggerBody()?['CommandType']))",
+      }),
+      ["synthetic_connection"],
+    ));
+
+    assert.deepEqual(await diagnostics("FLOW-IDEMPOTENCY-001", context), [{
+      code: "FLOW-IDEMPOTENCY-001",
+      path: `${PACKAGE_PATH}#/flows/<flow>/idempotency`,
+      message: "Flow does not provide a deterministic non-empty key with explicit zero, one, and many handling.",
+    }]);
+  });
+
+  test("FLOW-IDEMPOTENCY-001 accepts key fields in statically selected runtime branches", async () => {
+    const context = await inspectedContext(flowDefinition(
+      idempotencyActions({
+        keyExpression: "@concat(if(true, triggerBody()?['TargetId'], 'fixed-target'), ':', if(false, 'fixed-command', triggerBody()?['CommandType']))",
+      }),
+      ["synthetic_connection"],
+    ));
+
+    assert.deepEqual(await diagnostics("FLOW-IDEMPOTENCY-001", context), []);
+  });
+
   for (const [scenario, options] of [
     ["non-empty key", {
       emptyGuardExpression: "@and(equals(outputs('DeriveKey'), outputs('DeriveKey')), not(empty(triggerBody()?['Unrelated'])))",
@@ -503,6 +554,21 @@ describe("WP-05R real adapter boundary counterexamples", () => {
       }]);
     });
   }
+
+  test("FLOW-DESTRUCTIVE-001 accepts selected runtime dataflow with a constant identity conjunct", async () => {
+    const context = await inspectedContext(flowDefinition(
+      destructiveActions(
+        "@equals(triggerBody()?['ApprovalToken'], triggerBody()?['PlanDigest'])",
+        {
+          dryRunExpression: "@and(equals(triggerBody()?['DryRun'], true), true)",
+          digestExpression: "@sha256(if(false, 'fixed-plan', string(triggerBody()?['Plan'])))",
+        },
+      ),
+      ["synthetic_connection"],
+    ));
+
+    assert.deepEqual(await diagnostics("FLOW-DESTRUCTIVE-001", context), []);
+  });
 
   test("FLOW-DESTRUCTIVE-001 rejects label-only gate operations", async () => {
     const labeled = (
@@ -563,6 +629,34 @@ describe("WP-05R real adapter boundary counterexamples", () => {
 
     assert.deepEqual(await diagnostics("FLOW-DESTRUCTIVE-001", context), []);
   });
+
+  for (const [scenario, options] of [
+    ["dry-run field behind a dominating false conjunct", {
+      dryRunExpression: "@and(equals(triggerBody()?['DryRun'], true), equals('fixed', 'different'))",
+    }],
+    ["plan field in a statically unselected digest branch", {
+      digestExpression: "@sha256(if(true, 'fixed-plan', triggerBody()?['Plan']))",
+    }],
+    ["plan field in a tautological digest comparison", {
+      digestExpression: "@sha256(string(less(triggerBody()?['Plan'], triggerBody()?['Plan'])))",
+    }],
+  ] as const) {
+    test(`FLOW-DESTRUCTIVE-001 rejects ${scenario}`, async () => {
+      const context = await inspectedContext(flowDefinition(
+        destructiveActions(
+          "@equals(triggerBody()?['ApprovalToken'], triggerBody()?['PlanDigest'])",
+          options,
+        ),
+        ["synthetic_connection"],
+      ));
+
+      assert.deepEqual(await diagnostics("FLOW-DESTRUCTIVE-001", context), [{
+        code: "FLOW-DESTRUCTIVE-001",
+        path: `${PACKAGE_PATH}#/flows/<flow>/destructiveGates`,
+        message: "Destructive flow lacks required authorization, audit, readback, or compensation evidence.",
+      }]);
+    });
+  }
 
   test("FLOW-DESTRUCTIVE-001 rejects a tautological approval label with an irrelevant runtime reference", async () => {
     const context = await inspectedContext(flowDefinition(
