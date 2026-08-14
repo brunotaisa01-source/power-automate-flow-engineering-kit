@@ -439,7 +439,7 @@ async function freshDigest(listId, itemUrl, siteUrl) {
 export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) {
   const item = listResourceUrl(listId, itemUrl);
   const body = allowlistedPatch(listId, patch);
-  if (typeof etag !== "string" || !/^"(?:[^"\\\\]|\\\\.)+"$/.test(etag)) throw new Error("invalid-etag");
+  if (typeof etag !== "string" || etag === '"*"' || /[\\u0000-\\u001f\\u007f]/.test(etag) || !/^"(?:[^"\\\\]|\\\\.)+"$/.test(etag)) throw new Error("invalid-etag");
   const currentResponse = await globalThis.fetch(item, { method: "GET" });
   if (!currentResponse.ok || currentResponse.status !== 200) throw new Error("etag-read-failed");
   const currentBody = await currentResponse.json();
@@ -3097,6 +3097,161 @@ describe("WP-06 raw artifact authority", () => {
       ]);
     } finally {
       await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("WP15 RED: a builder flow inside a constant-false branch cannot create trusted sections", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-wp15-builder-unreachable-"));
+    const value = contract(BUILDER_RULES, true);
+    const definition = builderDefinition() as any;
+    const originalActions = definition.properties.definition.actions;
+    definition.properties.definition.actions = {
+      UnreachableGate: {
+        type: "If",
+        expression: "@equals(1,0)",
+        actions: originalActions,
+        else: failureElse("UnreachableGateFailed"),
+      },
+    };
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const context = await validationContext(root, value);
+
+      assert.equal(
+        context.adapterEvidence.wp06Derivations?.some(({ sourceKind }) => sourceKind === "builder"),
+        false,
+      );
+      assert.deepEqual(
+        (await diagnostics(context, BUILDER_RULES)).map(({ code }) => code),
+        BUILDER_RULES,
+      );
+
+      const result = await runBuiltCli(root);
+      assert.notEqual(result.exitCode, 0, result.stdout);
+      assert.equal(result.report.result, "FAIL", result.stdout);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("WP15 RED: nested constant-false branches cannot create builder authority", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-wp15-builder-nested-unreachable-"));
+    const value = contract(BUILDER_RULES, true);
+    const definition = builderDefinition() as any;
+    const originalActions = definition.properties.definition.actions;
+    definition.properties.definition.actions = {
+      ReachableOuterGate: {
+        type: "If",
+        expression: "@equals(1,1)",
+        actions: {
+          UnreachableInnerGate: {
+            type: "If",
+            expression: "@or(@equals(1,0),false)",
+            actions: originalActions,
+            else: failureElse("UnreachableInnerGateFailed"),
+          },
+        },
+        else: failureElse("ReachableOuterGateFailed"),
+      },
+    };
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const context = await validationContext(root, value);
+
+      assert.equal(
+        context.adapterEvidence.wp06Derivations?.some(({ sourceKind }) => sourceKind === "builder"),
+        false,
+      );
+      assert.deepEqual(
+        (await diagnostics(context, BUILDER_RULES)).map(({ code }) => code),
+        BUILDER_RULES,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("WP15 positive control: a reachable builder flow retains trusted sections", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-wp15-builder-reachable-"));
+    const value = contract(BUILDER_RULES, true);
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, builderDefinition());
+      const context = await validationContext(root, value);
+
+      assert.ok(
+        context.adapterEvidence.wp06Derivations?.some(({ sourceKind }) => sourceKind === "builder"),
+      );
+      assert.deepEqual(await diagnostics(context, BUILDER_RULES), []);
+      const result = await runBuiltCli(root);
+      assert.equal(result.exitCode, 0, result.stdout);
+      assert.equal(result.report.result, "PASS", result.stdout);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("WP15 RED: Save rejects every HTTP header control character but accepts a concrete quoted ETag", async () => {
+    const moduleUrl = `data:text/javascript;base64,${Buffer.from(FRONTEND_SOURCE).toString("base64")}#wp15-etag-boundaries`;
+    const frontend = await import(moduleUrl) as {
+      saveSharePointItem: (
+        listId: string,
+        itemUrl: string,
+        etag: string,
+        patch: Record<string, unknown>,
+        siteUrl: string,
+      ) => Promise<unknown>;
+    };
+    const siteUrl = "https://example.test/sites/app";
+    const itemUrl = `${siteUrl}/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)`;
+    const originalFetch = globalThis.fetch;
+    let fetchCalls = 0;
+    globalThis.fetch = (async () => {
+      fetchCalls += 1;
+      return { ok: true, status: 200, json: async () => ({ "@odata.etag": '"synthetic-etag"' }) } as Response;
+    }) as typeof fetch;
+    try {
+      const invalidEtags = [
+        '"synthetic-etag\n"',
+        '"synthetic-etag\r"',
+        '"synthetic-etag\u0000"',
+        '"synthetic-etag\u0001"',
+        '"synthetic-etag\u001f"',
+        '"synthetic-etag\u007f"',
+        '"synthetic-etag',
+        'synthetic-etag"',
+        'W/"synthetic-etag"',
+        '"*"',
+      ];
+      for (const etag of invalidEtags) {
+        await assert.rejects(
+          frontend.saveSharePointItem("protected-items", itemUrl, etag, { Title: "Expected" }, siteUrl),
+          /invalid-etag/,
+          JSON.stringify(etag),
+        );
+      }
+      assert.equal(fetchCalls, 0);
+
+      const requests: Array<{ readonly input: string; readonly init?: RequestInit }> = [];
+      const responses = [
+        { ok: true, status: 200, json: async () => ({ "@odata.etag": '"synthetic-etag"' }) },
+        { ok: true, status: 200, json: async () => ({ FormDigestValue: "synthetic-digest" }) },
+        { ok: true, status: 204, json: async () => ({}) },
+        { ok: true, status: 200, json: async () => ({ Title: "Expected" }) },
+      ];
+      globalThis.fetch = (async (input, init) => {
+        requests.push({ input: input.toString(), init });
+        return responses.shift() as Response;
+      }) as typeof fetch;
+      assert.deepEqual(
+        await frontend.saveSharePointItem("protected-items", itemUrl, '"synthetic-etag"', { Title: "Expected" }, siteUrl),
+        { Title: "Expected" },
+      );
+      assert.equal((requests[2]?.init?.headers as Record<string, string>)?.["IF-MATCH"], '"synthetic-etag"');
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 });

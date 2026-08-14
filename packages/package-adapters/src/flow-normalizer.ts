@@ -4,6 +4,7 @@ import type {
   NormalizedControlBranch,
   NormalizedConnector,
   NormalizedExpression,
+  NormalizedExpressionNode,
   NormalizedFlow,
   NormalizedRetryPolicy,
   NormalizedRunAfter,
@@ -26,6 +27,12 @@ export interface NormalizeFlowOptions {
 
 type UnknownRecord = Record<string, unknown>;
 
+type StaticExpressionValue =
+  | { readonly known: false }
+  | { readonly known: true; readonly value: unknown };
+
+const UNKNOWN_VALUE: StaticExpressionValue = Object.freeze({ known: false });
+
 function isRecord(value: unknown): value is UnknownRecord {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -43,6 +50,125 @@ function requireRecord(value: unknown): UnknownRecord {
     throw new TypeError("Flow definition contains an unsupported structure.");
   }
   return value;
+}
+
+function staticExpressionValue(node: NormalizedExpressionNode): StaticExpressionValue {
+  if (node.kind === "literal") {
+    return { known: true, value: node.value };
+  }
+  if (node.kind !== "call") {
+    return UNKNOWN_VALUE;
+  }
+  const name = node.name.toLowerCase();
+  const values = node.arguments.map(staticExpressionValue);
+  if (name === "equals" && node.arguments.length === 2) {
+    const left = values[0];
+    const right = values[1];
+    return left?.known && right?.known
+      ? { known: true, value: Object.is(left.value, right.value) }
+      : UNKNOWN_VALUE;
+  }
+  if (
+    ["greater", "greaterorequals", "less", "lessorequals"].includes(name)
+    && node.arguments.length === 2
+  ) {
+    const left = values[0];
+    const right = values[1];
+    if (
+      left?.known
+      && right?.known
+      && typeof left.value === "number"
+      && typeof right.value === "number"
+    ) {
+      const result = name === "greater"
+        ? left.value > right.value
+        : name === "greaterorequals"
+          ? left.value >= right.value
+          : name === "less"
+            ? left.value < right.value
+            : left.value <= right.value;
+      return { known: true, value: result };
+    }
+    return UNKNOWN_VALUE;
+  }
+  if (name === "not" && values.length === 1) {
+    const value = values[0];
+    return value?.known && typeof value.value === "boolean"
+      ? { known: true, value: !value.value }
+      : UNKNOWN_VALUE;
+  }
+  if (name === "and" && values.length >= 2) {
+    if (values.some((value) => value.known && value.value === false)) {
+      return { known: true, value: false };
+    }
+    return values.every((value) => value.known && value.value === true)
+      ? { known: true, value: true }
+      : UNKNOWN_VALUE;
+  }
+  if (name === "or" && values.length >= 2) {
+    if (values.some((value) => value.known && value.value === true)) {
+      return { known: true, value: true };
+    }
+    return values.every((value) => value.known && value.value === false)
+      ? { known: true, value: false }
+      : UNKNOWN_VALUE;
+  }
+  if (name === "if" && values.length === 3) {
+    const condition = values[0];
+    return condition?.known && typeof condition.value === "boolean"
+      ? values[condition.value ? 1 : 2] ?? UNKNOWN_VALUE
+      : UNKNOWN_VALUE;
+  }
+  return UNKNOWN_VALUE;
+}
+
+function constantConditionValue(
+  type: string,
+  action: UnknownRecord,
+  expressions: readonly NormalizedExpression[],
+): boolean | undefined {
+  if (!["condition", "if"].includes(type.toLowerCase())) {
+    return undefined;
+  }
+  const directExpression = isRecord(action.inputs) ? action.inputs.expression : undefined;
+  if (typeof directExpression === "string") {
+    const normalized = directExpression.trim().toLowerCase();
+    if (normalized === "true") return true;
+    if (normalized === "false") return false;
+  }
+  if (expressions.length !== 1 || expressions[0]?.valid !== true || expressions[0].root === undefined) {
+    return undefined;
+  }
+  const result = staticExpressionValue(expressions[0].root);
+  return result.known && typeof result.value === "boolean" ? result.value : undefined;
+}
+
+type ControlReachability = "reachable" | "unreachable" | "unknown";
+
+function childReachability(
+  parent: {
+    readonly reachability: ControlReachability;
+    readonly type: string;
+    readonly conditionValue?: boolean;
+  },
+  branch: NormalizedControlBranch,
+): ControlReachability {
+  if (parent.reachability === "unreachable") {
+    return "unreachable";
+  }
+  if (!["condition", "if"].includes(parent.type.toLowerCase())) {
+    return parent.reachability;
+  }
+  if (parent.conditionValue === undefined) {
+    return "unknown";
+  }
+  if (branch === "condition-true") {
+    return parent.conditionValue ? "reachable" : "unreachable";
+  }
+  if (branch === "condition-false") {
+    return parent.conditionValue ? "unreachable" : "reachable";
+  }
+  return "unknown";
 }
 
 function cloneAndFreeze(value: unknown): unknown {
@@ -340,6 +466,8 @@ export function normalizeFlow(
       readonly id: string;
       readonly type: string;
       readonly controlBranch: NormalizedControlBranch;
+      readonly reachability: ControlReachability;
+      readonly conditionValue?: boolean;
     },
     containerId = "$",
   ): void => {
@@ -360,6 +488,10 @@ export function normalizeFlow(
       const retryPolicy = normalizeRetryPolicy(action);
       const expressions = ownExpressions(action);
       const status = terminationStatus(action);
+      const reachability = parent === undefined
+        ? "reachable" as const
+        : childReachability(parent, parent.controlBranch);
+      const conditionValue = constantConditionValue(type, action, expressions);
       const normalized: NormalizedAction = Object.freeze({
         id,
         type,
@@ -370,6 +502,7 @@ export function normalizeFlow(
           parentType: parent.type,
           controlBranch: parent.controlBranch,
         }),
+        controlReachability: reachability,
         runAfter: normalizeRunAfter(action.runAfter),
         expressionPointers: Object.freeze(expressions.map(({ pointer }) => pointer)),
         expressions,
@@ -386,7 +519,13 @@ export function normalizeFlow(
       for (const nested of nestedActionRecords(action, type)) {
         visitActions(
           nested.actions,
-          { id, type, controlBranch: nested.controlBranch },
+          {
+            id,
+            type,
+            controlBranch: nested.controlBranch,
+            reachability,
+            ...(conditionValue === undefined ? {} : { conditionValue }),
+          },
           `${containerId}/${pointerSegment(id)}/${nested.segment}`,
         );
       }

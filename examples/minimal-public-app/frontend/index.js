@@ -51,7 +51,7 @@ async function freshDigest(listId, itemUrl, siteUrl) {
 export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) {
   const item = listResourceUrl(listId, itemUrl);
   const body = allowlistedPatch(listId, patch);
-  if (typeof etag !== "string" || !/^"(?:[^"\\]|\\.)+"$/.test(etag)) throw new Error("invalid-etag");
+  if (typeof etag !== "string" || etag === '"*"' || /[\u0000-\u001f\u007f]/.test(etag) || !/^"(?:[^"\\]|\\.)+"$/.test(etag)) throw new Error("invalid-etag");
   const currentResponse = await globalThis.fetch(item, { method: "GET" });
   if (!currentResponse.ok || currentResponse.status !== 200) throw new Error("etag-read-failed");
   const currentBody = await currentResponse.json();

@@ -15,7 +15,7 @@ inventories, and safely inspect native solution ZIP bytes. Repository-authored
 evidence, source IR, projections, and JSON stored under a `.zip` name cannot
 authorize a production PASS.
 
-WP-13 local hardening recognizes a deliberately narrow executable grammar.
+WP-15 local hardening recognizes a deliberately narrow executable grammar.
 Frontend authority requires a parser-clean, closed module inventory and exact
 supported AST shapes whose network calls use the unshadowed
 `globalThis.fetch` API. The accepted Save shape rejects empty, unknown, or
@@ -46,9 +46,17 @@ grant readback binds principal and role in one assignment, while effective
 permissions are checked against native `High`/`Low` masks.
 Protected authorization facts are emitted only when Owner and Amount contract
 fields are selected by the target GET and consumed by the reachable guard.
-Before any builder section is emitted, every normalized action is inspected;
-an unsupported connector, ambiguous HTTP method, or mutating action outside
-the exact contract-derived action set suppresses the whole builder derivation.
+  Before any builder section is emitted, every normalized action is inspected;
+  an unsupported connector, ambiguous HTTP method, or mutating action outside
+  the exact contract-derived action set suppresses the whole builder derivation.
+  WP-15 also records control reachability during flow normalization. A
+  deterministic `false` condition, including constant contradictions such as
+  `equals(1,0)` and nested boolean contradictions, marks its descendant
+  actions unreachable; any unreachable action suppresses builder authority.
+  Data-dependent conditions remain runtime-conditional and continue through the
+  existing structural and lineage checks. Frontend Save authority rejects the
+  wildcard ETag and every C0 or DEL header character, including characters
+  inside quoted values, before any request is sent.
 Unsupported or ambiguous structures produce no trusted derivation. A compiled
 CLI process covers the fourteen contract-required WP-06 rules from raw
 synthetic files and real ZIP bytes. This is not a release-readiness claim.

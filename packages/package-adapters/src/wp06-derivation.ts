@@ -358,7 +358,7 @@ function supportsSave(source: ts.SourceFile): boolean {
     && bodyMatches(save.body, [
       "const item = listResourceUrl(listId, itemUrl);",
       "const body = allowlistedPatch(listId, patch);",
-      'if (typeof etag !== "string" || !/^"(?:[^"\\\\]|\\\\.)+"$/.test(etag)) throw new Error("invalid-etag");',
+      'if (typeof etag !== "string" || etag === \'"*"\' || /[\\u0000-\\u001f\\u007f]/.test(etag) || !/^"(?:[^"\\\\]|\\\\.)+"$/.test(etag)) throw new Error("invalid-etag");',
       'const currentResponse = await globalThis.fetch(item, { method: "GET" });',
       'if (!currentResponse.ok || currentResponse.status !== 200) throw new Error("etag-read-failed");',
       "const currentBody = await currentResponse.json();",
@@ -1607,6 +1607,9 @@ function builderSections(
 ): ReadonlyMap<Wp06AdapterDerivation["section"], readonly unknown[]> | undefined {
   const flow = definition.flow;
   if (flow === undefined || definition.failure !== undefined) return undefined;
+  if ([...flow.actions.values()].some(({ controlReachability }) => controlReachability === "unreachable")) {
+    return undefined;
+  }
   const roleNames = [...flow.actions.values()]
     .map(({ declaredRole }) => declaredRole)
     .filter((role): role is string => role !== undefined);

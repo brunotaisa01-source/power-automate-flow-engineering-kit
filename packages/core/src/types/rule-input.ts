@@ -83,6 +83,7 @@ export interface NormalizedAction {
   readonly parentId?: string;
   readonly parentType?: string;
   readonly controlBranch?: NormalizedControlBranch;
+  readonly controlReachability?: "reachable" | "unreachable" | "unknown";
   readonly runAfter: readonly NormalizedRunAfter[];
   readonly expressionPointers: readonly string[];
   readonly expressions: readonly NormalizedExpression[];
