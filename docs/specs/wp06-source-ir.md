@@ -81,9 +81,10 @@ must exist, every source must be an inventory member, and missing, extra,
 duplicated, escaping, or mismatched entries fail closed.
 
 Only exact source files from a valid inventory are parsed. Any parser error
-suppresses frontend derivation. The accepted profile is a closed seven-item
-module grammar: two immutable allowlist declarations followed by the five
-documented functions in fixed order. Each function header and body is compared
+suppresses frontend derivation. The accepted profile is a closed eight-item
+module grammar: two immutable allowlist declarations followed by the site
+boundary helper and five documented functions in fixed order. Each function
+header and body is compared
 as an AST shape, including calls, objects, conditions, loops, returns, throws,
 and data references. Extra declarations, aliases, branches, statements, parser
 recovery, or unsupported syntax fail closed.
@@ -94,18 +95,28 @@ explicit unshadowed form `globalThis.fetch`; arbitrary identifiers named
 `fetch`, local `globalThis` bindings, aliases, textual decoys, and unreachable
 operations are unsupported. The recognizer intentionally does not attempt a
 general JavaScript control-flow proof. Unsupported source produces no
-derivation. The Save profile rejects empty patches, unknown fields, and
-`undefined` values. An ambiguous response performs GET reconciliation and then
-fails; it does not report success. A successful Save requires `readback.ok`
-and exact status `200` before parsing the GET response, then requires every
-serialized write-body entry to match by field and value. Pagination parses the
-configured boundary and each continuation with the URL API, compares decoded
-path segments, and rejects sibling-prefix paths, malformed URLs, malformed
-continuation values, loops, cross-origin links, and page-limit overflow.
-The OData profile accepts only an equality expression for a field present in
-the list read allowlist. It converts the value to a quoted literal, doubles
-single quotes, and delegates percent encoding to `URLSearchParams`; raw filter
-fragments and arbitrary operators are outside the grammar.
+derivation. The `siteUrl` argument is the resolved value of the contract's
+`sharePoint.siteUrlBinding`; it is not a caller-selected authority. The site
+boundary helper rejects malformed configuration or candidate URLs, credentials,
+hashes, origin changes, and sibling-prefix paths using exact decoded path
+segments. Save validates the item URL before any request, obtains context info
+under the configured site path, and accepts a digest only when `response.ok`,
+the status is `2xx`, and `FormDigestValue` is a non-empty string. The Save
+profile rejects empty patches, unknown fields, and `undefined` values. An
+ambiguous response performs GET reconciliation and then fails; it does not
+report success. A successful Save requires `readback.ok` and exact status
+`200` before parsing the GET response, then requires every serialized write-body
+entry to match by field and value. Pagination parses the configured boundary
+and each continuation with the URL API, compares decoded path segments,
+requires a successful `2xx` response with an array `value` body before reading
+the continuation, and rejects sibling-prefix paths, malformed URLs, malformed
+response bodies, failed or unexpected statuses, malformed continuation values,
+loops, cross-origin links, and page-limit overflow. The OData profile accepts
+only an equality expression for a field present in the list read allowlist and
+requires its base URL to pass the same configured-site boundary. It converts
+the value to a quoted literal, doubles single quotes, and delegates percent
+encoding to `URLSearchParams`; raw filter fragments and arbitrary operators are
+outside the grammar.
 
 ## Definition And Package Authority
 

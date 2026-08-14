@@ -15,16 +15,22 @@ inventories, and safely inspect native solution ZIP bytes. Repository-authored
 evidence, source IR, projections, and JSON stored under a `.zip` name cannot
 authorize a production PASS.
 
-WP-12 local hardening recognizes a deliberately narrow executable grammar.
+WP-13 local hardening recognizes a deliberately narrow executable grammar.
 Frontend authority requires a parser-clean, closed module inventory and exact
 supported AST shapes whose network calls use the unshadowed
 `globalThis.fetch` API. The accepted Save shape rejects empty, unknown, or
 undefined patch entries and establishes semantic readback only through a
 successful `200` readback status check followed by a field-by-field comparison
-of the parsed GET response with the serialized write body. Pagination parses
-URLs, enforces the configured site path on exact decoded segment boundaries,
-and rejects malformed continuation values. The accepted OData shape is one
-allowlisted field equality with escaped
+of the parsed GET response with the serialized write body. Save, digest, and
+OData URLs must be resolved against the configured SharePoint site URL from
+the contract binding. The boundary check rejects malformed URLs, credentials,
+hashes, arbitrary origins, and sibling site-path prefixes using exact decoded
+path segments. A Save obtains `/_api/contextinfo` under that site path and
+accepts a digest only from a successful `2xx` response with a non-empty string
+value. Pagination parses URLs, enforces the configured site path on exact
+decoded segment boundaries, validates a successful `2xx` response and array
+body before consuming results, and rejects malformed continuation values. The
+accepted OData shape is one allowlisted field equality with escaped
 literal data; caller-supplied filter fragments are not accepted. Schema
 authority requires a complete contract-bound create payload, including
 type-specific Choice, Lookup, and DateTime properties, native SharePoint field

@@ -168,18 +168,37 @@ function policyDeclaration(statement: ts.Statement, name: string): boolean {
 
 function supportsFrontendInventory(source: ts.SourceFile): boolean {
   const names = [
+    "siteBoundaryUrl",
     "allowlistedPatch",
     "freshDigest",
     "saveSharePointItem",
     "loadAllSharePointPages",
     "buildSharePointODataUrl",
   ] as const;
-  return source.statements.length === 7
+  return source.statements.length === 8
     && policyDeclaration(source.statements[0]!, "PATCH_ALLOWLISTS")
     && policyDeclaration(source.statements[1]!, "READ_ALLOWLISTS")
     && source.statements.slice(2).every((statement, index) =>
       ts.isFunctionDeclaration(statement) && statement.name?.text === names[index]
     );
+}
+
+function supportsSiteBoundary(source: ts.SourceFile): boolean {
+  const helper = topLevelFunction(source, "siteBoundaryUrl");
+  return functionHeaderMatches(helper, "siteBoundaryUrl", ["candidate", "siteUrl"], [])
+    && bodyMatches(helper.body, [
+      `try {
+        const configured = new URL(siteUrl);
+        if ((configured.protocol !== "https:" && configured.protocol !== "http:") || configured.search || configured.hash || configured.username || configured.password) throw new Error("invalid-site");
+        const actual = new URL(candidate, configured);
+        const expectedSegments = configured.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+        const actualSegments = actual.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+        if (actual.origin !== configured.origin || actual.username || actual.password || actual.hash || actualSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => actualSegments[index] === segment)) throw new Error("invalid-site");
+        return actual;
+      } catch {
+        throw new Error("site-boundary");
+      }`,
+    ]);
 }
 
 function supportsPatchHelper(source: ts.SourceFile): boolean {
@@ -196,10 +215,15 @@ function supportsPatchHelper(source: ts.SourceFile): boolean {
 
 function supportsFreshDigest(source: ts.SourceFile): boolean {
   const helper = topLevelFunction(source, "freshDigest");
-  return functionHeaderMatches(helper, "freshDigest", ["itemUrl"], [ts.SyntaxKind.AsyncKeyword])
+  return functionHeaderMatches(helper, "freshDigest", ["itemUrl", "siteUrl"], [ts.SyntaxKind.AsyncKeyword])
     && bodyMatches(helper.body, [
-      'const response = await globalThis.fetch(new URL("/_api/contextinfo", itemUrl), { method: "POST" });',
+      "const item = siteBoundaryUrl(itemUrl, siteUrl);",
+      "const site = siteBoundaryUrl(siteUrl, siteUrl);",
+      'const digestUrl = new URL(site.pathname.replace(/\\/$/, "") + "/_api/contextinfo", site.origin);',
+      'const response = await globalThis.fetch(digestUrl, { method: "POST" });',
+      'if (!response.ok || response.status < 200 || response.status >= 300) throw new Error("digest-failed");',
       "const body = await response.json();",
+      'if (body === null || typeof body !== "object" || typeof body.FormDigestValue !== "string" || body.FormDigestValue.length === 0) throw new Error("digest-failed");',
       "return body.FormDigestValue;",
     ]);
 }
@@ -209,13 +233,14 @@ function supportsSave(source: ts.SourceFile): boolean {
   return functionHeaderMatches(
     save,
     "saveSharePointItem",
-    ["listId", "itemUrl", "etag", "patch"],
+    ["listId", "itemUrl", "etag", "patch", "siteUrl"],
     [ts.SyntaxKind.ExportKeyword, ts.SyntaxKind.AsyncKeyword],
   )
     && bodyMatches(save.body, [
+      "const item = siteBoundaryUrl(itemUrl, siteUrl);",
       "const body = allowlistedPatch(listId, patch);",
-      "const digest = await freshDigest(itemUrl);",
-      `const response = await globalThis.fetch(itemUrl, {
+      "const digest = await freshDigest(item, siteUrl);",
+      `const response = await globalThis.fetch(item, {
         method: "POST",
         headers: {
           "X-HTTP-Method": "MERGE",
@@ -226,10 +251,10 @@ function supportsSave(source: ts.SourceFile): boolean {
       });`,
       'if (response.status === 412) throw new Error("conflict");',
       `if (!response.ok) {
-        await globalThis.fetch(itemUrl, { method: "GET" });
+        await globalThis.fetch(item, { method: "GET" });
         throw new Error("ambiguous-write");
       }`,
-      'const readback = await globalThis.fetch(itemUrl, { method: "GET" });',
+      'const readback = await globalThis.fetch(item, { method: "GET" });',
       'if (!readback.ok || readback.status !== 200) throw new Error("readback-failed");',
       "const current = await readback.json();",
       'if (!Object.entries(body).every(([field, value]) => Object.is(current[field], value))) throw new Error("readback-mismatch");',
@@ -286,10 +311,13 @@ function supportsPagination(source: ts.SourceFile): number | undefined {
       if (visited.has(pageUrl.href)) throw new Error("loop");
       visited.add(pageUrl.href);
       const response = await globalThis.fetch(pageUrl, { method: "GET" });
+      if (!response.ok || response.status < 200 || response.status >= 300) throw new Error("response-failed");
       const body = await response.json();
+      if (body === null || typeof body !== "object" || !Array.isArray(body.value)) throw new Error("response-failed");
       items.push(...body.value);
-      next = body["@odata.nextLink"] ?? null;
-      if (next !== null && (typeof next !== "string" || next.length === 0)) throw new Error("malformed-next-link");
+      const nextLink = body["@odata.nextLink"];
+      if (nextLink !== undefined && nextLink !== null && (typeof nextLink !== "string" || nextLink.length === 0)) throw new Error("malformed-next-link");
+      next = nextLink ?? null;
     }`,
     "return items;",
   ]) ? limit : undefined;
@@ -300,13 +328,13 @@ function supportsOData(source: ts.SourceFile): boolean {
   return functionHeaderMatches(
     odata,
     "buildSharePointODataUrl",
-    ["base", "listId", "field", "value"],
+    ["base", "listId", "field", "value", "siteUrl"],
     [ts.SyntaxKind.ExportKeyword],
   ) && bodyMatches(odata.body, [
     "const fields = READ_ALLOWLISTS[listId];",
     'if (!fields) throw new Error("unknown-list");',
     'if (!fields.includes(field)) throw new Error("unknown-field");',
-    "const url = new URL(base);",
+    "const url = siteBoundaryUrl(base, siteUrl);",
     "const params = new URLSearchParams();",
     'params.set("$select", fields.join(","));',
     'const escaped = String(value).replaceAll("\'", "\'\'");',
@@ -318,7 +346,7 @@ function supportsOData(source: ts.SourceFile): boolean {
 
 function frontendSemantics(text: string, path: string): FrontendSemantics | undefined {
   const source = frontendSource(text, path);
-  if (source === undefined || !supportsFrontendInventory(source)) return undefined;
+  if (source === undefined || !supportsFrontendInventory(source) || !supportsSiteBoundary(source)) return undefined;
   const patchAllowlists = stringPolicy(source, "PATCH_ALLOWLISTS");
   const readAllowlists = stringPolicy(source, "READ_ALLOWLISTS");
   const pageLimit = supportsPagination(source);

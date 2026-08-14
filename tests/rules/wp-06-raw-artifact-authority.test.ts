@@ -389,6 +389,20 @@ const FRONTEND_SOURCE = `
 const PATCH_ALLOWLISTS = Object.freeze({ "protected-items": Object.freeze(["Title"]) });
 const READ_ALLOWLISTS = Object.freeze({ "protected-items": Object.freeze(["ID", "Title"]) });
 
+function siteBoundaryUrl(candidate, siteUrl) {
+  try {
+    const configured = new URL(siteUrl);
+    if ((configured.protocol !== "https:" && configured.protocol !== "http:") || configured.search || configured.hash || configured.username || configured.password) throw new Error("invalid-site");
+    const actual = new URL(candidate, configured);
+    const expectedSegments = configured.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    const actualSegments = actual.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    if (actual.origin !== configured.origin || actual.username || actual.password || actual.hash || actualSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => actualSegments[index] === segment)) throw new Error("invalid-site");
+    return actual;
+  } catch {
+    throw new Error("site-boundary");
+  }
+}
+
 function allowlistedPatch(listId, patch) {
   const fields = PATCH_ALLOWLISTS[listId];
   if (!fields) throw new Error("unknown-list");
@@ -397,16 +411,22 @@ function allowlistedPatch(listId, patch) {
   return Object.fromEntries(entries);
 }
 
-async function freshDigest(itemUrl) {
-  const response = await globalThis.fetch(new URL("/_api/contextinfo", itemUrl), { method: "POST" });
+async function freshDigest(itemUrl, siteUrl) {
+  const item = siteBoundaryUrl(itemUrl, siteUrl);
+  const site = siteBoundaryUrl(siteUrl, siteUrl);
+  const digestUrl = new URL(site.pathname.replace(/\\/$/, "") + "/_api/contextinfo", site.origin);
+  const response = await globalThis.fetch(digestUrl, { method: "POST" });
+  if (!response.ok || response.status < 200 || response.status >= 300) throw new Error("digest-failed");
   const body = await response.json();
+  if (body === null || typeof body !== "object" || typeof body.FormDigestValue !== "string" || body.FormDigestValue.length === 0) throw new Error("digest-failed");
   return body.FormDigestValue;
 }
 
-export async function saveSharePointItem(listId, itemUrl, etag, patch) {
+export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) {
+  const item = siteBoundaryUrl(itemUrl, siteUrl);
   const body = allowlistedPatch(listId, patch);
-  const digest = await freshDigest(itemUrl);
-  const response = await globalThis.fetch(itemUrl, {
+  const digest = await freshDigest(item, siteUrl);
+  const response = await globalThis.fetch(item, {
     method: "POST",
     headers: {
       "X-HTTP-Method": "MERGE",
@@ -417,10 +437,10 @@ export async function saveSharePointItem(listId, itemUrl, etag, patch) {
   });
   if (response.status === 412) throw new Error("conflict");
   if (!response.ok) {
-    await globalThis.fetch(itemUrl, { method: "GET" });
+    await globalThis.fetch(item, { method: "GET" });
     throw new Error("ambiguous-write");
   }
-  const readback = await globalThis.fetch(itemUrl, { method: "GET" });
+  const readback = await globalThis.fetch(item, { method: "GET" });
   if (!readback.ok || readback.status !== 200) throw new Error("readback-failed");
   const current = await readback.json();
   if (!Object.entries(body).every(([field, value]) => Object.is(current[field], value))) throw new Error("readback-mismatch");
@@ -440,25 +460,28 @@ export async function loadAllSharePointPages(initialUrl, expectedOrigin, expecte
     pages += 1;
     if (pages > 50) throw new Error("page-limit");
     if (typeof next !== "string" || next.length === 0) throw new Error("malformed-next-link");
-    const pageUrl = new URL(next);
-    const pageSegments = pageUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-    if (pageUrl.origin !== expectedOrigin || pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");
-    if (visited.has(pageUrl.href)) throw new Error("loop");
-    visited.add(pageUrl.href);
-    const response = await globalThis.fetch(pageUrl, { method: "GET" });
-    const body = await response.json();
-    items.push(...body.value);
-    next = body["@odata.nextLink"] ?? null;
-    if (next !== null && (typeof next !== "string" || next.length === 0)) throw new Error("malformed-next-link");
+      const pageUrl = new URL(next);
+      const pageSegments = pageUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+      if (pageUrl.origin !== expectedOrigin || pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");
+      if (visited.has(pageUrl.href)) throw new Error("loop");
+      visited.add(pageUrl.href);
+      const response = await globalThis.fetch(pageUrl, { method: "GET" });
+      if (!response.ok || response.status < 200 || response.status >= 300) throw new Error("response-failed");
+      const body = await response.json();
+      if (body === null || typeof body !== "object" || !Array.isArray(body.value)) throw new Error("response-failed");
+      items.push(...body.value);
+      const nextLink = body["@odata.nextLink"];
+      if (nextLink !== undefined && nextLink !== null && (typeof nextLink !== "string" || nextLink.length === 0)) throw new Error("malformed-next-link");
+      next = nextLink ?? null;
   }
   return items;
 }
 
-export function buildSharePointODataUrl(base, listId, field, value) {
+export function buildSharePointODataUrl(base, listId, field, value, siteUrl) {
   const fields = READ_ALLOWLISTS[listId];
   if (!fields) throw new Error("unknown-list");
   if (!fields.includes(field)) throw new Error("unknown-field");
-  const url = new URL(base);
+  const url = siteBoundaryUrl(base, siteUrl);
   const params = new URLSearchParams();
   params.set("$select", fields.join(","));
   const escaped = String(value).replaceAll("'", "''");
@@ -1500,6 +1523,8 @@ describe("WP-06 raw artifact authority", () => {
     };
     const originalFetch = globalThis.fetch;
     globalThis.fetch = (async () => ({
+      ok: true,
+      status: 200,
       json: async () => ({ value: [], "@odata.nextLink": "" }),
     }) as Response) as typeof fetch;
     try {
@@ -1511,6 +1536,58 @@ describe("WP-06 raw artifact authority", () => {
         ),
         /malformed-next-link/,
       );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("pagination rejects a failed response even when the body contains a value array", async () => {
+    const moduleUrl = `data:text/javascript;base64,${Buffer.from(FRONTEND_SOURCE).toString("base64")}#failed-page`;
+    const frontend = await import(moduleUrl) as {
+      loadAllSharePointPages: (initialUrl: string, expectedOrigin: string, expectedPathname: string) => Promise<unknown>;
+    };
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({ value: [{ ID: 999 }], "@odata.nextLink": null }),
+    }) as Response) as typeof fetch;
+    try {
+      await assert.rejects(
+        frontend.loadAllSharePointPages(
+          "https://example.test/sites/app/_api/web/lists",
+          "https://example.test",
+          "/sites/app",
+        ),
+        /response-failed/,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("pagination rejects malformed bodies and non-success statuses before consuming results", async () => {
+    const moduleUrl = `data:text/javascript;base64,${Buffer.from(FRONTEND_SOURCE).toString("base64")}#malformed-page`;
+    const frontend = await import(moduleUrl) as {
+      loadAllSharePointPages: (initialUrl: string, expectedOrigin: string, expectedPathname: string) => Promise<unknown>;
+    };
+    const originalFetch = globalThis.fetch;
+    const responses = [
+      { ok: true, status: 200, json: async () => ({ value: "not-an-array", "@odata.nextLink": null }) },
+      { ok: false, status: 302, json: async () => ({ value: [{ ID: 998 }], "@odata.nextLink": null }) },
+    ];
+    globalThis.fetch = (async () => responses.shift() as Response) as typeof fetch;
+    try {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        await assert.rejects(
+          frontend.loadAllSharePointPages(
+            "https://example.test/sites/app/_api/web/lists",
+            "https://example.test",
+            "/sites/app",
+          ),
+          /response-failed/,
+        );
+      }
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -1539,6 +1616,7 @@ describe("WP-06 raw artifact authority", () => {
         "https://example.test/sites/app/_api/web/lists/items(1)",
         '"synthetic-etag"',
         { Title: "Expected" },
+        "https://example.test/sites/app",
       );
     };
     try {
@@ -1556,6 +1634,158 @@ describe("WP-06 raw artifact authority", () => {
         }),
         /readback-failed/,
       );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("fresh digest rejects a failed response even when it contains a digest", async () => {
+    const moduleUrl = `data:text/javascript;base64,${Buffer.from(FRONTEND_SOURCE).toString("base64")}#failed-digest`;
+    const frontend = await import(moduleUrl) as {
+      saveSharePointItem: (
+        listId: string,
+        itemUrl: string,
+        etag: string,
+        patch: Record<string, unknown>,
+        siteUrl: string,
+      ) => Promise<unknown>;
+    };
+    const originalFetch = globalThis.fetch;
+    try {
+      for (const digestResponse of [
+        { ok: false, status: 500, json: async () => ({ FormDigestValue: "spoofed-digest" }) },
+        { ok: true, status: 200, json: async () => ({}) },
+        { ok: true, status: 200, json: async () => ({ FormDigestValue: 42 }) },
+      ]) {
+        const responses = [
+          digestResponse,
+          { ok: true, status: 204, json: async () => ({}) },
+          { ok: true, status: 200, json: async () => ({ Title: "Expected" }) },
+        ];
+        globalThis.fetch = (async () => responses.shift() as Response) as typeof fetch;
+        await assert.rejects(
+          frontend.saveSharePointItem(
+            "protected-items",
+            "https://example.test/sites/app/_api/web/lists/items(1)",
+            '"synthetic-etag"',
+            { Title: "Expected" },
+            "https://example.test/sites/app",
+          ),
+          /digest-failed/,
+        );
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("Save and OData reject origins, sibling site prefixes, and malformed URLs", async () => {
+    const moduleUrl = `data:text/javascript;base64,${Buffer.from(FRONTEND_SOURCE).toString("base64")}#site-binding`;
+    const frontend = await import(moduleUrl) as {
+      buildSharePointODataUrl: (
+        base: string,
+        listId: string,
+        field: string,
+        value: unknown,
+        siteUrl: string,
+      ) => URL;
+      saveSharePointItem: (
+        listId: string,
+        itemUrl: string,
+        etag: string,
+        patch: Record<string, unknown>,
+        siteUrl: string,
+      ) => Promise<unknown>;
+    };
+    await assert.rejects(
+      Promise.resolve().then(() => frontend.buildSharePointODataUrl(
+        "https://evil.test/sites/app/_api/web/lists",
+        "protected-items",
+        "Title",
+        "value",
+        "https://example.test/sites/app",
+      )),
+      /site-boundary/,
+    );
+    await assert.rejects(
+      Promise.resolve().then(() => frontend.buildSharePointODataUrl(
+        "https://example.test/sites/app-evil/_api/web/lists",
+        "protected-items",
+        "Title",
+        "value",
+        "https://example.test/sites/app",
+      )),
+      /site-boundary/,
+    );
+    await assert.rejects(
+      Promise.resolve().then(() => frontend.buildSharePointODataUrl(
+        "not a url",
+        "protected-items",
+        "Title",
+        "value",
+        "https://example.test/sites/app",
+      )),
+      /site-boundary/,
+    );
+
+    const originalFetch = globalThis.fetch;
+    const responses = [
+      { ok: true, status: 200, json: async () => ({ FormDigestValue: "synthetic-digest" }) },
+      { ok: true, status: 204, json: async () => ({}) },
+      { ok: true, status: 200, json: async () => ({ Title: "Expected" }) },
+    ];
+    globalThis.fetch = (async () => responses.shift() as Response) as typeof fetch;
+    try {
+      await assert.rejects(
+        frontend.saveSharePointItem(
+          "protected-items",
+          "https://example.test/sites/app-evil/_api/web/lists/items(1)",
+          '"synthetic-etag"',
+          { Title: "Expected" },
+          "https://example.test/sites/app",
+        ),
+        /site-boundary/,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+
+    const validOData = frontend.buildSharePointODataUrl(
+      "https://example.test/sites/app/_api/web/lists",
+      "protected-items",
+      "Title",
+      "safe value",
+      "https://example.test/sites/app",
+    );
+    assert.equal(validOData.origin, "https://example.test");
+    assert.equal(validOData.pathname, "/sites/app/_api/web/lists");
+
+    const validResponses = [
+      { ok: true, status: 200, json: async () => ({ FormDigestValue: "synthetic-digest" }) },
+      { ok: true, status: 204, json: async () => ({}) },
+      { ok: true, status: 200, json: async () => ({ Title: "Expected" }) },
+    ];
+    const requestUrls: string[] = [];
+    globalThis.fetch = (async (input) => {
+      requestUrls.push(String(input));
+      return validResponses.shift() as Response;
+    }) as typeof fetch;
+    try {
+      assert.deepEqual(
+        await frontend.saveSharePointItem(
+          "protected-items",
+          "https://example.test/sites/app/_api/web/lists/items(1)",
+          '"synthetic-etag"',
+          { Title: "Expected" },
+          "https://example.test/sites/app",
+        ),
+        { Title: "Expected" },
+      );
+      assert.deepEqual(requestUrls, [
+        "https://example.test/sites/app/_api/contextinfo",
+        "https://example.test/sites/app/_api/web/lists/items(1)",
+        "https://example.test/sites/app/_api/web/lists/items(1)",
+      ]);
     } finally {
       globalThis.fetch = originalFetch;
     }
