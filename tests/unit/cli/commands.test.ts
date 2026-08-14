@@ -150,6 +150,19 @@ describe("CLI command shells", () => {
     const root = await mkdtemp(join(tmpdir(), "spflow-cli-verify-"));
     try {
       await mkdir(root, { recursive: true });
+      await writeFile(join(root, "project.contract.json"), JSON.stringify({
+        verification: {
+          requiredRuleIds: [
+            "APP-PAGINATION-001",
+            "APP-SAVE-001",
+            "HTTP-SEMANTIC-001",
+            "HTTP-SEMANTIC-002",
+            "SP-AUTHZ-001",
+            "SP-AUTHZ-002",
+            "SP-ODATA-001",
+          ],
+        },
+      }), "utf8");
       const calls: string[] = [];
       const step: CommandHandler = {
         async run() {
@@ -178,6 +191,21 @@ describe("CLI command shells", () => {
         code === "HTTP_SEMANTIC_001_LIVE_SMOKE_NOT_RUN"
         && residualGate === "rule:HTTP-SEMANTIC-001:LIVE_SMOKE"
       ));
+      assert.deepEqual(
+        report.diagnostics
+          .filter(({ residualGate }) => residualGate?.endsWith(":LIVE_SMOKE"))
+          .map(({ ruleId }) => ruleId)
+          .sort(),
+        [
+          "APP-PAGINATION-001",
+          "APP-SAVE-001",
+          "HTTP-SEMANTIC-001",
+          "HTTP-SEMANTIC-002",
+          "SP-AUTHZ-001",
+          "SP-AUTHZ-002",
+          "SP-ODATA-001",
+        ],
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -197,7 +225,7 @@ describe("CLI command shells", () => {
 
       assert.equal(report.exitCode, 8);
       assert.equal(report.result, "FAIL");
-      assert.equal(report.summary.notRun, 9);
+      assert.equal(report.summary.notRun, 8);
       assert.ok(report.diagnostics.some(({ code, residualGate }) =>
         code === "CLI_VALIDATOR_NOT_RUN" && residualGate === "public-data-scanner"
       ));

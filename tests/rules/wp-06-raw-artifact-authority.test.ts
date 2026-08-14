@@ -125,6 +125,29 @@ function contract(requiredRuleIds: readonly string[], builder: boolean): Project
           immutableAfterCreate: false,
           sensitive: false,
           maxLength: 64,
+        }, {
+          logicalName: "owner",
+          internalName: "Owner",
+          type: "Text",
+          required: true,
+          indexed: false,
+          unique: false,
+          clientEditable: false,
+          serverAuthoritative: true,
+          immutableAfterCreate: false,
+          sensitive: false,
+          maxLength: 255,
+        }, {
+          logicalName: "amount",
+          internalName: "Amount",
+          type: "Number",
+          required: true,
+          indexed: false,
+          unique: false,
+          clientEditable: false,
+          serverAuthoritative: true,
+          immutableAfterCreate: false,
+          sensitive: false,
         }],
         indexes: [{ field: "Title", order: 1, required: true }],
         permissions: {
@@ -262,7 +285,7 @@ function contract(requiredRuleIds: readonly string[], builder: boolean): Project
       targetListId: "protected-items",
       targetIdField: "TargetItemId",
       requestedFields: [],
-      serverReadFields: ["Title"],
+      serverReadFields: ["Title", "Owner", "Amount"],
       requiredCapability: "approve-items",
       transitionId: "apply-transition",
       idempotency: {
@@ -373,7 +396,7 @@ function allowlistedPatch(listId, patch) {
 }
 
 async function freshDigest(itemUrl) {
-  const response = await fetch(new URL("/_api/contextinfo", itemUrl), { method: "POST" });
+  const response = await globalThis.fetch(new URL("/_api/contextinfo", itemUrl), { method: "POST" });
   const body = await response.json();
   return body.FormDigestValue;
 }
@@ -381,7 +404,7 @@ async function freshDigest(itemUrl) {
 export async function saveSharePointItem(listId, itemUrl, etag, patch) {
   const body = allowlistedPatch(listId, patch);
   const digest = await freshDigest(itemUrl);
-  const response = await fetch(itemUrl, {
+  const response = await globalThis.fetch(itemUrl, {
     method: "POST",
     headers: {
       "X-HTTP-Method": "MERGE",
@@ -391,8 +414,8 @@ export async function saveSharePointItem(listId, itemUrl, etag, patch) {
     body: JSON.stringify(body)
   });
   if (response.status === 412) throw new Error("conflict");
-  if (!response.ok) return fetch(itemUrl, { method: "GET" });
-  return fetch(itemUrl, { method: "GET" });
+  if (!response.ok) return globalThis.fetch(itemUrl, { method: "GET" });
+  return globalThis.fetch(itemUrl, { method: "GET" });
 }
 
 export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) {
@@ -407,7 +430,7 @@ export async function loadAllSharePointPages(initialUrl, expectedOrigin, expecte
     if (pageUrl.origin !== expectedOrigin || !pageUrl.pathname.startsWith(expectedPathname)) throw new Error("boundary");
     if (visited.has(pageUrl.href)) throw new Error("loop");
     visited.add(pageUrl.href);
-    const response = await fetch(pageUrl, { method: "GET" });
+    const response = await globalThis.fetch(pageUrl, { method: "GET" });
     const body = await response.json();
     items.push(...body.value);
     next = body["@odata.nextLink"];
@@ -516,90 +539,290 @@ function failureElse(id: string) {
   };
 }
 
-function builderDefinition(): Record<string, unknown> {
+function indexPlanActions(
+  mode: "APPLY" | "NO_OP",
+  protectedUri: string,
+  predecessor: string,
+): Record<string, unknown> {
+  const query = "$select=InternalName,Indexed&$filter=Indexed eq true&$orderby=InternalName";
+  const currentFields = mode === "APPLY" ? ["LegacyCode"] : ["Title"];
+  const setExpression = (actionId: string, fields: readonly string[]) => fields.length === 0
+    ? `@equals(length(body('${actionId}')['value']),0)`
+    : `@and(equals(length(body('${actionId}')['value']),${fields.length}),${fields.flatMap((field, index) => [
+        `equals(body('${actionId}')['value'][${index}]['InternalName'],'${field}')`,
+        `equals(body('${actionId}')['value'][${index}]['Indexed'],true)`,
+      ]).join(",")})`;
+  const applyActions: Record<string, unknown> = mode === "APPLY" ? {
+    IndexRequestDigest: semanticConnector(
+      "index-request-digest:protected-items",
+      "POST",
+      "/_api/contextinfo",
+      {},
+      "IndexPlanDigest",
+    ),
+    IndexRemoveLegacy: semanticConnector(
+      "index-remove:protected-items:LegacyCode",
+      "POST",
+      `${protectedUri}/fields/getbyinternalnameortitle('LegacyCode')`,
+      {},
+      "IndexRequestDigest",
+      {
+        headers: { "X-RequestDigest": "@{body('IndexRequestDigest')['FormDigestValue']}" },
+        body: { __metadata: { type: "SP.Field" }, Indexed: false },
+      },
+    ),
+    IndexStepReadbackLegacy: semanticConnector(
+      "index-step-readback:protected-items:remove:LegacyCode",
+      "GET",
+      `${protectedUri}/fields?${query}`,
+      {},
+      "IndexRemoveLegacy",
+    ),
+    IndexStepAssertLegacy: {
+      type: "If",
+      metadata: { spflowRole: "index-step-assert:protected-items:remove:LegacyCode" },
+      runAfter: { IndexStepReadbackLegacy: ["Succeeded"] },
+      expression: setExpression("IndexStepReadbackLegacy", []),
+      actions: {},
+      else: failureElse("IndexRemoveReadbackFailed"),
+    },
+    IndexAddTitle: semanticConnector(
+      "index-add:protected-items:Title",
+      "POST",
+      `${protectedUri}/fields/getbyinternalnameortitle('Title')`,
+      {},
+      "IndexStepAssertLegacy",
+      {
+        headers: { "X-RequestDigest": "@{body('IndexRequestDigest')['FormDigestValue']}" },
+        body: { __metadata: { type: "SP.Field" }, Indexed: true },
+      },
+    ),
+    IndexStepReadbackTitle: semanticConnector(
+      "index-step-readback:protected-items:add:Title",
+      "GET",
+      `${protectedUri}/fields?${query}`,
+      {},
+      "IndexAddTitle",
+    ),
+    IndexStepAssertTitle: {
+      type: "If",
+      metadata: { spflowRole: "index-step-assert:protected-items:add:Title" },
+      runAfter: { IndexStepReadbackTitle: ["Succeeded"] },
+      expression: setExpression("IndexStepReadbackTitle", ["Title"]),
+      actions: {},
+      else: failureElse("IndexAddReadbackFailed"),
+    },
+  } : {};
+  const finalPredecessor = mode === "APPLY" ? "IndexStepAssertTitle" : "IndexPlanDigest";
+  return {
+    IndexRead: semanticConnector(
+      "index-read:protected-items",
+      "GET",
+      `${protectedUri}/fields?${query}`,
+      {},
+      predecessor,
+    ),
+    IndexCurrentAssert: {
+      type: "If",
+      metadata: { spflowRole: "index-current-assert:protected-items" },
+      runAfter: { IndexRead: ["Succeeded"] },
+      expression: setExpression("IndexRead", currentFields),
+      actions: {
+        IndexPlanDigest: {
+          type: "Compose",
+          metadata: { spflowRole: "index-plan-digest:protected-items" },
+          inputs: "@sha256(concat(string(body('IndexRead')['value']),'|','Title'))",
+        },
+        ...applyActions,
+        IndexFinalReadback: semanticConnector(
+          "index-final-readback:protected-items",
+          "GET",
+          `${protectedUri}/fields?${query}`,
+          {},
+          finalPredecessor,
+        ),
+        IndexFinalAssert: {
+          type: "If",
+          metadata: { spflowRole: "index-final-assert:protected-items" },
+          runAfter: { IndexFinalReadback: ["Succeeded"] },
+          expression: setExpression("IndexFinalReadback", ["Title"]),
+          actions: {},
+          else: failureElse("IndexFinalReadbackFailed"),
+        },
+        IndexResult: {
+          type: "Compose",
+          metadata: { spflowRole: "index-result:protected-items" },
+          runAfter: { IndexFinalAssert: ["Succeeded"] },
+          inputs: mode,
+        },
+      },
+      else: failureElse("IndexCurrentStateMismatch"),
+    },
+  };
+}
+
+function builderDefinition(indexMode: "APPLY" | "NO_OP" = "APPLY"): Record<string, unknown> {
   const protectedUri = "/_api/web/lists/getbytitle('PROTECTED_ITEMS')";
   const accessUri = "/_api/web/lists/getbytitle('ACCESS_CONTROL')";
-  const commonProperties = [
-    "logicalName", "internalName", "type", "required", "indexed", "unique",
-    "clientEditable", "serverAuthoritative", "immutableAfterCreate", "sensitive",
-  ];
   const fieldActions: Record<string, unknown> = {};
   let fieldPredecessor = "PermissionAssertAccess";
   for (const field of [
     {
       listId: "protected-items", listUri: protectedUri, logicalName: "title",
-      internalName: "Title", metadataType: "SP.FieldText", fieldTypeKind: 2,
-      indexMetadataType: "SP.Field", comparedProperties: [...commonProperties, "maxLength"],
+      internalName: "Title", type: "Text", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      indexed: true, clientEditable: true, serverAuthoritative: false,
+      immutableAfterCreate: false, maxLength: 255,
     },
     {
       listId: "protected-items", listUri: protectedUri, logicalName: "status",
-      internalName: "Status", metadataType: "SP.FieldText", fieldTypeKind: 2,
-      comparedProperties: [...commonProperties, "maxLength"],
+      internalName: "Status", type: "Text", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      indexed: false, clientEditable: false, serverAuthoritative: true,
+      immutableAfterCreate: false, maxLength: 64,
+    },
+    {
+      listId: "protected-items", listUri: protectedUri, logicalName: "owner",
+      internalName: "Owner", type: "Text", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      indexed: false, clientEditable: false, serverAuthoritative: true,
+      immutableAfterCreate: false, maxLength: 255,
+    },
+    {
+      listId: "protected-items", listUri: protectedUri, logicalName: "amount",
+      internalName: "Amount", type: "Number", metadataType: "SP.FieldNumber", fieldTypeKind: 9,
+      indexed: false, clientEditable: false, serverAuthoritative: true,
+      immutableAfterCreate: false,
     },
     {
       listId: "access-control", listUri: accessUri, logicalName: "active",
-      internalName: "Active", metadataType: "SP.FieldBoolean", fieldTypeKind: 8,
-      comparedProperties: commonProperties,
+      internalName: "Active", type: "Boolean", metadataType: "SP.FieldBoolean", fieldTypeKind: 8,
+      indexed: false, clientEditable: false, serverAuthoritative: true,
+      immutableAfterCreate: false,
     },
     {
       listId: "access-control", listUri: accessUri, logicalName: "principal-key",
-      internalName: "PrincipalKey", metadataType: "SP.FieldText", fieldTypeKind: 2,
-      comparedProperties: [...commonProperties, "maxLength"],
+      internalName: "PrincipalKey", type: "Text", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      indexed: false, clientEditable: false, serverAuthoritative: true,
+      immutableAfterCreate: false, maxLength: 255,
     },
     {
       listId: "access-control", listUri: accessUri, logicalName: "capability",
-      internalName: "Capability", metadataType: "SP.FieldText", fieldTypeKind: 2,
-      comparedProperties: [...commonProperties, "maxLength"],
+      internalName: "Capability", type: "Text", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      indexed: false, clientEditable: false, serverAuthoritative: true,
+      immutableAfterCreate: false, maxLength: 255,
     },
     {
       listId: "access-control", listUri: accessUri, logicalName: "scope-title",
-      internalName: "Title", metadataType: "SP.FieldText", fieldTypeKind: 2,
-      comparedProperties: [...commonProperties, "maxLength"],
+      internalName: "Title", type: "Text", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      indexed: false, clientEditable: false, serverAuthoritative: true,
+      immutableAfterCreate: false, maxLength: 255,
     },
     {
       listId: "access-control", listUri: accessUri, logicalName: "target-item-id",
-      internalName: "TargetItemId", metadataType: "SP.FieldNumber", fieldTypeKind: 9,
-      comparedProperties: commonProperties,
+      internalName: "TargetItemId", type: "Number", metadataType: "SP.FieldNumber", fieldTypeKind: 9,
+      indexed: false, clientEditable: false, serverAuthoritative: true,
+      immutableAfterCreate: true,
     },
     {
       listId: "access-control", listUri: accessUri, logicalName: "command-type",
-      internalName: "CommandType", metadataType: "SP.FieldText", fieldTypeKind: 2,
-      comparedProperties: [...commonProperties, "maxLength"],
+      internalName: "CommandType", type: "Text", metadataType: "SP.FieldText", fieldTypeKind: 2,
+      indexed: false, clientEditable: false, serverAuthoritative: true,
+      immutableAfterCreate: true, maxLength: 64,
     },
   ]) {
     const suffix = `${field.listId.replaceAll("-", "_")}_${field.internalName}`;
     const readId = `FieldRead_${suffix}`;
+    const foundId = `FieldFound_${suffix}`;
+    const foundAssertId = `FieldFoundAssert_${suffix}`;
+    const missingId = `FieldMissing_${suffix}`;
     const writeId = `FieldWrite_${suffix}`;
+    const readbackId = `FieldReadback_${suffix}`;
+    const readbackAssertId = `FieldReadbackAssert_${suffix}`;
+    const actual = {
+      logicalName: field.logicalName,
+      internalName: field.internalName,
+      type: field.type,
+      required: true,
+      indexed: field.indexed,
+      unique: false,
+      clientEditable: field.clientEditable,
+      serverAuthoritative: field.serverAuthoritative,
+      immutableAfterCreate: field.immutableAfterCreate,
+      sensitive: false,
+      ...(field.maxLength === undefined ? {} : { maxLength: field.maxLength }),
+    };
+    const select = ["InternalName", "EntityPropertyName", ...Object.keys(actual)].join(",");
+    const literal = (value: unknown) => typeof value === "string"
+      ? `'${value.replaceAll("'", "''")}'`
+      : String(value);
+    const comparison = (actionId: string) => `@and(`
+      + `equals(body('${actionId}')['InternalName'],'${field.internalName}'),`
+      + `equals(body('${actionId}')['EntityPropertyName'],'${field.internalName}'),`
+      + `${Object.entries(actual).map(([name, value]) =>
+        `equals(body('${actionId}')['${name}'],${literal(value)})`
+      ).join(",")})`;
     fieldActions[readId] = semanticConnector(
       `field-read:${field.listId}:${field.internalName}`,
       "GET",
-      `${field.listUri}/fields/getbyinternalnameortitle('${field.internalName}')`,
-      { listId: field.listId, internalName: field.internalName },
+      `${field.listUri}/fields/getbyinternalnameortitle('${field.internalName}')?$select=${select}`,
+      {},
       fieldPredecessor,
     );
-    fieldActions[writeId] = semanticConnector(
-      `field-write:${field.listId}:${field.internalName}`,
-      "POST",
-      `${field.listUri}/fields`,
-      {
-        listId: field.listId,
-        logicalName: field.logicalName,
-        internalName: field.internalName,
-        metadataType: field.metadataType,
-        fieldTypeKind: field.fieldTypeKind,
-        ...(field.indexMetadataType === undefined ? {} : { indexMetadataType: field.indexMetadataType }),
-        comparedProperties: field.comparedProperties,
-      },
-      readId,
-      {
-        body: {
-          __metadata: { type: field.metadataType },
-          FieldTypeKind: field.fieldTypeKind,
-          InternalName: field.internalName,
+    fieldActions[foundId] = {
+      type: "If",
+      metadata: { spflowRole: `field-found:${field.listId}:${field.internalName}` },
+      runAfter: { [readId]: ["Failed", "Succeeded"] },
+      expression: `@equals(outputs('${readId}')['statusCode'],200)`,
+      actions: {
+        [foundAssertId]: {
+          type: "If",
+          metadata: { spflowRole: `field-found-assert:${field.listId}:${field.internalName}` },
+          expression: comparison(readId),
+          actions: {},
+          else: failureElse(`FieldFoundIncompatible_${suffix}`),
         },
       },
-    );
-    fieldPredecessor = writeId;
+      else: {
+        actions: {
+          [missingId]: {
+            type: "If",
+            metadata: { spflowRole: `field-missing:${field.listId}:${field.internalName}` },
+            expression: `@equals(outputs('${readId}')['statusCode'],404)`,
+            actions: {
+              [writeId]: semanticConnector(
+                `field-write:${field.listId}:${field.internalName}`,
+                "POST",
+                `${field.listUri}/fields`,
+                {},
+                undefined,
+                {
+                  body: {
+                    __metadata: { type: field.metadataType },
+                    FieldTypeKind: field.fieldTypeKind,
+                    InternalName: field.internalName,
+                  },
+                },
+              ),
+              [readbackId]: semanticConnector(
+                `field-readback:${field.listId}:${field.internalName}`,
+                "GET",
+                `${field.listUri}/fields/getbyinternalnameortitle('${field.internalName}')?$select=${select}`,
+                {},
+                writeId,
+              ),
+              [readbackAssertId]: {
+                type: "If",
+                metadata: { spflowRole: `field-readback-assert:${field.listId}:${field.internalName}` },
+                runAfter: { [readbackId]: ["Succeeded"] },
+                expression: comparison(readbackId),
+                actions: {},
+                else: failureElse(`FieldReadbackFailed_${suffix}`),
+              },
+            },
+            else: failureElse(`FieldGetFailed_${suffix}`),
+          },
+        },
+      },
+    };
+    fieldPredecessor = foundId;
   }
   return {
     properties: {
@@ -622,7 +845,7 @@ function builderDefinition(): Record<string, unknown> {
           TargetRead: semanticConnector(
             "target-read",
             "GET",
-            `${protectedUri}/items(@{triggerBody()['TargetItemId']})?$select=Title,Status`,
+            `${protectedUri}/items(@{triggerBody()['TargetItemId']})?$select=Title,Owner,Amount,Status`,
             {},
             "CapabilityRead",
           ),
@@ -630,7 +853,7 @@ function builderDefinition(): Record<string, unknown> {
             type: "If",
             metadata: { spflowRole: "authorization-guard" },
             runAfter: { TargetRead: ["Succeeded"] },
-            expression: "@and(equals(length(body('CapabilityRead')['value']),1),equals(body('CapabilityRead')['value'][0]['Title'],body('TargetRead')['Title']),equals(triggerBody()['CommandType'],'apply-change'),equals(body('TargetRead')['Status'],'Pending'))",
+            expression: "@and(equals(length(body('CapabilityRead')['value']),1),equals(body('CapabilityRead')['value'][0]['Title'],body('TargetRead')['Title']),not(empty(body('TargetRead')['Owner'])),greaterOrEquals(body('TargetRead')['Amount'],0),equals(triggerBody()['CommandType'],'apply-change'),equals(body('TargetRead')['Status'],'Pending'))",
             actions: {
               Mutation: semanticConnector(
                 "mutation",
@@ -858,75 +1081,7 @@ function builderDefinition(): Record<string, unknown> {
               },
             },
           },
-          IndexRead: semanticConnector(
-            "index-read:protected-items",
-            "GET",
-            `${protectedUri}/fields?$select=InternalName,Indexed&$filter=InternalName eq 'Title'&$orderby=InternalName`,
-            {},
-            "HttpClassifier",
-          ),
-          IndexPlanGuard: {
-            type: "If",
-            metadata: { spflowRole: "index-plan-guard:protected-items" },
-            runAfter: { IndexRead: ["Succeeded"] },
-            expression: "@and(equals(body('IndexRead')['value'][0]['InternalName'],'Title'),equals(body('IndexRead')['value'][0]['Indexed'],false))",
-            actions: {
-              IndexPlanDigest: {
-                type: "Compose",
-                metadata: { spflowRole: "index-plan-digest:protected-items" },
-                inputs: "@sha256(concat(string(body('IndexRead')['value']),'|','Title'))",
-              },
-              IndexRequestDigest: semanticConnector(
-                "index-request-digest:protected-items",
-                "POST",
-                "/_api/contextinfo",
-                {},
-                "IndexPlanDigest",
-              ),
-              IndexWrite: semanticConnector(
-                "index-write:protected-items:Title",
-                "POST",
-                `${protectedUri}/fields/getbyinternalnameortitle('Title')`,
-                {},
-                "IndexRequestDigest",
-                {
-                  headers: { "X-RequestDigest": "@{body('IndexRequestDigest')['FormDigestValue']}" },
-                  body: { __metadata: { type: "SP.Field" }, Indexed: true },
-                },
-              ),
-              IndexStepReadback: semanticConnector(
-                "index-step-readback:protected-items:Title",
-                "GET",
-                `${protectedUri}/fields/getbyinternalnameortitle('Title')?$select=InternalName,Indexed`,
-                {},
-                "IndexWrite",
-              ),
-              IndexStepAssert: {
-                type: "If",
-                metadata: { spflowRole: "index-step-assert:protected-items:Title" },
-                runAfter: { IndexStepReadback: ["Succeeded"] },
-                expression: "@and(equals(body('IndexStepReadback')['InternalName'],'Title'),equals(body('IndexStepReadback')['Indexed'],true))",
-                actions: {},
-                else: failureElse("IndexStepReadbackFailed"),
-              },
-            },
-            else: { actions: {} },
-          },
-          IndexFinalReadback: semanticConnector(
-            "index-final-readback:protected-items",
-            "GET",
-            `${protectedUri}/fields?$select=InternalName,Indexed&$filter=InternalName eq 'Title'&$orderby=InternalName`,
-            {},
-            "IndexPlanGuard",
-          ),
-          IndexFinalAssert: {
-            type: "If",
-            metadata: { spflowRole: "index-final-assert:protected-items" },
-            runAfter: { IndexFinalReadback: ["Succeeded"] },
-            expression: "@and(equals(body('IndexFinalReadback')['value'][0]['InternalName'],'Title'),equals(body('IndexFinalReadback')['value'][0]['Indexed'],true))",
-            actions: {},
-            else: failureElse("IndexFinalReadbackFailed"),
-          },
+          ...indexPlanActions(indexMode, protectedUri, "HttpClassifier"),
         },
       },
       connectionReferences: { PROCESSOR: { id: "synthetic" } },
@@ -1144,6 +1299,29 @@ describe("WP-06 raw artifact authority", () => {
     }
   });
 
+  test("shadowed fetch and unreachable loop behavior cannot create frontend authority", async () => {
+    for (const source of [
+      `function fetch() { return { ok: true, json: async () => ({}) }; }\n${FRONTEND_SOURCE.replaceAll("globalThis.fetch", "fetch")}`,
+      FRONTEND_SOURCE.replace("while (next) {", "while (next) { if (true) break;"),
+    ]) {
+      const root = await mkdtemp(join(tmpdir(), "spflow-raw-frontend-shadowed-"));
+      const value = contract(FRONTEND_RULES, false);
+      try {
+        await writeContract(root, value);
+        await writeFrontend(root, source);
+        const context = await validationContext(root, value);
+
+        assert.equal(context.adapterEvidence.wp06Derivations?.length, 0);
+        assert.deepEqual(
+          (await diagnostics(context, FRONTEND_RULES)).map(({ code }) => code),
+          FRONTEND_RULES,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
   test("missing, mismatched, extra, or structurally mutated frontend files remove authority", async () => {
     for (const scenario of [
       "missing-entrypoint",
@@ -1263,15 +1441,10 @@ describe("WP-06 raw artifact authority", () => {
     const root = await mkdtemp(join(tmpdir(), "spflow-raw-no-index-"));
     const value = contract(BUILDER_RULES.filter((ruleId) => !ruleId.startsWith("SP-INDEX-")), true);
     value.sharePoint.lists[0]!.indexes = [];
-    value.sharePoint.lists[0]!.fields[0]!.indexed = false;
     const definition = builderDefinition() as any;
     const actions = definition.properties.definition.actions;
     delete actions.IndexRead;
-    delete actions.DigestRead;
-    delete actions.IndexWrite;
-    delete actions.IndexStepReadback;
-    delete actions.IndexFinalReadback;
-    delete actions.FieldWrite_protected_items_Title.inputs.parameters.indexMetadataType;
+    delete actions.IndexCurrentAssert;
     try {
       await writeContract(root, value);
       await writeBuilder(root, definition);
@@ -1384,7 +1557,7 @@ describe("WP-06 raw artifact authority", () => {
       {
         section: "indexPlans",
         mutate(actions: any) {
-          actions.IndexPlanGuard.actions.IndexPlanDigest.inputs = "@sha256('Title')";
+          actions.IndexCurrentAssert.actions.IndexPlanDigest.inputs = "@sha256('Title')";
         },
       },
     ] as const;
@@ -1402,6 +1575,133 @@ describe("WP-06 raw artifact authority", () => {
           adapterEvidence.wp06Derivations?.some(({ section }) => section === scenario.section),
           false,
           scenario.section,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test("schema creation without response branches and post-write readback fails closed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-schema-branches-"));
+    const value = contract(BUILDER_RULES, true);
+    const definition = builderDefinition() as any;
+    const actions = definition.properties.definition.actions;
+    const found = actions.FieldFound_protected_items_Title;
+    const write = found.else.actions.FieldMissing_protected_items_Title
+      .actions.FieldWrite_protected_items_Title;
+    write.runAfter = { FieldRead_protected_items_Title: ["Succeeded"] };
+    actions.FieldWrite_protected_items_Title = write;
+    delete actions.FieldFound_protected_items_Title;
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+      assert.equal(
+        adapterEvidence.wp06Derivations?.some(({ section }) => section === "fieldOperations"),
+        false,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("unlabelled writes inside trusted schema or index branches fail closed", async () => {
+    for (const section of ["fieldOperations", "indexPlans"] as const) {
+      const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-extra-${section}-`));
+      const value = contract(BUILDER_RULES, true);
+      const definition = builderDefinition() as any;
+      const actions = definition.properties.definition.actions;
+      const branch = section === "fieldOperations"
+        ? actions.FieldFound_protected_items_Title.else.actions.FieldMissing_protected_items_Title.actions
+        : actions.IndexCurrentAssert.actions;
+      branch.UnlabelledWrite = semanticConnector(
+        "unrelated-write",
+        "POST",
+        "/_api/web/lists/getbytitle('PROTECTED_ITEMS')/fields",
+        {},
+      );
+      delete branch.UnlabelledWrite.metadata;
+      try {
+        await writeContract(root, value);
+        await writeBuilder(root, definition);
+        const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+        assert.equal(
+          adapterEvidence.wp06Derivations?.some(({ section: derived }) => derived === section),
+          false,
+          section,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test("required-only index reads without removals and full readbacks fail closed", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-index-complete-state-"));
+    const value = contract(BUILDER_RULES, true);
+    const definition = builderDefinition() as any;
+    definition.properties.definition.actions.IndexRead.inputs.uri =
+      "/_api/web/lists/getbytitle('PROTECTED_ITEMS')/fields?$select=InternalName,Indexed&$filter=InternalName eq 'Title'&$orderby=InternalName";
+    removeDefinitionActionsByRole(definition, "index-remove");
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+      assert.equal(
+        adapterEvidence.wp06Derivations?.some(({ section }) => section === "indexPlans"),
+        false,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("a compatible complete index read emits a zero-write NO_OP plan", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-index-noop-"));
+    const value = contract(["SP-INDEX-001", "SP-INDEX-002"], true);
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, builderDefinition("NO_OP"));
+      const context = await validationContext(root, value);
+      const plan = context.adapterEvidence.wp06Derivations
+        ?.find(({ section }) => section === "indexPlans")?.facts[0] as any;
+
+      assert.equal(plan?.result, "NO_OP");
+      assert.deepEqual(plan?.currentFields, ["Title"]);
+      assert.equal(plan?.writeCount, 0);
+      assert.deepEqual(plan?.operations, []);
+      assert.deepEqual(await diagnostics(context, ["SP-INDEX-001", "SP-INDEX-002"]), []);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("authorization cannot claim owner or amount absent from the target read", async () => {
+    for (const scenario of ["missing-fields", "unused-fields"] as const) {
+      const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-authority-${scenario}-`));
+      const value = contract(BUILDER_RULES, true);
+      const definition = builderDefinition() as any;
+      const actions = definition.properties.definition.actions;
+      if (scenario === "missing-fields") {
+        actions.TargetRead.inputs.uri =
+          "/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(@{triggerBody()['TargetItemId']})?$select=Title,Status";
+      } else {
+        actions.AuthorizationGuard.expression =
+          "@and(equals(length(body('CapabilityRead')['value']),1),equals(body('CapabilityRead')['value'][0]['Title'],body('TargetRead')['Title']),equals(triggerBody()['CommandType'],'apply-change'),equals(body('TargetRead')['Status'],'Pending'))";
+      }
+      try {
+        await writeContract(root, value);
+        await writeBuilder(root, definition);
+        const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+        assert.equal(
+          adapterEvidence.wp06Derivations?.some(({ section }) => section === "authorityChecks"),
+          false,
+          scenario,
         );
       } finally {
         await rm(root, { recursive: true, force: true });

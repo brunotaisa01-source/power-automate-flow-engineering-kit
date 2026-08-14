@@ -82,10 +82,13 @@ duplicated, escaping, or mismatched entries fail closed.
 
 Only exact source files from a valid inventory are parsed. Supported source
 structure currently covers explicit conflict-safe Save, guarded continuation
-pagination, and structured OData URL construction. The recognizer accepts only
-the documented statement shapes and rejects extra early exits, statically
-terminating branches, and ambiguous source structures. It is not a general
-JavaScript control-flow proof. Unsupported source produces no derivation.
+pagination, and structured OData URL construction. Network calls must use the
+explicit global form `globalThis.fetch`; an identifier named `fetch`, including
+a locally shadowed function, is unsupported. Pagination and OData recognition
+accept only the documented direct statement sequence, so inserted branches,
+breaks, returns, or alternate data flow fail closed. The recognizer is not a
+general JavaScript control-flow proof. Unsupported source produces no
+derivation.
 
 ## Definition And Package Authority
 
@@ -104,15 +107,31 @@ insufficient.
 
 The executable builder profile emits all six sections: `authorityChecks`,
 `permissionModels`, `permissionProbes`, `fieldOperations`,
-`httpClassifications`, and `indexPlans`. Index plans require a concrete
-list-field read, fresh digest request, serial writes, per-step readback, and
-final readback assertions. The plan hash must consume the field read and the
-contract-required field set. Permission models require principal and role
+`httpClassifications`, and `indexPlans`. Field operations require a GET whose
+status feeds explicit FOUND and MISSING conditions. FOUND performs exact
+property comparisons and never creates. MISSING alone may create, and that path
+must perform a post-write GET plus exact readback assertion. Every other status
+terminates failed. The current profile emits the bounded MISSING/create case as
+local structural evidence; it does not claim a tenant response was observed.
+
+Index plans read the complete `Indexed eq true` set, assert an exact sorted
+current state, and bind that response plus the required set into the plan
+digest. APPLY plans execute sorted removals before contract-ordered additions,
+use serial writes, and assert the complete index set after each operation and
+at completion. A compatible current set emits `NO_OP` with zero writes. Role
+labels and parameter declarations cannot supply current state. Permission
+models require principal and role
 resolution, an executable `addroleassignment` call, role-assignment readback,
 and a fail-closed dependent assertion. Permission probes require the
 effective-permission request and a fail-closed dependent assertion over the
 four operation booleans. HTTP facts require a response-dependent 400/404
 decision tree with explicit result actions; literal tautologies are rejected.
+
+The current authorization grammar requires target fields with logical names
+`owner` and `amount`. Their internal names must be included in
+`command.serverReadFields`, selected by the exact target GET, and consumed by
+the reachable authorization guard. The adapter does not mint owner or amount
+authority for absent or unread fields.
 
 The compiled CLI supports two scopes. `validate rules --root <repository>`
 validates every shipped local rule. Adding `--required-only` validates only the
@@ -135,9 +154,11 @@ authorize `FOUND`, even when it looks schema-valid.
 
 `FOUND` requires a future separately authenticated runtime evidence record
 bound to an actual response artifact, expected contract schema, target binding,
-and change window. Until that adapter exists, offline validation fails closed
-for `FOUND` and emits the rule-specific
-`HTTP_SEMANTIC_001_LIVE_SMOKE_NOT_RUN` residual gate.
+and change window. Offline verification reads the target contract's required
+rule IDs and the shipped rule catalogs. Every required catalog whose residual
+claim class is `LIVE_SMOKE` produces a rule-specific `LIVE_SMOKE_NOT_RUN` gate.
+These entries record missing runtime evidence; they do not convert local static
+evidence into runtime evidence.
 
 ## Public Trust API
 

@@ -136,11 +136,13 @@ function unawait(expression: ts.Expression): ts.Expression {
   return ts.isAwaitExpression(expression) ? expression.expression : expression;
 }
 
-function callNamed(expression: ts.Expression, name: string): ts.CallExpression | undefined {
+function callGlobal(expression: ts.Expression, name: string): ts.CallExpression | undefined {
   const value = unawait(expression);
   return ts.isCallExpression(value)
-      && ts.isIdentifier(value.expression)
-      && value.expression.text === name
+      && ts.isPropertyAccessExpression(value.expression)
+      && ts.isIdentifier(value.expression.expression)
+      && value.expression.expression.text === "globalThis"
+      && value.expression.name.text === name
     ? value
     : undefined;
 }
@@ -166,7 +168,7 @@ function fetchRequest(
   expression: ts.Expression | undefined,
 ): { readonly target: ts.Expression; readonly options: ts.ObjectLiteralExpression } | undefined {
   if (expression === undefined) return undefined;
-  const call = callNamed(expression, "fetch");
+  const call = callGlobal(expression, "fetch");
   const target = call?.arguments[0];
   const options = call?.arguments[1];
   return target !== undefined && options !== undefined && ts.isObjectLiteralExpression(options)
@@ -272,19 +274,21 @@ function supportsPagination(source: ts.SourceFile): number | undefined {
   if (loop === undefined || loop.expression.getText(source) !== "next" || !ts.isBlock(loop.statement)) {
     return undefined;
   }
-  const text = loop.statement.getText(source);
-  const limit = /pages\s*>\s*(\d+)/.exec(text)?.[1];
+  const statements = loop.statement.statements.map((statement) => statement.getText(source));
+  const limit = /^if \(pages > (\d+)\) throw new Error\("page-limit"\);$/.exec(statements[1] ?? "")?.[1];
   if (
     limit === undefined
-    || !text.includes("new URL(next)")
-    || !text.includes("pageUrl.origin !== expectedOrigin")
-    || !text.includes("!pageUrl.pathname.startsWith(expectedPathname)")
-    || !text.includes("visited.has(pageUrl.href)")
-    || !text.includes("visited.add(pageUrl.href)")
-    || !text.includes("fetch(pageUrl, { method: \"GET\" })")
-    || !text.includes("items.push(...body.value)")
-    || !text.includes("next = body[\"@odata.nextLink\"]")
-    || !pagination.body.statements.at(-1)?.getText(source).includes("return items")
+    || statements.length !== 10
+    || statements[0] !== "pages += 1;"
+    || statements[2] !== "const pageUrl = new URL(next);"
+    || statements[3] !== "if (pageUrl.origin !== expectedOrigin || !pageUrl.pathname.startsWith(expectedPathname)) throw new Error(\"boundary\");"
+    || statements[4] !== "if (visited.has(pageUrl.href)) throw new Error(\"loop\");"
+    || statements[5] !== "visited.add(pageUrl.href);"
+    || statements[6] !== "const response = await globalThis.fetch(pageUrl, { method: \"GET\" });"
+    || statements[7] !== "const body = await response.json();"
+    || statements[8] !== "items.push(...body.value);"
+    || statements[9] !== "next = body[\"@odata.nextLink\"];"
+    || pagination.body.statements.at(-1)?.getText(source) !== "return items;"
   ) return undefined;
   return Number(limit);
 }
@@ -296,14 +300,15 @@ function supportsOData(source: ts.SourceFile): boolean {
     || odata.body.statements.length !== 8
     || hasUnreachableTopLevel(odata.body)
   ) return false;
-  const text = odata.body.getText(source);
-  return variableInitializer(odata.body, "fields")?.getText(source) === "READ_ALLOWLISTS[listId]"
-    && text.includes("new URL(base)")
-    && text.includes("new URLSearchParams()")
-    && text.includes("params.set(\"$select\", fields.join(\",\"))")
-    && text.includes("params.set(\"$filter\", value.replaceAll(\"'\", \"''\"))")
-    && text.includes("url.search = params.toString()")
-    && odata.body.statements.at(-1)?.getText(source) === "return url;";
+  const statements = odata.body.statements.map((statement) => statement.getText(source));
+  return statements[0] === "const fields = READ_ALLOWLISTS[listId];"
+    && statements[1] === "if (!fields) throw new Error(\"unknown-list\");"
+    && statements[2] === "const url = new URL(base);"
+    && statements[3] === "const params = new URLSearchParams();"
+    && statements[4] === "params.set(\"$select\", fields.join(\",\"));"
+    && statements[5] === "params.set(\"$filter\", value.replaceAll(\"'\", \"''\"));"
+    && statements[6] === "url.search = params.toString();"
+    && statements[7] === "return url;";
 }
 
 function frontendSemantics(text: string, path: string): FrontendSemantics | undefined {
@@ -406,11 +411,6 @@ function actionInputs(action: NormalizedAction): UnknownRecord | undefined {
   return isRecord(action.inputs) ? action.inputs : undefined;
 }
 
-function actionParameters(action: NormalizedAction): UnknownRecord | undefined {
-  const inputs = actionInputs(action);
-  return inputs !== undefined && isRecord(inputs.parameters) ? inputs.parameters : undefined;
-}
-
 function actionUri(action: NormalizedAction): string | undefined {
   const inputs = actionInputs(action);
   return inputs === undefined || typeof inputs.uri !== "string" ? undefined : inputs.uri;
@@ -468,14 +468,6 @@ function connectorMatches(
     && queryMatches(uri.query, query);
 }
 
-function stringArrayValue(value: unknown): readonly string[] | undefined {
-  return Array.isArray(value)
-      && value.every((item): item is string => typeof item === "string")
-      && new Set(value).size === value.length
-    ? value
-    : undefined;
-}
-
 function rolesByPrefix(
   flow: NonNullable<DefinitionRuleEvidence["flow"]>,
   prefix: string,
@@ -523,6 +515,21 @@ function childRole(
     && action.declaredRole === role
   );
   return matches.length === 1 ? matches[0] : undefined;
+}
+
+function branchHasExactly(
+  flow: NonNullable<DefinitionRuleEvidence["flow"]>,
+  parent: NormalizedAction,
+  branch: NormalizedAction["controlBranch"],
+  expected: readonly NormalizedAction[],
+): boolean {
+  const actual = [...flow.actions.values()]
+    .filter((action) => action.parentId === parent.id && action.controlBranch === branch)
+    .map(({ id }) => id)
+    .sort();
+  const expectedIds = expected.map(({ id }) => id).sort();
+  return actual.length === expectedIds.length
+    && actual.every((id, index) => id === expectedIds[index]);
 }
 
 function conditionFailsClosed(
@@ -583,6 +590,14 @@ function authorityFromDefinition(
   if (scopeField === undefined || accessField === undefined || stateMachine === undefined) {
     return undefined;
   }
+  const ownerField = targetList.fields.find(({ logicalName }) => logicalName === "owner")?.internalName;
+  const amountField = targetList.fields.find(({ logicalName }) => logicalName === "amount")?.internalName;
+  if (
+    ownerField === undefined
+    || amountField === undefined
+    || !command.serverReadFields.includes(ownerField)
+    || !command.serverReadFields.includes(amountField)
+  ) return undefined;
   const selectedCapabilityFields = [
     capabilityContract.activeField,
     capabilityContract.principalField,
@@ -599,6 +614,8 @@ function authorityFromDefinition(
     + `${capabilityContract.capabilityField} eq '${capabilityContract.id}'`;
   const expectedGuard = `@and(equals(length(body('${capability?.id ?? ""}')['value']),1),`
     + `equals(body('${capability?.id ?? ""}')['value'][0]['${accessField}'],body('${target?.id ?? ""}')['${scopeField}']),`
+    + `not(empty(body('${target?.id ?? ""}')['${ownerField}'])),`
+    + `greaterOrEquals(body('${target?.id ?? ""}')['${amountField}'],0),`
     + `equals(triggerBody()['CommandType'],'${command.type}'),`
     + `equals(body('${target?.id ?? ""}')['${stateMachine.field}'],'${transition.from[0] ?? ""}'))`;
   const expectedReadback = `@equals(body('${readback?.id ?? ""}')['${stateMachine.field}'],'${transition.to}')`;
@@ -795,55 +812,149 @@ function fieldOperationsFromDefinition(
   flow: NonNullable<DefinitionRuleEvidence["flow"]>,
 ): readonly unknown[] | undefined {
   const operations: unknown[] = [];
+  const payloads: Readonly<Record<string, readonly [string, number]>> = {
+    Boolean: ["SP.FieldBoolean", 8],
+    Choice: ["SP.FieldChoice", 6],
+    Currency: ["SP.FieldCurrency", 10],
+    DateTime: ["SP.FieldDateTime", 4],
+    Guid: ["SP.FieldGuid", 14],
+    Lookup: ["SP.FieldLookup", 7],
+    Note: ["SP.FieldMultiLineText", 3],
+    Number: ["SP.FieldNumber", 9],
+    Text: ["SP.FieldText", 2],
+    User: ["SP.FieldUser", 20],
+  };
+  const expressionLiteral = (value: unknown): string | undefined =>
+    typeof value === "string" ? `'${value.replaceAll("'", "''")}'`
+    : typeof value === "number" || typeof value === "boolean" ? String(value)
+    : undefined;
+  const expectedProperties = (field: ProjectContract["sharePoint"]["lists"][number]["fields"][number]) => ({
+    logicalName: field.logicalName,
+    internalName: field.internalName,
+    type: field.type,
+    required: field.required,
+    indexed: field.indexed,
+    unique: field.unique,
+    clientEditable: field.clientEditable,
+    serverAuthoritative: field.serverAuthoritative,
+    immutableAfterCreate: field.immutableAfterCreate,
+    sensitive: field.sensitive,
+    ...(field.maxLength === undefined ? {} : { maxLength: field.maxLength }),
+    ...(field.dateTimeMode === undefined ? {} : { dateTimeMode: field.dateTimeMode }),
+  });
+  const comparisonExpression = (
+    action: NormalizedAction | undefined,
+    field: ProjectContract["sharePoint"]["lists"][number]["fields"][number],
+  ): string | undefined => {
+    const expected = expectedProperties(field);
+    const comparisons = Object.entries(expected).map(([property, value]) => {
+      const literal = expressionLiteral(value);
+      return literal === undefined || action === undefined
+        ? undefined
+        : `equals(body('${action.id}')['${property}'],${literal})`;
+    });
+    return comparisons.every((item): item is string => item !== undefined)
+      ? `@and(equals(body('${action?.id ?? ""}')['InternalName'],'${field.internalName}'),`
+        + `equals(body('${action?.id ?? ""}')['EntityPropertyName'],'${field.internalName}'),`
+        + `${comparisons.join(",")})`
+      : undefined;
+  };
   for (const list of contract.sharePoint.lists) {
     for (const field of list.fields) {
       const read = oneRole(flow, `field-read:${list.id}:${field.internalName}`);
+      const found = oneRole(flow, `field-found:${list.id}:${field.internalName}`);
+      const foundAssert = oneRole(flow, `field-found-assert:${list.id}:${field.internalName}`);
+      const missing = oneRole(flow, `field-missing:${list.id}:${field.internalName}`);
       const write = oneRole(flow, `field-write:${list.id}:${field.internalName}`);
-      const parameters = write === undefined ? undefined : actionParameters(write);
+      const readback = oneRole(flow, `field-readback:${list.id}:${field.internalName}`);
+      const readbackAssert = oneRole(flow, `field-readback-assert:${list.id}:${field.internalName}`);
       const body = write === undefined ? undefined : actionInputs(write)?.body;
+      const payload = payloads[field.type];
+      const properties = Object.keys(expectedProperties(field));
+      const select = ["InternalName", "EntityPropertyName", ...properties].filter((value, index, values) =>
+        values.indexOf(value) === index
+      ).join(",");
+      const foundExpression = `@equals(outputs('${read?.id ?? ""}')['statusCode'],200)`;
+      const missingExpression = `@equals(outputs('${read?.id ?? ""}')['statusCode'],404)`;
+      const foundComparison = comparisonExpression(read, field);
+      const readbackComparison = comparisonExpression(readback, field);
       if (
-        !connectorMatches(
+        read === undefined
+        || found === undefined
+        || foundAssert === undefined
+        || missing === undefined
+        || write === undefined
+        || readback === undefined
+        || readbackAssert === undefined
+        || !connectorMatches(
           read,
           "GET",
           `${listEndpoint(list.titleBinding)}/fields/getbyinternalnameortitle('${field.internalName}')`,
+          { $select: select },
         )
         || !connectorMatches(write, "POST", `${listEndpoint(list.titleBinding)}/fields`)
-        || !succeedsAfter(write, read)
-        || parameters === undefined
-        || parameters.listId !== list.id
-        || parameters.logicalName !== field.logicalName
-        || parameters.internalName !== field.internalName
-        || typeof parameters.metadataType !== "string"
-        || !Number.isSafeInteger(parameters.fieldTypeKind)
-        || stringArrayValue(parameters.comparedProperties) === undefined
+        || !connectorMatches(
+          readback,
+          "GET",
+          `${listEndpoint(list.titleBinding)}/fields/getbyinternalnameortitle('${field.internalName}')`,
+          { $select: select },
+        )
+        || payload === undefined
+        || !runsAfterStatuses(found, read, ["Failed", "Succeeded"])
+        || !conditionMatches(found, foundExpression)
+        || !branchHasExactly(flow, found, "condition-true", [foundAssert])
+        || !branchHasExactly(flow, found, "condition-false", [missing])
+        || foundAssert?.parentId !== found.id
+        || foundAssert.controlBranch !== "condition-true"
+        || foundComparison === undefined
+        || !conditionMatches(foundAssert, foundComparison)
+        || !conditionFailsClosed(flow, foundAssert)
+        || !branchHasExactly(flow, foundAssert, "condition-true", [])
+        || missing?.parentId !== found.id
+        || missing.controlBranch !== "condition-false"
+        || !conditionMatches(missing, missingExpression)
+        || !conditionFailsClosed(flow, missing)
+        || !branchHasExactly(flow, missing, "condition-true", [write, readback, readbackAssert])
+        || write?.parentId !== missing.id
+        || write.controlBranch !== "condition-true"
+        || readback?.parentId !== missing.id
+        || readback.controlBranch !== "condition-true"
+        || readbackAssert?.parentId !== missing.id
+        || readbackAssert.controlBranch !== "condition-true"
+        || !succeedsAfter(readback, write)
+        || !succeedsAfter(readbackAssert, readback)
+        || readbackComparison === undefined
+        || !conditionMatches(readbackAssert, readbackComparison)
+        || !conditionFailsClosed(flow, readbackAssert)
+        || !branchHasExactly(flow, readbackAssert, "condition-true", [])
         || !isRecord(body)
         || !isRecord(body.__metadata)
-        || body.__metadata.type !== parameters.metadataType
-        || body.FieldTypeKind !== parameters.fieldTypeKind
+        || body.__metadata.type !== payload[0]
+        || body.FieldTypeKind !== payload[1]
         || body.InternalName !== field.internalName
       ) return undefined;
       operations.push({
-        listId: parameters.listId,
-        logicalName: parameters.logicalName,
+        listId: list.id,
+        logicalName: field.logicalName,
         identity: {
           source: "field-readback",
-          internalName: parameters.internalName,
-          entityPropertyName: parameters.internalName,
+          internalName: field.internalName,
+          entityPropertyName: field.internalName,
         },
-        uses: [{ operation: "readback", fieldName: parameters.internalName, source: "entity-property-name" }],
+        uses: [{ operation: "readback", fieldName: field.internalName, source: "entity-property-name" }],
         createPayload: {
           serialization: "structured-json",
-          metadataType: parameters.metadataType,
-          fieldTypeKind: parameters.fieldTypeKind,
+          metadataType: payload[0],
+          fieldTypeKind: payload[1],
         },
-        ...(typeof parameters.indexMetadataType === "string"
-          ? { indexPayload: { serialization: "structured-json", metadataType: parameters.indexMetadataType } }
+        ...(field.indexed
+          ? { indexPayload: { serialization: "structured-json", metadataType: "SP.Field" } }
           : {}),
         compatibility: {
-          response: "GET_FAILED",
-          comparedProperties: parameters.comparedProperties,
-          outcome: "GET_FAILED",
-          writeAction: "none",
+          response: "MISSING_OBJECT",
+          comparedProperties: properties,
+          outcome: "CREATE_MISSING",
+          writeAction: "create-approved-plan",
         },
       });
     }
@@ -942,6 +1053,20 @@ function indexPlansFromDefinition(
 ): readonly unknown[] | undefined {
   const plans: unknown[] = [];
   const indexedLists = contract.sharePoint.lists.filter(({ indexes }) => indexes.length > 0);
+  const roleField = (action: NormalizedAction, prefix: string): string | undefined => {
+    const role = action.declaredRole;
+    const field = role?.startsWith(`${prefix}:`) === true ? role.slice(prefix.length + 1) : undefined;
+    return field !== undefined && /^[A-Za-z_][A-Za-z0-9_]*$/.test(field) ? field : undefined;
+  };
+  const setExpression = (action: NormalizedAction | undefined, fields: readonly string[]): string => {
+    if (fields.length === 0) return `@equals(length(body('${action?.id ?? ""}')['value']),0)`;
+    return `@and(equals(length(body('${action?.id ?? ""}')['value']),${fields.length}),${fields.flatMap(
+      (field, index) => [
+        `equals(body('${action?.id ?? ""}')['value'][${index}]['InternalName'],'${field}')`,
+        `equals(body('${action?.id ?? ""}')['value'][${index}]['Indexed'],true)`,
+      ],
+    ).join(",")})`;
+  };
   for (const list of indexedLists) {
     const requiredFields = [...list.indexes]
       .filter(({ required }) => required)
@@ -949,112 +1074,179 @@ function indexPlansFromDefinition(
       .map(({ field }) => field);
     if (requiredFields.length === 0) return undefined;
     const read = oneRole(flow, `index-read:${list.id}`);
-    const guard = oneRole(flow, `index-plan-guard:${list.id}`);
+    const currentAssert = oneRole(flow, `index-current-assert:${list.id}`);
     const planDigest = oneRole(flow, `index-plan-digest:${list.id}`);
     const requestDigest = oneRole(flow, `index-request-digest:${list.id}`);
     const finalReadback = oneRole(flow, `index-final-readback:${list.id}`);
     const finalAssert = oneRole(flow, `index-final-assert:${list.id}`);
+    const resultAction = oneRole(flow, `index-result:${list.id}`);
     const listPath = listEndpoint(list.titleBinding);
-    const filter = requiredFields.map((field) =>
-      `InternalName eq '${field.replaceAll("'", "''")}'`
-    ).join(" or ");
     const fieldQuery = {
       $select: "InternalName,Indexed",
-      $filter: filter,
+      $filter: "Indexed eq true",
       $orderby: "InternalName",
     };
-    const guardExpression = `@and(${requiredFields.flatMap((field, index) => [
-      `equals(body('${read?.id ?? ""}')['value'][${index}]['InternalName'],'${field.replaceAll("'", "''")}')`,
-      `equals(body('${read?.id ?? ""}')['value'][${index}]['Indexed'],false)`,
-    ]).join(",")})`;
+    const removePrefix = `index-remove:${list.id}`;
+    const addPrefix = `index-add:${list.id}`;
+    const removals = rolesByPrefix(flow, removePrefix);
+    const additions = rolesByPrefix(flow, addPrefix);
+    const removalFields = removals.map((action) => roleField(action, removePrefix));
+    const additionFields = additions.map((action) => roleField(action, addPrefix));
+    if (
+      removalFields.some((field) => field === undefined)
+      || additionFields.some((field) => field === undefined)
+    ) return undefined;
+    const removed = removalFields as string[];
+    const added = additionFields as string[];
+    if (
+      new Set(removed).size !== removed.length
+      || new Set(added).size !== added.length
+      || removed.some((field) => requiredFields.includes(field))
+      || added.some((field) => !requiredFields.includes(field))
+    ) return undefined;
+    const sortedRemovals = [...removed].sort((left, right) => left.localeCompare(right, "en"));
+    const orderedAdditions = requiredFields.filter((field) => added.includes(field));
+    const currentFields = [
+      ...sortedRemovals,
+      ...requiredFields.filter((field) => !orderedAdditions.includes(field)),
+    ].sort((left, right) => left.localeCompare(right, "en"));
+    const expectedOperations = [
+      ...sortedRemovals.map((field) => ({ kind: "remove" as const, field })),
+      ...orderedAdditions.map((field) => ({ kind: "add" as const, field })),
+    ];
+    if (removed.length + added.length !== expectedOperations.length) return undefined;
+    const operationActions = new Map<string, NormalizedAction>();
+    for (const action of [...removals, ...additions]) {
+      const field = roleField(action, action.declaredRole?.startsWith(`${removePrefix}:`) === true
+        ? removePrefix
+        : addPrefix);
+      const kind = action.declaredRole?.startsWith(`${removePrefix}:`) === true ? "remove" : "add";
+      if (field === undefined) return undefined;
+      operationActions.set(`${kind}:${field}`, action);
+    }
     const digestExpression = `@sha256(concat(string(body('${read?.id ?? ""}')['value']),'|','${requiredFields.join(",")}'))`;
-    const finalExpression = `@and(${requiredFields.flatMap((field, index) => [
-      `equals(body('${finalReadback?.id ?? ""}')['value'][${index}]['InternalName'],'${field.replaceAll("'", "''")}')`,
-      `equals(body('${finalReadback?.id ?? ""}')['value'][${index}]['Indexed'],true)`,
-    ]).join(",")})`;
+    const sortedRequired = [...requiredFields].sort((left, right) => left.localeCompare(right, "en"));
+    const result = expectedOperations.length === 0 ? "NO_OP" : "APPLY";
     if (
       read === undefined
-      || guard === undefined
+      || currentAssert === undefined
       || planDigest === undefined
-      || requestDigest === undefined
       || finalReadback === undefined
       || finalAssert === undefined
+      || resultAction === undefined
       || !connectorMatches(read, "GET", `${listPath}/fields`, fieldQuery)
-      || !succeedsAfter(guard, read)
-      || !conditionMatches(guard, guardExpression)
-      || planDigest.parentId !== guard.id
+      || !succeedsAfter(currentAssert, read)
+      || !conditionMatches(currentAssert, setExpression(read, currentFields))
+      || !conditionFailsClosed(flow, currentAssert)
+      || planDigest.parentId !== currentAssert.id
       || planDigest.controlBranch !== "condition-true"
       || planDigest.type !== "Compose"
       || planDigest.inputs !== digestExpression
-      || !connectorMatches(requestDigest, "POST", "/_api/contextinfo")
-      || requestDigest.parentId !== guard.id
-      || requestDigest.controlBranch !== "condition-true"
-      || !succeedsAfter(requestDigest, planDigest)
       || !connectorMatches(finalReadback, "GET", `${listPath}/fields`, fieldQuery)
-      || !succeedsAfter(finalReadback, guard)
+      || finalReadback.parentId !== currentAssert.id
+      || finalReadback.controlBranch !== "condition-true"
       || !succeedsAfter(finalAssert, finalReadback)
-      || !conditionMatches(finalAssert, finalExpression)
-      || !conditionFailsClosed(flow, finalAssert)
+      || finalAssert.parentId !== currentAssert.id
+      || finalAssert.controlBranch !== "condition-true"
+        || !conditionMatches(finalAssert, setExpression(finalReadback, sortedRequired))
+        || !conditionFailsClosed(flow, finalAssert)
+        || !branchHasExactly(flow, finalAssert, "condition-true", [])
+      || resultAction.parentId !== currentAssert.id
+      || resultAction.controlBranch !== "condition-true"
+      || resultAction.type !== "Compose"
+      || resultAction.inputs !== result
+      || !succeedsAfter(resultAction, finalAssert)
     ) return undefined;
+    if (result === "APPLY") {
+      if (
+        requestDigest === undefined
+        || !connectorMatches(requestDigest, "POST", "/_api/contextinfo")
+        || requestDigest.parentId !== currentAssert.id
+        || requestDigest.controlBranch !== "condition-true"
+        || !succeedsAfter(requestDigest, planDigest)
+      ) return undefined;
+    } else if (requestDigest !== undefined) {
+      return undefined;
+    }
     const operations: unknown[] = [];
-    let predecessor = requestDigest;
-    for (const [index, field] of requiredFields.entries()) {
-      const write = oneRole(flow, `index-write:${list.id}:${field}`);
+    let predecessor = result === "APPLY" ? requestDigest! : planDigest;
+    const observed = new Set(currentFields);
+    for (const [index, operation] of expectedOperations.entries()) {
+      const write = operationActions.get(`${operation.kind}:${operation.field}`);
       const body = write === undefined ? undefined : actionInputs(write)?.body;
       const headers = write === undefined ? undefined : actionInputs(write)?.headers;
-      const readback = oneRole(flow, `index-step-readback:${list.id}:${field}`);
-      const assertion = oneRole(flow, `index-step-assert:${list.id}:${field}`);
-      const readbackExpression = `@and(`
-        + `equals(body('${readback?.id ?? ""}')['InternalName'],'${field.replaceAll("'", "''")}'),`
-        + `equals(body('${readback?.id ?? ""}')['Indexed'],true))`;
+      const readback = oneRole(flow, `index-step-readback:${list.id}:${operation.kind}:${operation.field}`);
+      const assertion = oneRole(flow, `index-step-assert:${list.id}:${operation.kind}:${operation.field}`);
+      if (operation.kind === "remove") observed.delete(operation.field);
+      else observed.add(operation.field);
+      const observedFields = [...observed].sort((left, right) => left.localeCompare(right, "en"));
       if (
         write === undefined
         || readback === undefined
         || assertion === undefined
-        || write.parentId !== guard.id
+        || write.parentId !== currentAssert.id
         || write.controlBranch !== "condition-true"
-        || readback.parentId !== guard.id
+        || readback.parentId !== currentAssert.id
         || readback.controlBranch !== "condition-true"
-        || assertion.parentId !== guard.id
+        || assertion.parentId !== currentAssert.id
         || assertion.controlBranch !== "condition-true"
-        || !connectorMatches(write, "POST", `${listPath}/fields/getbyinternalnameortitle('${field}')`)
+        || !connectorMatches(write, "POST", `${listPath}/fields/getbyinternalnameortitle('${operation.field}')`)
         || !succeedsAfter(write, predecessor)
         || !isRecord(headers)
-        || headers["X-RequestDigest"] !== `@{body('${requestDigest.id}')['FormDigestValue']}`
+        || headers["X-RequestDigest"] !== `@{body('${requestDigest!.id}')['FormDigestValue']}`
         || !isRecord(body)
         || !isRecord(body.__metadata)
         || body.__metadata.type !== "SP.Field"
-        || body.Indexed !== true
+        || body.Indexed !== (operation.kind === "add")
         || !connectorMatches(
           readback,
           "GET",
-          `${listPath}/fields/getbyinternalnameortitle('${field}')`,
-          { $select: "InternalName,Indexed" },
+          `${listPath}/fields`,
+          fieldQuery,
         )
         || !succeedsAfter(readback, write)
         || !succeedsAfter(assertion, readback)
-        || !conditionMatches(assertion, readbackExpression)
+        || !conditionMatches(assertion, setExpression(readback, observedFields))
         || !conditionFailsClosed(flow, assertion)
+        || !branchHasExactly(flow, assertion, "condition-true", [])
       ) return undefined;
       operations.push({
         sequence: index + 1,
-        kind: "add",
-        field,
-        payloadMetadataType: "SP.Field",
-        readback: { performed: true, observedFields: [field] },
+        kind: operation.kind,
+        field: operation.field,
+        ...(operation.kind === "add" ? { payloadMetadataType: "SP.Field" } : {}),
+        readback: { performed: true, observedFields },
       });
       predecessor = assertion;
     }
-    if (rolesByPrefix(flow, `index-write:${list.id}`).length !== requiredFields.length) return undefined;
+    const planActions = [
+      planDigest,
+      ...(requestDigest === undefined ? [] : [requestDigest]),
+      ...expectedOperations.flatMap((operation) => {
+        const write = operationActions.get(`${operation.kind}:${operation.field}`);
+        const readback = oneRole(flow, `index-step-readback:${list.id}:${operation.kind}:${operation.field}`);
+        const assertion = oneRole(flow, `index-step-assert:${list.id}:${operation.kind}:${operation.field}`);
+        return write === undefined || readback === undefined || assertion === undefined
+          ? []
+          : [write, readback, assertion];
+      }),
+      finalReadback,
+      finalAssert,
+      resultAction,
+    ];
+    if (
+      !succeedsAfter(finalReadback, predecessor)
+      || !branchHasExactly(flow, currentAssert, "condition-true", planActions)
+    ) return undefined;
     plans.push({
       listId: list.id,
-      currentFields: [],
+      currentFields,
       requiredFields,
       execution: "serial",
       digest: { fresh: true, bindsCurrent: true, bindsRequired: true },
-      result: "APPLY",
-      maximumWrites: requiredFields.length,
-      writeCount: requiredFields.length,
+      result,
+      maximumWrites: expectedOperations.length,
+      writeCount: expectedOperations.length,
       operations,
       finalReadback: requiredFields,
     });

@@ -1,4 +1,5 @@
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import {
   createCommandReport,
@@ -19,11 +20,67 @@ const OFFLINE_RESIDUAL_GATES = [
   "publication-readback",
 ] as const;
 
-const RULE_SPECIFIC_OFFLINE_GATES = [{
-  ruleId: "HTTP-SEMANTIC-001",
-  claimClass: "LIVE_SMOKE",
-  residualGate: "rule:HTTP-SEMANTIC-001:LIVE_SMOKE",
-}] as const;
+interface RuleSpecificGate {
+  readonly ruleId: string;
+  readonly claimClass: "LIVE_SMOKE";
+  readonly residualGate: string;
+}
+
+async function ruleSpecificOfflineGates(root: string): Promise<{
+  readonly gates: readonly RuleSpecificGate[];
+  readonly failures: readonly ReportFinding[];
+}> {
+  let requiredRuleIds: readonly string[];
+  try {
+    const contract = JSON.parse(await readFile(resolve(root, "project.contract.json"), "utf8")) as {
+      readonly verification?: { readonly requiredRuleIds?: unknown };
+    };
+    requiredRuleIds = Array.isArray(contract.verification?.requiredRuleIds)
+        && contract.verification.requiredRuleIds.every((value): value is string =>
+          typeof value === "string" && /^[A-Z0-9-]+$/.test(value)
+        )
+      ? [...new Set(contract.verification.requiredRuleIds)].sort()
+      : [];
+  } catch {
+    return { gates: [], failures: [] };
+  }
+
+  const gates: RuleSpecificGate[] = [];
+  const failures: ReportFinding[] = [];
+  const catalogRoot = resolve(import.meta.dirname, "../../../../rules/catalog");
+  for (const ruleId of requiredRuleIds) {
+    try {
+      const catalog = JSON.parse(await readFile(resolve(catalogRoot, `${ruleId}.json`), "utf8")) as {
+        readonly id?: unknown;
+        readonly residualGate?: {
+          readonly required?: unknown;
+          readonly claimClass?: unknown;
+        };
+      };
+      if (catalog.id !== ruleId || catalog.residualGate?.required !== true) continue;
+      if (catalog.residualGate.claimClass === "LIVE_SMOKE") {
+        gates.push({
+          ruleId,
+          claimClass: "LIVE_SMOKE",
+          residualGate: `rule:${ruleId}:LIVE_SMOKE`,
+        });
+      }
+    } catch {
+      failures.push({
+        exitCode: 8,
+        ruleId,
+        severity: "error",
+        code: "CLI_RULE_CATALOG_NOT_RUN",
+        message: "Required rule residual-gate metadata could not be loaded.",
+        artifactPath: "<catalog>",
+        remediation: "Restore the shipped rule catalog before treating offline verification as complete.",
+        residualGate: `rule-catalog:${ruleId}`,
+        notRun: true,
+      });
+    }
+  }
+  return { gates, failures };
+}
 
 export function createVerifyCommand(
   steps: readonly CommandHandler[],
@@ -53,6 +110,8 @@ export function createVerifyCommand(
       }
 
       const findings: ReportFinding[] = [];
+      const ruleGates = await ruleSpecificOfflineGates(parsed.root);
+      findings.push(...ruleGates.failures);
       let completedSteps = 0;
       const reports = steps.length === 0
         ? [await validateOfflineRepository(parsed.root, "offline validation")]
@@ -102,7 +161,7 @@ export function createVerifyCommand(
         residualGate: gate,
         notRun: true,
       })));
-      findings.push(...RULE_SPECIFIC_OFFLINE_GATES.map((gate) => ({
+      findings.push(...ruleGates.gates.map((gate) => ({
         exitCode: 0 as const,
         ruleId: gate.ruleId,
         severity: "info" as const,
