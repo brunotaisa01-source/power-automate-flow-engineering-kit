@@ -15,22 +15,29 @@ inventories, and safely inspect native solution ZIP bytes. Repository-authored
 evidence, source IR, projections, and JSON stored under a `.zip` name cannot
 authorize a production PASS.
 
-WP-11 local hardening recognizes a deliberately narrow executable grammar.
+WP-12 local hardening recognizes a deliberately narrow executable grammar.
 Frontend authority requires a parser-clean, closed module inventory and exact
 supported AST shapes whose network calls use the unshadowed
 `globalThis.fetch` API. The accepted Save shape rejects empty, unknown, or
 undefined patch entries and establishes semantic readback only through a
-field-by-field comparison of the parsed GET response with the serialized write
-body. The accepted OData shape is one allowlisted field equality with escaped
+successful `200` readback status check followed by a field-by-field comparison
+of the parsed GET response with the serialized write body. Pagination parses
+URLs, enforces the configured site path on exact decoded segment boundaries,
+and rejects malformed continuation values. The accepted OData shape is one
+allowlisted field equality with escaped
 literal data; caller-supplied filter fragments are not accepted. Schema
 authority requires a complete contract-bound create payload, including
-type-specific Choice, Lookup, and DateTime properties, response-bound
+type-specific Choice, Lookup, and DateTime properties, native SharePoint field
+response comparisons, response-bound
 FOUND/MISSING/FAILED branches, creation only in MISSING, and post-create GET
 readback. Index authority requires a complete
 indexed-field read, exact current-state assertion, an approved digest
 assertion consumed by the executable plan, serial remove-before-add writes,
-full per-step/final readbacks, and a compatible zero-write `NO_OP`. Permission
-inheritance is derived only from the accepted executable `break-clear` shape.
+per-field ETag reads, exact `POST`/`MERGE`/`IF-MATCH` controls, full
+per-step/final readbacks, and a compatible zero-write `NO_OP`. Permission
+inheritance is derived only from the accepted executable `break-clear` shape;
+grant readback binds principal and role in one assignment, while effective
+permissions are checked against native `High`/`Low` masks.
 Protected authorization facts are emitted only when Owner and Amount contract
 fields are selected by the target GET and consumed by the reachable guard.
 Before any builder section is emitted, every normalized action is inspected;
@@ -39,6 +46,12 @@ the exact contract-derived action set suppresses the whole builder derivation.
 Unsupported or ambiguous structures produce no trusted derivation. A compiled
 CLI process covers the fourteen contract-required WP-06 rules from raw
 synthetic files and real ZIP bytes. This is not a release-readiness claim.
+
+`PA-CONNECTOR-001` is method-aware: HTTP GET, HEAD, and OPTIONS actions are
+reads and do not require MERGE headers. Recognized item and field updates still
+require `POST`, `X-HTTP-Method: MERGE`, and a non-wildcard exact ETag. Unknown
+or dynamic HTTP requests and non-read methods fail closed unless they carry the
+supported mutation controls.
 
 All results are local evidence only. Tenant import, rebinding, enablement,
 execution, mutation, semantic readback, and publication readback are separate

@@ -755,6 +755,52 @@ describe("WP-05R real adapter boundary counterexamples", () => {
     }]);
   });
 
+  test("PA-CONNECTOR-001 accepts a SharePoint HTTP GET without MERGE headers", async () => {
+    const context = await inspectedContext(flowDefinition({
+      Read: connector("GET", "HttpRequest"),
+    }, ["synthetic_connection"]));
+
+    assert.deepEqual(await diagnostics("PA-CONNECTOR-001", context), []);
+  });
+
+  test("PA-CONNECTOR-001 still rejects an item update without MERGE and exact IF-MATCH", async () => {
+    const update = connector("POST", "HttpRequest") as any;
+    update.inputs.uri = "/_api/web/lists/getbytitle('SYNTHETIC')/items(1)";
+    const context = await inspectedContext(flowDefinition({ Update: update }, ["synthetic_connection"]));
+
+    assert.deepEqual(await diagnostics("PA-CONNECTOR-001", context), [{
+      code: "PA-CONNECTOR-001",
+      path: `${PACKAGE_PATH}#/flows/<flow>/actions/<action>/connector`,
+      message: "SharePoint REST mutation does not use POST with a MERGE override and exact ETag.",
+    }]);
+  });
+
+  test("PA-CONNECTOR-001 fails closed for a dynamic HTTP POST without mutation controls", async () => {
+    const update = connector("POST", "HttpRequest") as any;
+    update.inputs.uri = "@{variables('targetUri')}";
+    const context = await inspectedContext(flowDefinition({ Update: update }, ["synthetic_connection"]));
+
+    assert.deepEqual(await diagnostics("PA-CONNECTOR-001", context), [{
+      code: "PA-CONNECTOR-001",
+      path: `${PACKAGE_PATH}#/flows/<flow>/actions/<action>/connector`,
+      message: "SharePoint REST mutation does not use POST with a MERGE override and exact ETag.",
+    }]);
+  });
+
+  test("PA-CONNECTOR-001 rejects non-read HTTP methods without mutation controls", async () => {
+    for (const method of ["PUT", "DELETE"]) {
+      const mutation = connector(method, "HttpRequest") as any;
+      mutation.inputs.uri = "/_api/web/lists/getbytitle('SYNTHETIC')/items(1)";
+      const context = await inspectedContext(flowDefinition({ Mutation: mutation }, ["synthetic_connection"]));
+
+      assert.deepEqual(await diagnostics("PA-CONNECTOR-001", context), [{
+        code: "PA-CONNECTOR-001",
+        path: `${PACKAGE_PATH}#/flows/<flow>/actions/<action>/connector`,
+        message: "SharePoint REST mutation does not use POST with a MERGE override and exact ETag.",
+      }]);
+    }
+  });
+
   test("PA-LIMIT-001 uses the project contract budget", async () => {
     const context = await inspectedContext(flowDefinition({
       First: { type: "Compose", runAfter: {}, inputs: "synthetic" },

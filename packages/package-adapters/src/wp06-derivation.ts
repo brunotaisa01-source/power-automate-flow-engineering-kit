@@ -230,6 +230,7 @@ function supportsSave(source: ts.SourceFile): boolean {
         throw new Error("ambiguous-write");
       }`,
       'const readback = await globalThis.fetch(itemUrl, { method: "GET" });',
+      'if (!readback.ok || readback.status !== 200) throw new Error("readback-failed");',
       "const current = await readback.json();",
       'if (!Object.entries(body).every(([field, value]) => Object.is(current[field], value))) throw new Error("readback-mismatch");',
       "return current;",
@@ -262,11 +263,15 @@ function supportsPagination(source: ts.SourceFile): number | undefined {
     ["initialUrl", "expectedOrigin", "expectedPathname"],
     [ts.SyntaxKind.ExportKeyword, ts.SyntaxKind.AsyncKeyword],
   )) return undefined;
-  const loop = pagination.body.statements[4];
+  const loop = pagination.body.statements[8];
   if (loop === undefined || !ts.isWhileStatement(loop)) return undefined;
   const limit = paginationLimit(loop);
   if (limit === undefined) return undefined;
   return bodyMatches(pagination.body, [
+    "const expectedUrl = new URL(expectedPathname, expectedOrigin);",
+    'if (expectedUrl.origin !== expectedOrigin || expectedUrl.search || expectedUrl.hash) throw new Error("invalid-boundary");',
+    'const expectedSegments = expectedUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);',
+    'if (typeof initialUrl !== "string" || initialUrl.length === 0) throw new Error("malformed-next-link");',
     "const visited = new Set();",
     "const items = [];",
     "let next = initialUrl;",
@@ -274,14 +279,17 @@ function supportsPagination(source: ts.SourceFile): number | undefined {
     `while (next) {
       pages += 1;
       if (pages > ${limit}) throw new Error("page-limit");
+      if (typeof next !== "string" || next.length === 0) throw new Error("malformed-next-link");
       const pageUrl = new URL(next);
-      if (pageUrl.origin !== expectedOrigin || !pageUrl.pathname.startsWith(expectedPathname)) throw new Error("boundary");
+      const pageSegments = pageUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+      if (pageUrl.origin !== expectedOrigin || pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");
       if (visited.has(pageUrl.href)) throw new Error("loop");
       visited.add(pageUrl.href);
       const response = await globalThis.fetch(pageUrl, { method: "GET" });
       const body = await response.json();
       items.push(...body.value);
-      next = body["@odata.nextLink"];
+      next = body["@odata.nextLink"] ?? null;
+      if (next !== null && (typeof next !== "string" || next.length === 0)) throw new Error("malformed-next-link");
     }`,
     "return items;",
   ]) ? limit : undefined;
@@ -695,6 +703,12 @@ function permissionSections(
   const probes: unknown[] = [];
   let expectedGrantCount = 0;
   const operationUniverse = ["create", "delete", "read", "update"] as const;
+  const operationBits: Readonly<Record<(typeof operationUniverse)[number], number>> = {
+    create: 2,
+    delete: 8,
+    read: 1,
+    update: 4,
+  };
   for (const list of contract.sharePoint.lists) {
     if (list.permissions.inheritance !== "break-clear") return undefined;
     const model = oneRole(flow, `permission-model:${list.id}`);
@@ -724,15 +738,20 @@ function permissionSections(
       const roleRead = oneRole(flow, `permission-role:${list.id}:${role.principalBinding}`);
       const grant = oneRole(flow, `permission-grant:${list.id}:${role.principalBinding}`);
       const readback = oneRole(flow, `permission-readback:${list.id}:${role.principalBinding}`);
+      const grantMatch = oneRole(flow, `permission-grant-match:${list.id}:${role.principalBinding}`);
       const grantAssert = oneRole(flow, `permission-grant-assert:${list.id}:${role.principalBinding}`);
       const principalLiteral = role.principalBinding.replaceAll("'", "''");
       const roleLiteral = role.role.replaceAll("'", "''");
       const grantPath = `${listEndpoint(list.titleBinding)}/roleassignments/addroleassignment(`
         + `principalid=@{body('${principal?.id ?? ""}')['Id']},`
         + `roledefid=@{body('${roleRead?.id ?? ""}')['Id']})`;
-      const grantAssertion = `@and(`
-        + `contains(string(body('${readback?.id ?? ""}')),'${principalLiteral}'),`
-        + `contains(string(body('${readback?.id ?? ""}')),'${roleLiteral}'))`;
+      const grantMatchInputs = {
+        from: `@body('${readback?.id ?? ""}')['value']`,
+        where: `@and(equals(item()['Member']['LoginName'],'${principalLiteral}'),`
+          + `equals(length(item()['RoleDefinitionBindings']['results']),1),`
+          + `equals(item()['RoleDefinitionBindings']['results'][0]['Name'],'${roleLiteral}'))`,
+      };
+      const grantAssertion = `@equals(length(body('${grantMatch?.id ?? ""}')),1)`;
       if (
         !connectorMatches(
           principal,
@@ -751,14 +770,21 @@ function permissionSections(
           readback,
           "GET",
           `${listEndpoint(list.titleBinding)}/roleassignments`,
-          { $expand: "Member,RoleDefinitionBindings" },
+          {
+            $select: "Member/LoginName,RoleDefinitionBindings/Name",
+            $expand: "Member,RoleDefinitionBindings",
+          },
         )
         || !succeedsAfter(principal, predecessor)
         || !succeedsAfter(roleRead, principal)
         || !succeedsAfter(grant, roleRead)
         || !succeedsAfter(readback, grant)
+        || grantMatch === undefined
+        || grantMatch.type !== "Query"
+        || !exactRecord(actionInputs(grantMatch), grantMatchInputs)
+        || !succeedsAfter(grantMatch, readback)
         || grantAssert === undefined
-        || !succeedsAfter(grantAssert, readback)
+        || !succeedsAfter(grantAssert, grantMatch)
         || !conditionMatches(grantAssert, grantAssertion)
         || !conditionFailsClosed(flow, grantAssert)
       ) return undefined;
@@ -772,13 +798,18 @@ function permissionSections(
       const assertRole = `permission-assert:${list.id}:${role.principalBinding}`;
       const probe = oneRole(flow, probeRole);
       const assertion = oneRole(flow, assertRole);
+      if (role.allowedOperations.some((operation) => !operationUniverse.includes(
+        operation as (typeof operationUniverse)[number],
+      ))) return undefined;
       const operations = Object.fromEntries(operationUniverse.map((operation) => [
         operation,
         role.allowedOperations.includes(operation),
       ]));
-      const expectedAssertion = `@and(${operationUniverse.map((operation) =>
-        `equals(body('${probe?.id ?? ""}')['operations/${operation}'],${operations[operation]})`
-      ).join(",")})`;
+      const lowMask = role.allowedOperations.reduce((mask, operation) =>
+        mask + operationBits[operation as (typeof operationUniverse)[number]], 0
+      );
+      const expectedAssertion = `@and(equals(body('${probe?.id ?? ""}')['High'],0),`
+        + `equals(body('${probe?.id ?? ""}')['Low'],${lowMask}))`;
       if (
         !connectorMatches(
           probe,
@@ -834,44 +865,53 @@ function fieldOperationsFromDefinition(
     const hasLookupField = field.lookupField !== undefined;
     return (field.maxLength === undefined || field.type === "Text")
       && (field.dateTimeMode === undefined || field.type === "DateTime")
-      && (field.choices === undefined || field.type === "Choice")
-      && (hasLookupList === hasLookupField)
-      && (!hasLookupList || field.type === "Lookup");
+      && (field.type === "Choice" ? field.choices !== undefined : field.choices === undefined)
+      && (field.type === "Lookup"
+        ? hasLookupList && hasLookupField
+        : !hasLookupList && !hasLookupField)
+      && (!field.unique || field.indexed);
   };
-  const expectedProperties = (field: ProjectContract["sharePoint"]["lists"][number]["fields"][number]) => ({
-    logicalName: field.logicalName,
-    internalName: field.internalName,
-    type: field.type,
-    required: field.required,
-    indexed: field.indexed,
-    unique: field.unique,
-    clientEditable: field.clientEditable,
-    serverAuthoritative: field.serverAuthoritative,
-    immutableAfterCreate: field.immutableAfterCreate,
-    sensitive: field.sensitive,
-    ...(field.maxLength === undefined ? {} : { maxLength: field.maxLength }),
-    ...(field.dateTimeMode === undefined ? {} : { dateTimeMode: field.dateTimeMode }),
-    ...(field.choices === undefined ? {} : { choices: field.choices }),
-    ...(field.lookupListId === undefined ? {} : { lookupListId: field.lookupListId }),
-    ...(field.lookupField === undefined ? {} : { lookupField: field.lookupField }),
+  const nativeProperties = (
+    field: ProjectContract["sharePoint"]["lists"][number]["fields"][number],
+    fieldTypeKind: number,
+  ) => ({
+    FieldTypeKind: fieldTypeKind,
+    Required: field.required,
+    Indexed: field.indexed,
+    EnforceUniqueValues: field.unique,
+    ...(field.maxLength === undefined ? {} : { MaxLength: field.maxLength }),
+    ...(field.dateTimeMode === undefined
+      ? {}
+      : { DisplayFormat: field.dateTimeMode === "DateOnly" ? 0 : 1 }),
   });
   const comparisonExpression = (
     action: NormalizedAction | undefined,
     field: ProjectContract["sharePoint"]["lists"][number]["fields"][number],
+    fieldTypeKind: number,
+    lookupRead: NormalizedAction | undefined,
   ): string | undefined => {
-    const expected = expectedProperties(field);
-    const comparisons = Object.entries(expected).map(([property, value]) => {
-      if (Array.isArray(value)) {
-        const serialized = JSON.stringify(value).replaceAll("'", "''");
-        return action === undefined
-          ? undefined
-          : `equals(string(body('${action.id}')['${property}']),'${serialized}')`;
-      }
+    const comparisons = Object.entries(nativeProperties(field, fieldTypeKind)).map(([property, value]) => {
       const literal = expressionLiteral(value);
       return literal === undefined || action === undefined
         ? undefined
         : `equals(body('${action.id}')['${property}'],${literal})`;
     });
+    if (field.choices !== undefined) {
+      const serialized = JSON.stringify(field.choices).replaceAll("'", "''");
+      comparisons.push(action === undefined
+        ? undefined
+        : `equals(string(body('${action.id}')['Choices']['results']),'${serialized}')`);
+    }
+    if (field.lookupListId !== undefined) {
+      comparisons.push(action === undefined || lookupRead === undefined
+        ? undefined
+        : `equals(body('${action.id}')['LookupList'],body('${lookupRead.id}')['Id'])`);
+    }
+    if (field.lookupField !== undefined) {
+      comparisons.push(action === undefined
+        ? undefined
+        : `equals(body('${action.id}')['LookupField'],'${field.lookupField.replaceAll("'", "''")}')`);
+    }
     return comparisons.every((item): item is string => item !== undefined)
       ? `@and(equals(body('${action?.id ?? ""}')['InternalName'],'${field.internalName}'),`
         + `equals(body('${action?.id ?? ""}')['EntityPropertyName'],'${field.internalName}'),`
@@ -889,6 +929,12 @@ function fieldOperationsFromDefinition(
       const readbackAssert = oneRole(flow, `field-readback-assert:${list.id}:${field.internalName}`);
       const body = write === undefined ? undefined : actionInputs(write)?.body;
       const payload = payloads[field.type];
+      const lookupList = field.lookupListId === undefined
+        ? undefined
+        : contract.sharePoint.lists.find(({ id }) => id === field.lookupListId);
+      const lookupRead = field.lookupListId === undefined
+        ? undefined
+        : oneRole(flow, `field-lookup-list:${list.id}:${field.internalName}`);
       const createBody = payload === undefined || !typePropertiesValid(field) ? undefined : {
         __metadata: { type: payload[0] },
         FieldTypeKind: payload[1],
@@ -901,17 +947,30 @@ function fieldOperationsFromDefinition(
           ? {}
           : { DisplayFormat: field.dateTimeMode === "DateOnly" ? 0 : 1 }),
         ...(field.choices === undefined ? {} : { Choices: { results: field.choices } }),
-        ...(field.lookupListId === undefined ? {} : { LookupList: field.lookupListId }),
+        ...(field.lookupListId === undefined || lookupRead === undefined
+          ? {}
+          : { LookupList: `@{body('${lookupRead.id}')['Id']}` }),
         ...(field.lookupField === undefined ? {} : { LookupField: field.lookupField }),
       };
-      const properties = Object.keys(expectedProperties(field));
-      const select = ["InternalName", "EntityPropertyName", ...properties].filter((value, index, values) =>
+      const properties = payload === undefined
+        ? []
+        : [
+          "InternalName",
+          "EntityPropertyName",
+          ...Object.keys(nativeProperties(field, payload[1])),
+          ...(field.choices === undefined ? [] : ["Choices"]),
+          ...(field.lookupListId === undefined ? [] : ["LookupList"]),
+          ...(field.lookupField === undefined ? [] : ["LookupField"]),
+        ];
+      const select = properties.filter((value, index, values) =>
         values.indexOf(value) === index
       ).join(",");
       const foundExpression = `@equals(outputs('${read?.id ?? ""}')['statusCode'],200)`;
       const missingExpression = `@equals(outputs('${read?.id ?? ""}')['statusCode'],404)`;
-      const foundComparison = comparisonExpression(read, field);
-      const readbackComparison = comparisonExpression(readback, field);
+      const foundComparison = payload === undefined ? undefined : comparisonExpression(read, field, payload[1], lookupRead);
+      const readbackComparison = payload === undefined
+        ? undefined
+        : comparisonExpression(readback, field, payload[1], lookupRead);
       if (
         read === undefined
         || found === undefined
@@ -935,6 +994,13 @@ function fieldOperationsFromDefinition(
         )
         || payload === undefined
         || createBody === undefined
+        || (field.lookupListId !== undefined && (
+          lookupList === undefined
+          || lookupRead === undefined
+          || !connectorMatches(lookupRead, "GET", listEndpoint(lookupList.titleBinding), { $select: "Id" })
+          || !succeedsAfter(read, lookupRead)
+        ))
+        || (field.lookupListId === undefined && lookupRead !== undefined)
         || !runsAfterStatuses(found, read, ["Failed", "Succeeded"])
         || !conditionMatches(found, foundExpression)
         || !branchHasExactly(flow, found, "condition-true", [foundAssert])
@@ -1218,6 +1284,7 @@ function indexPlansFromDefinition(
       const write = operationActions.get(`${operation.kind}:${operation.field}`);
       const body = write === undefined ? undefined : actionInputs(write)?.body;
       const headers = write === undefined ? undefined : actionInputs(write)?.headers;
+      const fieldRead = oneRole(flow, `index-field-read:${list.id}:${operation.kind}:${operation.field}`);
       const readback = oneRole(flow, `index-step-readback:${list.id}:${operation.kind}:${operation.field}`);
       const assertion = oneRole(flow, `index-step-assert:${list.id}:${operation.kind}:${operation.field}`);
       if (operation.kind === "remove") observed.delete(operation.field);
@@ -1225,6 +1292,7 @@ function indexPlansFromDefinition(
       const observedFields = [...observed].sort((left, right) => left.localeCompare(right, "en"));
       if (
         write === undefined
+        || fieldRead === undefined
         || readback === undefined
         || assertion === undefined
         || write.parentId !== currentAssert.id
@@ -1233,10 +1301,23 @@ function indexPlansFromDefinition(
         || readback.controlBranch !== "condition-true"
         || assertion.parentId !== currentAssert.id
         || assertion.controlBranch !== "condition-true"
+        || !connectorMatches(
+          fieldRead,
+          "GET",
+          `${listPath}/fields/getbyinternalnameortitle('${operation.field}')`,
+          { $select: "InternalName,Indexed" },
+        )
+        || !succeedsAfter(fieldRead, predecessor)
         || !connectorMatches(write, "POST", `${listPath}/fields/getbyinternalnameortitle('${operation.field}')`)
-        || !succeedsAfter(write, predecessor)
+        || !succeedsAfter(write, fieldRead)
         || !isRecord(headers)
-        || headers["X-RequestDigest"] !== `@{body('${requestDigest!.id}')['FormDigestValue']}`
+        || !exactRecord(headers, {
+          "IF-MATCH": `@{body('${fieldRead.id}')['@odata.etag']}`,
+          "X-HTTP-Method": "MERGE",
+          "X-RequestDigest": `@{body('${requestDigest!.id}')['FormDigestValue']}`,
+        })
+        || write.connector?.overrideMethod !== "MERGE"
+        || write.connector.ifMatch !== `@{body('${fieldRead.id}')['@odata.etag']}`
         || !isRecord(body)
         || !isRecord(body.__metadata)
         || body.__metadata.type !== "SP.Field"
@@ -1268,11 +1349,12 @@ function indexPlansFromDefinition(
       ...(requestDigest === undefined ? [] : [requestDigest]),
       ...expectedOperations.flatMap((operation) => {
         const write = operationActions.get(`${operation.kind}:${operation.field}`);
+        const fieldRead = oneRole(flow, `index-field-read:${list.id}:${operation.kind}:${operation.field}`);
         const readback = oneRole(flow, `index-step-readback:${list.id}:${operation.kind}:${operation.field}`);
         const assertion = oneRole(flow, `index-step-assert:${list.id}:${operation.kind}:${operation.field}`);
-        return write === undefined || readback === undefined || assertion === undefined
+        return write === undefined || fieldRead === undefined || readback === undefined || assertion === undefined
           ? []
-          : [write, readback, assertion];
+          : [fieldRead, write, readback, assertion];
       }),
       finalReadback,
       finalAssert,

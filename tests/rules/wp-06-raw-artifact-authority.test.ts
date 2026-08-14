@@ -421,12 +421,17 @@ export async function saveSharePointItem(listId, itemUrl, etag, patch) {
     throw new Error("ambiguous-write");
   }
   const readback = await globalThis.fetch(itemUrl, { method: "GET" });
+  if (!readback.ok || readback.status !== 200) throw new Error("readback-failed");
   const current = await readback.json();
   if (!Object.entries(body).every(([field, value]) => Object.is(current[field], value))) throw new Error("readback-mismatch");
   return current;
 }
 
 export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) {
+  const expectedUrl = new URL(expectedPathname, expectedOrigin);
+  if (expectedUrl.origin !== expectedOrigin || expectedUrl.search || expectedUrl.hash) throw new Error("invalid-boundary");
+  const expectedSegments = expectedUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  if (typeof initialUrl !== "string" || initialUrl.length === 0) throw new Error("malformed-next-link");
   const visited = new Set();
   const items = [];
   let next = initialUrl;
@@ -434,14 +439,17 @@ export async function loadAllSharePointPages(initialUrl, expectedOrigin, expecte
   while (next) {
     pages += 1;
     if (pages > 50) throw new Error("page-limit");
+    if (typeof next !== "string" || next.length === 0) throw new Error("malformed-next-link");
     const pageUrl = new URL(next);
-    if (pageUrl.origin !== expectedOrigin || !pageUrl.pathname.startsWith(expectedPathname)) throw new Error("boundary");
+    const pageSegments = pageUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+    if (pageUrl.origin !== expectedOrigin || pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");
     if (visited.has(pageUrl.href)) throw new Error("loop");
     visited.add(pageUrl.href);
     const response = await globalThis.fetch(pageUrl, { method: "GET" });
     const body = await response.json();
     items.push(...body.value);
-    next = body["@odata.nextLink"];
+    next = body["@odata.nextLink"] ?? null;
+    if (next !== null && (typeof next !== "string" || next.length === 0)) throw new Error("malformed-next-link");
   }
   return items;
 }
@@ -570,14 +578,25 @@ function indexPlanActions(
       {},
       "IndexPlanAssert",
     ),
+    IndexFieldReadLegacy: semanticConnector(
+      "index-field-read:protected-items:remove:LegacyCode",
+      "GET",
+      `${protectedUri}/fields/getbyinternalnameortitle('LegacyCode')?$select=InternalName,Indexed`,
+      {},
+      "IndexRequestDigest",
+    ),
     IndexRemoveLegacy: semanticConnector(
       "index-remove:protected-items:LegacyCode",
       "POST",
       `${protectedUri}/fields/getbyinternalnameortitle('LegacyCode')`,
       {},
-      "IndexRequestDigest",
+      "IndexFieldReadLegacy",
       {
-        headers: { "X-RequestDigest": "@{body('IndexRequestDigest')['FormDigestValue']}" },
+        headers: {
+          "X-HTTP-Method": "MERGE",
+          "IF-MATCH": "@{body('IndexFieldReadLegacy')['@odata.etag']}",
+          "X-RequestDigest": "@{body('IndexRequestDigest')['FormDigestValue']}",
+        },
         body: { __metadata: { type: "SP.Field" }, Indexed: false },
       },
     ),
@@ -601,11 +620,22 @@ function indexPlanActions(
       "POST",
       `${protectedUri}/fields/getbyinternalnameortitle('Title')`,
       {},
-      "IndexStepAssertLegacy",
+      "IndexFieldReadTitle",
       {
-        headers: { "X-RequestDigest": "@{body('IndexRequestDigest')['FormDigestValue']}" },
+        headers: {
+          "X-HTTP-Method": "MERGE",
+          "IF-MATCH": "@{body('IndexFieldReadTitle')['@odata.etag']}",
+          "X-RequestDigest": "@{body('IndexRequestDigest')['FormDigestValue']}",
+        },
         body: { __metadata: { type: "SP.Field" }, Indexed: true },
       },
+    ),
+    IndexFieldReadTitle: semanticConnector(
+      "index-field-read:protected-items:add:Title",
+      "GET",
+      `${protectedUri}/fields/getbyinternalnameortitle('Title')?$select=InternalName,Indexed`,
+      {},
+      "IndexStepAssertLegacy",
     ),
     IndexStepReadbackTitle: semanticConnector(
       "index-step-readback:protected-items:add:Title",
@@ -757,27 +787,21 @@ function builderDefinition(indexMode: "APPLY" | "NO_OP" = "APPLY"): Record<strin
     const writeId = `FieldWrite_${suffix}`;
     const readbackId = `FieldReadback_${suffix}`;
     const readbackAssertId = `FieldReadbackAssert_${suffix}`;
-    const actual = {
-      logicalName: field.logicalName,
-      internalName: field.internalName,
-      type: field.type,
-      required: true,
-      indexed: field.indexed,
-      unique: false,
-      clientEditable: field.clientEditable,
-      serverAuthoritative: field.serverAuthoritative,
-      immutableAfterCreate: field.immutableAfterCreate,
-      sensitive: false,
-      ...(field.maxLength === undefined ? {} : { maxLength: field.maxLength }),
+    const native = {
+      FieldTypeKind: field.fieldTypeKind,
+      Required: true,
+      Indexed: field.indexed,
+      EnforceUniqueValues: false,
+      ...(field.maxLength === undefined ? {} : { MaxLength: field.maxLength }),
     };
-    const select = ["InternalName", "EntityPropertyName", ...Object.keys(actual)].join(",");
+    const select = ["InternalName", "EntityPropertyName", ...Object.keys(native)].join(",");
     const literal = (value: unknown) => typeof value === "string"
       ? `'${value.replaceAll("'", "''")}'`
       : String(value);
     const comparison = (actionId: string) => `@and(`
       + `equals(body('${actionId}')['InternalName'],'${field.internalName}'),`
       + `equals(body('${actionId}')['EntityPropertyName'],'${field.internalName}'),`
-      + `${Object.entries(actual).map(([name, value]) =>
+      + `${Object.entries(native).map(([name, value]) =>
         `equals(body('${actionId}')['${name}'],${literal(value)})`
       ).join(",")})`;
     fieldActions[readId] = semanticConnector(
@@ -943,15 +967,24 @@ function builderDefinition(indexMode: "APPLY" | "NO_OP" = "APPLY"): Record<strin
           PermissionReadbackProtected: semanticConnector(
             "permission-readback:protected-items:PROCESSOR",
             "GET",
-            `${protectedUri}/roleassignments?$expand=Member,RoleDefinitionBindings`,
+            `${protectedUri}/roleassignments?$select=Member/LoginName,RoleDefinitionBindings/Name&$expand=Member,RoleDefinitionBindings`,
             {},
             "PermissionGrantProtected",
           ),
+          PermissionGrantMatchProtected: {
+            type: "Query",
+            metadata: { spflowRole: "permission-grant-match:protected-items:PROCESSOR" },
+            runAfter: { PermissionReadbackProtected: ["Succeeded"] },
+            inputs: {
+              from: "@body('PermissionReadbackProtected')['value']",
+              where: "@and(equals(item()['Member']['LoginName'],'PROCESSOR'),equals(length(item()['RoleDefinitionBindings']['results']),1),equals(item()['RoleDefinitionBindings']['results'][0]['Name'],'processor'))",
+            },
+          },
           PermissionGrantAssertProtected: {
             type: "If",
             metadata: { spflowRole: "permission-grant-assert:protected-items:PROCESSOR" },
-            runAfter: { PermissionReadbackProtected: ["Succeeded"] },
-            expression: "@and(contains(string(body('PermissionReadbackProtected')),'PROCESSOR'),contains(string(body('PermissionReadbackProtected')),'processor'))",
+            runAfter: { PermissionGrantMatchProtected: ["Succeeded"] },
+            expression: "@equals(length(body('PermissionGrantMatchProtected')),1)",
             actions: {},
             else: failureElse("PermissionGrantProtectedFailed"),
           },
@@ -966,7 +999,7 @@ function builderDefinition(indexMode: "APPLY" | "NO_OP" = "APPLY"): Record<strin
             type: "If",
             metadata: { spflowRole: "permission-assert:protected-items:PROCESSOR" },
             runAfter: { PermissionProbeProtected: ["Succeeded"] },
-            expression: "@and(equals(body('PermissionProbeProtected')['operations/create'],false),equals(body('PermissionProbeProtected')['operations/delete'],false),equals(body('PermissionProbeProtected')['operations/read'],true),equals(body('PermissionProbeProtected')['operations/update'],true))",
+            expression: "@and(equals(body('PermissionProbeProtected')['High'],0),equals(body('PermissionProbeProtected')['Low'],5))",
             actions: {},
             else: failureElse("PermissionProbeProtectedFailed"),
           },
@@ -1001,15 +1034,24 @@ function builderDefinition(indexMode: "APPLY" | "NO_OP" = "APPLY"): Record<strin
           PermissionReadbackAccess: semanticConnector(
             "permission-readback:access-control:PROCESSOR",
             "GET",
-            `${accessUri}/roleassignments?$expand=Member,RoleDefinitionBindings`,
+            `${accessUri}/roleassignments?$select=Member/LoginName,RoleDefinitionBindings/Name&$expand=Member,RoleDefinitionBindings`,
             {},
             "PermissionGrantAccess",
           ),
+          PermissionGrantMatchAccess: {
+            type: "Query",
+            metadata: { spflowRole: "permission-grant-match:access-control:PROCESSOR" },
+            runAfter: { PermissionReadbackAccess: ["Succeeded"] },
+            inputs: {
+              from: "@body('PermissionReadbackAccess')['value']",
+              where: "@and(equals(item()['Member']['LoginName'],'PROCESSOR'),equals(length(item()['RoleDefinitionBindings']['results']),1),equals(item()['RoleDefinitionBindings']['results'][0]['Name'],'processor'))",
+            },
+          },
           PermissionGrantAssertAccess: {
             type: "If",
             metadata: { spflowRole: "permission-grant-assert:access-control:PROCESSOR" },
-            runAfter: { PermissionReadbackAccess: ["Succeeded"] },
-            expression: "@and(contains(string(body('PermissionReadbackAccess')),'PROCESSOR'),contains(string(body('PermissionReadbackAccess')),'processor'))",
+            runAfter: { PermissionGrantMatchAccess: ["Succeeded"] },
+            expression: "@equals(length(body('PermissionGrantMatchAccess')),1)",
             actions: {},
             else: failureElse("PermissionGrantAccessFailed"),
           },
@@ -1024,7 +1066,7 @@ function builderDefinition(indexMode: "APPLY" | "NO_OP" = "APPLY"): Record<strin
             type: "If",
             metadata: { spflowRole: "permission-assert:access-control:PROCESSOR" },
             runAfter: { PermissionProbeAccess: ["Succeeded"] },
-            expression: "@and(equals(body('PermissionProbeAccess')['operations/create'],false),equals(body('PermissionProbeAccess')['operations/delete'],false),equals(body('PermissionProbeAccess')['operations/read'],true),equals(body('PermissionProbeAccess')['operations/update'],false))",
+            expression: "@and(equals(body('PermissionProbeAccess')['High'],0),equals(body('PermissionProbeAccess')['Low'],1))",
             actions: {},
             else: failureElse("PermissionProbeAccessFailed"),
           },
@@ -1174,40 +1216,6 @@ function configureFieldFixture(
   const suffix = `${listId.replaceAll("-", "_")}_${internalName}`;
   const readId = `FieldRead_${suffix}`;
   const readbackId = `FieldReadback_${suffix}`;
-  const expected = {
-    logicalName: field.logicalName,
-    internalName: field.internalName,
-    type: field.type,
-    required: field.required,
-    indexed: field.indexed,
-    unique: field.unique,
-    clientEditable: field.clientEditable,
-    serverAuthoritative: field.serverAuthoritative,
-    immutableAfterCreate: field.immutableAfterCreate,
-    sensitive: field.sensitive,
-    ...(field.maxLength === undefined ? {} : { maxLength: field.maxLength }),
-    ...(field.dateTimeMode === undefined ? {} : { dateTimeMode: field.dateTimeMode }),
-    ...(field.choices === undefined ? {} : { choices: field.choices }),
-    ...(field.lookupListId === undefined ? {} : { lookupListId: field.lookupListId }),
-    ...(field.lookupField === undefined ? {} : { lookupField: field.lookupField }),
-  };
-  const literal = (value: unknown) => typeof value === "string"
-    ? `'${value.replaceAll("'", "''")}'`
-    : String(value);
-  const comparison = (actionId: string) => `@and(`
-    + `equals(body('${actionId}')['InternalName'],'${internalName}'),`
-    + `equals(body('${actionId}')['EntityPropertyName'],'${internalName}'),`
-    + `${Object.entries(expected).map(([name, property]) => Array.isArray(property)
-      ? `equals(string(body('${actionId}')['${name}']),'${JSON.stringify(property)}')`
-      : `equals(body('${actionId}')['${name}'],${literal(property)})`
-    ).join(",")})`;
-  const select = ["InternalName", "EntityPropertyName", ...Object.keys(expected)].join(",");
-  const fieldPath = `/_api/web/lists/getbytitle('${list.titleBinding}')/fields/getbyinternalnameortitle('${internalName}')`;
-  actions.get(`field-read:${listId}:${internalName}`).inputs.uri = `${fieldPath}?$select=${select}`;
-  actions.get(`field-readback:${listId}:${internalName}`).inputs.uri = `${fieldPath}?$select=${select}`;
-  actions.get(`field-found-assert:${listId}:${internalName}`).expression = comparison(readId);
-  actions.get(`field-readback-assert:${listId}:${internalName}`).expression = comparison(readbackId);
-
   const payloadByType: Record<string, readonly [string, number]> = {
     Boolean: ["SP.FieldBoolean", 8], Choice: ["SP.FieldChoice", 6], Currency: ["SP.FieldCurrency", 10],
     DateTime: ["SP.FieldDateTime", 4], Guid: ["SP.FieldGuid", 14], Lookup: ["SP.FieldLookup", 7],
@@ -1215,6 +1223,62 @@ function configureFieldFixture(
     User: ["SP.FieldUser", 20],
   };
   const payload = payloadByType[field.type]!;
+  const native = {
+    FieldTypeKind: payload[1],
+    Required: field.required,
+    Indexed: field.indexed,
+    EnforceUniqueValues: field.unique,
+    ...(field.maxLength === undefined ? {} : { MaxLength: field.maxLength }),
+    ...(field.dateTimeMode === undefined
+      ? {}
+      : { DisplayFormat: field.dateTimeMode === "DateOnly" ? 0 : 1 }),
+  };
+  const literal = (value: unknown) => typeof value === "string"
+    ? `'${value.replaceAll("'", "''")}'`
+    : String(value);
+  const comparison = (actionId: string) => `@and(`
+    + `equals(body('${actionId}')['InternalName'],'${internalName}'),`
+    + `equals(body('${actionId}')['EntityPropertyName'],'${internalName}'),`
+    + `${Object.entries(native).map(([name, property]) =>
+      `equals(body('${actionId}')['${name}'],${literal(property)})`
+    ).join(",")}`
+    + `${field.choices === undefined
+      ? ""
+      : `,equals(string(body('${actionId}')['Choices']['results']),'${JSON.stringify(field.choices)}')`}`
+    + `${field.lookupListId === undefined
+      ? ""
+      : `,equals(body('${actionId}')['LookupList'],body('FieldLookupList_${suffix}')['Id'])`}`
+    + `${field.lookupField === undefined
+      ? ""
+      : `,equals(body('${actionId}')['LookupField'],'${field.lookupField}')`}`
+    + ")";
+  const select = [
+    "InternalName",
+    "EntityPropertyName",
+    ...Object.keys(native),
+    ...(field.choices === undefined ? [] : ["Choices"]),
+    ...(field.lookupListId === undefined ? [] : ["LookupList"]),
+    ...(field.lookupField === undefined ? [] : ["LookupField"]),
+  ].join(",");
+  const fieldPath = `/_api/web/lists/getbytitle('${list.titleBinding}')/fields/getbyinternalnameortitle('${internalName}')`;
+  if (field.lookupListId !== undefined) {
+    const lookupList = value.sharePoint.lists.find(({ id }) => id === field.lookupListId)!;
+    const rootActions = (definition as any).properties.definition.actions;
+    const fieldRead = actions.get(`field-read:${listId}:${internalName}`);
+    rootActions[`FieldLookupList_${suffix}`] = semanticConnector(
+      `field-lookup-list:${listId}:${internalName}`,
+      "GET",
+      `/_api/web/lists/getbytitle('${lookupList.titleBinding}')?$select=Id`,
+      {},
+    );
+    rootActions[`FieldLookupList_${suffix}`].runAfter = fieldRead.runAfter;
+    fieldRead.runAfter = { [`FieldLookupList_${suffix}`]: ["Succeeded"] };
+  }
+  actions.get(`field-read:${listId}:${internalName}`).inputs.uri = `${fieldPath}?$select=${select}`;
+  actions.get(`field-readback:${listId}:${internalName}`).inputs.uri = `${fieldPath}?$select=${select}`;
+  actions.get(`field-found-assert:${listId}:${internalName}`).expression = comparison(readId);
+  actions.get(`field-readback-assert:${listId}:${internalName}`).expression = comparison(readbackId);
+
   actions.get(`field-write:${listId}:${internalName}`).inputs.body = {
     __metadata: { type: payload[0] },
     FieldTypeKind: payload[1],
@@ -1227,7 +1291,7 @@ function configureFieldFixture(
       ? {}
       : { DisplayFormat: field.dateTimeMode === "DateOnly" ? 0 : 1 }),
     ...(field.choices === undefined ? {} : { Choices: { results: field.choices } }),
-    ...(field.lookupListId === undefined ? {} : { LookupList: field.lookupListId }),
+    ...(field.lookupListId === undefined ? {} : { LookupList: `@{body('FieldLookupList_${suffix}')['Id']}` }),
     ...(field.lookupField === undefined ? {} : { LookupField: field.lookupField }),
   };
 }
@@ -1393,6 +1457,136 @@ describe("WP-06 raw artifact authority", () => {
       );
     } finally {
       await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("pagination rejects sibling site prefixes and malformed continuation URLs", async () => {
+    const moduleUrl = `data:text/javascript;base64,${Buffer.from(FRONTEND_SOURCE).toString("base64")}#pagination`;
+    const frontend = await import(moduleUrl) as {
+      loadAllSharePointPages: (initialUrl: string, expectedOrigin: string, expectedPathname: string) => Promise<unknown>;
+    };
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return { json: async () => ({ value: [], "@odata.nextLink": null }) } as Response;
+    }) as typeof fetch;
+    try {
+      await assert.rejects(
+        frontend.loadAllSharePointPages(
+          "https://example.test/sites/app-evil/_api/web/lists",
+          "https://example.test",
+          "/sites/app",
+        ),
+        /boundary/,
+      );
+      await assert.rejects(
+        frontend.loadAllSharePointPages("not a url", "https://example.test", "/sites/app"),
+      );
+      await assert.rejects(
+        frontend.loadAllSharePointPages("", "https://example.test", "/sites/app"),
+        /malformed-next-link/,
+      );
+      assert.equal(calls, 0);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("pagination rejects an empty server continuation instead of treating it as completion", async () => {
+    const moduleUrl = `data:text/javascript;base64,${Buffer.from(FRONTEND_SOURCE).toString("base64")}#empty-next`;
+    const frontend = await import(moduleUrl) as {
+      loadAllSharePointPages: (initialUrl: string, expectedOrigin: string, expectedPathname: string) => Promise<unknown>;
+    };
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () => ({
+      json: async () => ({ value: [], "@odata.nextLink": "" }),
+    }) as Response) as typeof fetch;
+    try {
+      await assert.rejects(
+        frontend.loadAllSharePointPages(
+          "https://example.test/sites/app/_api/web/lists",
+          "https://example.test",
+          "/sites/app",
+        ),
+        /malformed-next-link/,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("save rejects a wrong readback body and a non-2xx readback before parsing", async () => {
+    const moduleUrl = `data:text/javascript;base64,${Buffer.from(FRONTEND_SOURCE).toString("base64")}#save`;
+    const frontend = await import(moduleUrl) as {
+      saveSharePointItem: (
+        listId: string,
+        itemUrl: string,
+        etag: string,
+        patch: Record<string, unknown>,
+      ) => Promise<unknown>;
+    };
+    const originalFetch = globalThis.fetch;
+    const run = async (readback: { ok: boolean; status: number; json: () => Promise<unknown> }) => {
+      const responses = [
+        { ok: true, status: 200, json: async () => ({ FormDigestValue: "synthetic-digest" }) },
+        { ok: true, status: 204, json: async () => ({}) },
+        readback,
+      ];
+      globalThis.fetch = (async () => responses.shift() as Response) as typeof fetch;
+      return frontend.saveSharePointItem(
+        "protected-items",
+        "https://example.test/sites/app/_api/web/lists/items(1)",
+        '"synthetic-etag"',
+        { Title: "Expected" },
+      );
+    };
+    try {
+      await assert.rejects(
+        run({ ok: true, status: 200, json: async () => ({ Title: "Wrong" }) }),
+        /readback-mismatch/,
+      );
+      await assert.rejects(
+        run({
+          ok: false,
+          status: 500,
+          json: async () => {
+            throw new Error("must-not-parse");
+          },
+        }),
+        /readback-failed/,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("legacy prefix and unchecked readback grammars cannot create frontend authority", async () => {
+    const scenarios = [
+      FRONTEND_SOURCE
+        .replace('  const expectedUrl = new URL(expectedPathname, expectedOrigin);\n', "")
+        .replace('  if (expectedUrl.origin !== expectedOrigin || expectedUrl.search || expectedUrl.hash) throw new Error("invalid-boundary");\n', "")
+        .replace('  const expectedSegments = expectedUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);\n', "")
+        .replace('    if (typeof next !== "string" || next.length === 0) throw new Error("malformed-next-link");\n', "")
+        .replace('    const pageSegments = pageUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);\n', "")
+        .replace('    if (pageUrl.origin !== expectedOrigin || pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");', '    if (pageUrl.origin !== expectedOrigin || !pageUrl.pathname.startsWith(expectedPathname)) throw new Error("boundary");')
+        .replace('    next = body["@odata.nextLink"] ?? null;\n    if (next !== null && typeof next !== "string") throw new Error("malformed-next-link");', '    next = body["@odata.nextLink"];'),
+      FRONTEND_SOURCE.replace(
+        '  if (!readback.ok || readback.status !== 200) throw new Error("readback-failed");',
+        '  if (false) throw new Error("readback-failed");',
+      ),
+    ];
+    for (const source of scenarios) {
+      const root = await mkdtemp(join(tmpdir(), "spflow-raw-frontend-wp12-negative-"));
+      const value = contract(FRONTEND_RULES, false);
+      try {
+        await writeContract(root, value);
+        await writeFrontend(root, source);
+        const context = await validationContext(root, value);
+        assert.equal(context.adapterEvidence.wp06Derivations?.length, 0);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
     }
   });
 
@@ -1891,6 +2085,41 @@ describe("WP-06 raw artifact authority", () => {
     }
   });
 
+  test("schema evidence rejects contract-only GET properties and unresolved lookup bindings", async () => {
+    for (const scenario of ["contract-only-select", "literal-lookup-list"] as const) {
+      const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-schema-native-${scenario}-`));
+      const value = contract(["SP-SCHEMA-001", "SP-SCHEMA-002", "SP-SCHEMA-003"], true);
+      const definition = builderDefinition() as any;
+      if (scenario === "contract-only-select") {
+        const action = definition.properties.definition.actions.FieldRead_protected_items_Title;
+        action.inputs.uri = action.inputs.uri.replace("$select=", "$select=logicalName,");
+      } else {
+        configureFieldFixture(value, definition, "access-control", "PrincipalKey", {
+          type: "Lookup",
+          lookupListId: "protected-items",
+          lookupField: "Title",
+        });
+        visitDefinitionActions(definition, (action) => {
+          if ((action.metadata as any)?.spflowRole === "field-write:access-control:PrincipalKey") {
+            (action.inputs as any).body.LookupList = "protected-items";
+          }
+        });
+      }
+      try {
+        await writeContract(root, value);
+        await writeBuilder(root, definition);
+        const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+        assert.equal(
+          adapterEvidence.wp06Derivations?.some(({ section }) => section === "fieldOperations"),
+          false,
+          scenario,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
   test("unlabelled writes inside trusted schema or index branches fail closed", async () => {
     for (const section of ["fieldOperations", "indexPlans"] as const) {
       const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-extra-${section}-`));
@@ -2052,6 +2281,35 @@ describe("WP-06 raw artifact authority", () => {
     }
   });
 
+  test("index updates require MERGE and an exact ETag from the field pre-read", async () => {
+    for (const header of ["X-HTTP-Method", "IF-MATCH"] as const) {
+      const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-index-${header.toLowerCase()}-`));
+      const value = contract(["SP-INDEX-001", "SP-INDEX-002"], true);
+      const definition = builderDefinition();
+      visitDefinitionActions(definition, (action) => {
+        if ((action.metadata as any)?.spflowRole === "index-remove:protected-items:LegacyCode") {
+          delete (action.inputs as any).headers[header];
+        }
+      });
+      try {
+        await writeContract(root, value);
+        await writeBuilder(root, definition);
+        const context = await validationContext(root, value);
+        assert.equal(
+          context.adapterEvidence.wp06Derivations?.some(({ section }) => section === "indexPlans"),
+          false,
+          header,
+        );
+        assert.deepEqual(
+          (await diagnostics(context, ["SP-INDEX-001", "SP-INDEX-002"])).map(({ code }) => code),
+          ["SP-INDEX-001", "SP-INDEX-002"],
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
   test("authorization cannot claim owner or amount absent from the target read", async () => {
     for (const scenario of ["missing-fields", "unused-fields"] as const) {
       const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-authority-${scenario}-`));
@@ -2103,6 +2361,37 @@ describe("WP-06 raw artifact authority", () => {
       );
     } finally {
       await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("permission readbacks require one matching assignment and native High/Low masks", async () => {
+    for (const scenario of ["split-assignment", "invented-operations"] as const) {
+      const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-permission-${scenario}-`));
+      const value = contract(["SP-ACL-001", "SP-ACL-002"], true);
+      const definition = builderDefinition();
+      visitDefinitionActions(definition, (action) => {
+        const role = (action.metadata as any)?.spflowRole;
+        if (scenario === "split-assignment" && role === "permission-grant-match:protected-items:PROCESSOR") {
+          (action.inputs as any).where = "@or(equals(item()['Member']['LoginName'],'PROCESSOR'),equals(item()['RoleDefinitionBindings']['results'][0]['Name'],'processor'))";
+        }
+        if (scenario === "invented-operations" && role === "permission-assert:protected-items:PROCESSOR") {
+          action.expression = "@and(equals(body('PermissionProbeProtected')['operations/read'],true),equals(body('PermissionProbeProtected')['operations/update'],true))";
+        }
+      });
+      try {
+        await writeContract(root, value);
+        await writeBuilder(root, definition);
+        const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+        assert.equal(
+          adapterEvidence.wp06Derivations?.some(({ section }) =>
+            section === "permissionModels" || section === "permissionProbes"
+          ),
+          false,
+          scenario,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
     }
   });
 

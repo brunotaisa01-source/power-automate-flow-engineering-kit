@@ -96,8 +96,12 @@ operations are unsupported. The recognizer intentionally does not attempt a
 general JavaScript control-flow proof. Unsupported source produces no
 derivation. The Save profile rejects empty patches, unknown fields, and
 `undefined` values. An ambiguous response performs GET reconciliation and then
-fails; it does not report success. A successful Save parses the GET readback
-and requires every serialized write-body entry to match by field and value.
+fails; it does not report success. A successful Save requires `readback.ok`
+and exact status `200` before parsing the GET response, then requires every
+serialized write-body entry to match by field and value. Pagination parses the
+configured boundary and each continuation with the URL API, compares decoded
+path segments, and rejects sibling-prefix paths, malformed URLs, malformed
+continuation values, loops, cross-origin links, and page-limit overflow.
 The OData profile accepts only an equality expression for a field present in
 the list read allowlist. It converts the value to a quoted literal, doubles
 single quotes, and delegates percent encoding to `URLSearchParams`; raw filter
@@ -135,7 +139,12 @@ must perform a post-write GET plus exact readback assertion. Every other status
 terminates failed. The create body must exactly match the accepted SharePoint
 field payload, including metadata type, field kind, internal name, required,
 indexed, uniqueness, maximum length, DateTime display mode, exact ordered
-Choice values, and Lookup list/field bindings when declared. Optional
+Choice values, and Lookup list/field bindings when declared. Contract-only
+properties such as logical name, editability, authority, immutability, and
+sensitivity are not requested from native SharePoint field endpoints. Native
+readback comparisons use exact SharePoint casing. Lookup list IDs come from an
+exact list-resolution GET and are consumed by both create and readback checks.
+Optional
 properties are accepted only for their supported field type. Missing, extra,
 or wrong payload properties suppress the complete field section. The current profile
 emits the bounded MISSING/create case as local structural evidence; it does not
@@ -146,17 +155,28 @@ current state, and bind that response plus the required set into the plan
 digest. The plan must compare that digest with the explicitly approved digest;
 the final result must also carry the computed digest. A control predecessor is
 not digest data flow. APPLY plans execute sorted removals before
-contract-ordered additions, use serial writes, and assert the complete index
+contract-ordered additions, use serial writes, read each target field ETag,
+require exact `POST` plus `X-HTTP-Method: MERGE` and `IF-MATCH` data flow, and
+assert the complete index
 set after each operation and at completion. A compatible current set emits
 `NO_OP` with zero writes and the same digest assertion. Role labels and
 parameter declarations cannot supply current state. Permission models support
 only an executable `break-clear` profile matching the contract; inheritance
 mismatches suppress both permission sections. They also require principal and role
 resolution, an executable `addroleassignment` call, role-assignment readback,
-and a fail-closed dependent assertion. Permission probes require the
-effective-permission request and a fail-closed dependent assertion over the
-four operation booleans. HTTP facts require a response-dependent 400/404
+and a fail-closed query that matches principal and role within one assignment
+object. Permission probes require the effective-permission request and a
+fail-closed dependent assertion over the native `High` and `Low` masks. The
+supported create, delete, read, and update operation set maps to exact low-mask
+bits; unknown operations fail closed. HTTP facts require a response-dependent 400/404
 decision tree with explicit result actions; literal tautologies are rejected.
+
+The general connector-shape rule is method-aware. GET, HEAD, and OPTIONS are
+read operations. Recognized item and field update endpoints require the
+`POST`/`MERGE`/exact-ETag shape; create and action endpoints are not reclassified
+as updates merely because they use the HTTP connector. Unknown or dynamic HTTP
+requests and non-read methods fail closed unless the supported mutation controls
+are present.
 
 The current authorization grammar requires target fields with logical names
 `owner` and `amount`. Their internal names must be included in
