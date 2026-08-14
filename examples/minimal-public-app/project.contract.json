@@ -1,0 +1,204 @@
+{
+  "schemaVersion": "1.0",
+  "project": {
+    "id": "minimal-public-app",
+    "displayName": "Minimal Public SharePoint App",
+    "description": "Synthetic example for contract-bound SharePoint frontend validation.",
+    "contractRevision": 1,
+    "dataClassification": "synthetic-public"
+  },
+  "runtime": {
+    "node": ">=22.0.0 <23.0.0",
+    "npm": ">=10.0.0 <11.0.0",
+    "moduleFormat": "esm",
+    "locale": "en",
+    "timeZone": "UTC",
+    "networkDuringOfflineVerify": "forbidden"
+  },
+  "environmentBindings": [
+    {
+      "key": "SITE_URL",
+      "kind": "site-url",
+      "requiredFor": [
+        "generate",
+        "tenant-preflight",
+        "tenant-apply",
+        "tenant-readback"
+      ],
+      "sensitive": false,
+      "example": "https://example.test/sites/app"
+    },
+    {
+      "key": "ITEMS_LIST",
+      "kind": "list-title",
+      "requiredFor": [
+        "generate",
+        "tenant-preflight",
+        "tenant-apply",
+        "tenant-readback"
+      ],
+      "sensitive": false,
+      "example": "{ITEMS_LIST}"
+    },
+    {
+      "key": "PROCESSOR",
+      "kind": "connection-reference",
+      "requiredFor": [
+        "generate",
+        "tenant-preflight",
+        "tenant-apply",
+        "tenant-readback"
+      ],
+      "sensitive": true,
+      "example": "{PROCESSOR}"
+    }
+  ],
+  "sharePoint": {
+    "siteUrlBinding": "SITE_URL",
+    "lists": [
+      {
+        "id": "protected-items",
+        "titleBinding": "ITEMS_LIST",
+        "role": "protected-domain",
+        "writeModel": "direct-patch",
+        "readAllowlist": [
+          "ID",
+          "Title"
+        ],
+        "createAllowlist": [],
+        "patchAllowlist": [
+          "Title"
+        ],
+        "fields": [
+          {
+            "logicalName": "title",
+            "internalName": "Title",
+            "type": "Text",
+            "required": true,
+            "indexed": false,
+            "unique": false,
+            "clientEditable": true,
+            "serverAuthoritative": false,
+            "immutableAfterCreate": false,
+            "sensitive": false,
+            "maxLength": 120
+          }
+        ],
+        "indexes": [],
+        "permissions": {
+          "inheritance": "break-clear",
+          "minimumRoles": [
+            {
+              "principalBinding": "PROCESSOR",
+              "role": "processor",
+              "allowedOperations": [
+                "read",
+                "update"
+              ]
+            }
+          ],
+          "directUserGrants": "forbidden",
+          "effectivePermissionReadback": "required"
+        },
+        "views": []
+      }
+    ]
+  },
+  "stateMachines": [],
+  "capabilities": [],
+  "commands": [],
+  "flows": [
+    {
+      "id": "example-flow",
+      "definitionPath": "flows/example-flow/definition.json",
+      "trigger": "manual",
+      "processorForCommandTypes": [],
+      "connectionReferences": [],
+      "actionBudget": 1,
+      "concurrency": {
+        "enabled": true,
+        "degree": 1
+      },
+      "packageId": "example-package"
+    }
+  ],
+  "packages": [
+    {
+      "id": "example-package",
+      "path": "artifacts/example-solution.zip",
+      "profile": "power-platform-solution-v1",
+      "manifestPath": "artifacts/example-solution.manifest.json",
+      "flowIds": [
+        "example-flow"
+      ],
+      "importMode": "disabled",
+      "nestedArchives": "forbidden"
+    }
+  ],
+  "frontend": {
+    "root": "frontend",
+    "authModel": "existing-m365-session",
+    "secrets": "forbidden",
+    "protectedWriteModel": "typed-command-queue",
+    "directPatch": {
+      "enabled": true,
+      "listIds": [
+        "protected-items"
+      ],
+      "explicitSave": true,
+      "digestPerTransaction": true,
+      "method": "POST",
+      "methodOverride": "MERGE",
+      "exactIfMatch": true,
+      "conflictStatus": 412,
+      "ambiguousWrite": "get-reconcile-no-blind-retry",
+      "semanticReadback": true
+    },
+    "pagination": {
+      "mode": "exhaust-continuation",
+      "sameOriginOnly": true
+    }
+  },
+  "security": {
+    "minimumPrivilege": true,
+    "clientActorAuthority": "forbidden",
+    "protectedClientWrites": "forbidden",
+    "allowlistedFieldsOnly": true,
+    "destructiveOperations": {
+      "dryRun": true,
+      "planDigest": true,
+      "humanApproval": true,
+      "itemLimit": 1,
+      "writeLimit": 1,
+      "stopOnUnexpected": true,
+      "semanticReadback": true
+    },
+    "httpClassification": {
+      "missingColumn400": "semantic-signature-only",
+      "other400": "GET_FAILED",
+      "initialPreflight404": "explicit-create-missing-only",
+      "applyOrReadback404": "strict-failure"
+    }
+  },
+  "verification": {
+    "globalCommand": "spflow verify --root . --offline --format json",
+    "requiredRuleIds": [
+      "APP-PAGINATION-001",
+      "APP-SAVE-001",
+      "SP-ODATA-001"
+    ],
+    "finalZipInspection": true,
+    "recursivePublicDataScan": true,
+    "mutationControls": true
+  },
+  "evidencePolicy": {
+    "permittedClaimClasses": [
+      "LOCAL_STATIC",
+      "PACKAGE_ARTIFACT"
+    ],
+    "localPromotionToTenant": "forbidden",
+    "exactArtifactBinding": true,
+    "synchronizedFolderIsPublication": false,
+    "successfulRunIsSemanticEffect": false
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "packageId": "example-package",
+  "artifact": {
+    "path": "artifacts/example-solution.zip",
+    "sha256": "0b5e15d8d9cbd80cc9f43e1e80930be53277d905625154e8ffe7c64cd75f5f57",
+    "bytes": 828
+  },
+  "files": [
+    {
+      "path": "artifacts/example-solution.zip",
+      "mediaType": "application/zip",
+      "bytes": 828,
+      "sha256": "0b5e15d8d9cbd80cc9f43e1e80930be53277d905625154e8ffe7c64cd75f5f57",
+      "role": "package"
+    },
+    {
+      "path": "flows/example-flow/definition.json",
+      "mediaType": "application/json",
+      "bytes": 191,
+      "sha256": "53f410bbd7374ff6796392f2d0ee72b3b0e8cf8ee979ef496c786d8fb657b24c",
+      "role": "definition"
+    },
+    {
+      "path": "project.contract.json",
+      "mediaType": "application/json",
+      "bytes": 5193,
+      "sha256": "d9840d93f3e33d691d45c153cf307fbd9d6f32de260e6fdded6eccb7be3c483c",
+      "role": "contract"
+    }
+  ]
+}

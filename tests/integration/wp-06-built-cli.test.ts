@@ -111,7 +111,7 @@ function projectContract(requiredRuleIds: readonly string[] = RULE_IDS): Project
       kind,
       requiredFor: ["generate", "tenant-preflight", "tenant-apply", "tenant-readback"],
       sensitive: kind === "connection-reference",
-      example: `{${key}}`,
+      example: kind === "site-url" ? "https://example.test/sites/app" : `{${key}}`,
     })),
     sharePoint: {
       siteUrlBinding: "SITE_URL",

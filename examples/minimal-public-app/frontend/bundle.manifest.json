@@ -1,0 +1,16 @@
+{
+  "artifactProfile": "spflow.frontend-bundle-v2",
+  "artifactRevision": 2,
+  "contractRevision": 1,
+  "entrypoint": "index.js",
+  "files": [
+    {
+      "path": "index.js",
+      "sha256": "92ede13da065bfea07ab468dc2f4f0d735a9af3b0043cbe0d9bd35bc65e571cb",
+      "bytes": 6776
+    }
+  ],
+  "sources": [
+    "index.js"
+  ]
+}

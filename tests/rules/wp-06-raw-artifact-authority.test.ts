@@ -71,7 +71,7 @@ function contract(requiredRuleIds: readonly string[], builder: boolean): Project
       kind: "site-url",
       requiredFor: ["generate", "tenant-preflight", "tenant-apply", "tenant-readback"],
       sensitive: false,
-      example: "https://synthetic.example.test/sites/spflow",
+      example: "https://example.test/sites/app",
     }, {
       key: "PROTECTED_ITEMS",
       kind: "list-title",
@@ -388,10 +388,12 @@ function contract(requiredRuleIds: readonly string[], builder: boolean): Project
 const FRONTEND_SOURCE = `
 const PATCH_ALLOWLISTS = Object.freeze({ "protected-items": Object.freeze(["Title"]) });
 const READ_ALLOWLISTS = Object.freeze({ "protected-items": Object.freeze(["ID", "Title"]) });
+const SITE_URL = "https://example.test/sites/app";
+const LIST_RESOURCES = Object.freeze({ "protected-items": "/_api/web/lists/getbytitle('PROTECTED_ITEMS')" });
 
 function siteBoundaryUrl(candidate, siteUrl) {
   try {
-    const configured = new URL(siteUrl);
+    const configured = new URL(SITE_URL);
     if ((configured.protocol !== "https:" && configured.protocol !== "http:") || configured.search || configured.hash || configured.username || configured.password) throw new Error("invalid-site");
     const actual = new URL(candidate, configured);
     const expectedSegments = configured.pathname.split("/").filter(Boolean).map(decodeURIComponent);
@@ -403,6 +405,18 @@ function siteBoundaryUrl(candidate, siteUrl) {
   }
 }
 
+function listResourceUrl(listId, candidate) {
+  const resource = LIST_RESOURCES[listId];
+  if (!resource) throw new Error("unknown-list");
+  const actual = siteBoundaryUrl(candidate, SITE_URL);
+  const configured = new URL(SITE_URL);
+  const expected = new URL((configured.pathname.endsWith("/") ? configured.pathname.slice(0, -1) : configured.pathname) + resource, configured.origin);
+  const expectedSegments = expected.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  const actualSegments = actual.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  if (actual.origin !== expected.origin || actualSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => actualSegments[index] === segment)) throw new Error("list-boundary");
+  return actual;
+}
+
 function allowlistedPatch(listId, patch) {
   const fields = PATCH_ALLOWLISTS[listId];
   if (!fields) throw new Error("unknown-list");
@@ -411,9 +425,9 @@ function allowlistedPatch(listId, patch) {
   return Object.fromEntries(entries);
 }
 
-async function freshDigest(itemUrl, siteUrl) {
-  const item = siteBoundaryUrl(itemUrl, siteUrl);
-  const site = siteBoundaryUrl(siteUrl, siteUrl);
+async function freshDigest(listId, itemUrl, siteUrl) {
+  const item = listResourceUrl(listId, itemUrl);
+  const site = siteBoundaryUrl(SITE_URL, SITE_URL);
   const digestUrl = new URL(site.pathname.replace(/\\/$/, "") + "/_api/contextinfo", site.origin);
   const response = await globalThis.fetch(digestUrl, { method: "POST" });
   if (!response.ok || response.status < 200 || response.status >= 300) throw new Error("digest-failed");
@@ -423,9 +437,14 @@ async function freshDigest(itemUrl, siteUrl) {
 }
 
 export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) {
-  const item = siteBoundaryUrl(itemUrl, siteUrl);
+  const item = listResourceUrl(listId, itemUrl);
   const body = allowlistedPatch(listId, patch);
-  const digest = await freshDigest(item, siteUrl);
+  if (typeof etag !== "string" || !/^"(?:[^"\\\\]|\\\\.)+"$/.test(etag)) throw new Error("invalid-etag");
+  const currentResponse = await globalThis.fetch(item, { method: "GET" });
+  if (!currentResponse.ok || currentResponse.status !== 200) throw new Error("etag-read-failed");
+  const currentBody = await currentResponse.json();
+  if (currentBody === null || typeof currentBody !== "object" || typeof currentBody["@odata.etag"] !== "string" || currentBody["@odata.etag"] !== etag) throw new Error("etag-mismatch");
+  const digest = await freshDigest(listId, itemUrl, siteUrl);
   const response = await globalThis.fetch(item, {
     method: "POST",
     headers: {
@@ -447,22 +466,22 @@ export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) 
   return current;
 }
 
-export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) {
-  const expectedUrl = new URL(expectedPathname, expectedOrigin);
-  if (expectedUrl.origin !== expectedOrigin || expectedUrl.search || expectedUrl.hash) throw new Error("invalid-boundary");
-  const expectedSegments = expectedUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+export async function loadAllSharePointPages(initialUrl, listId, siteUrl) {
   if (typeof initialUrl !== "string" || initialUrl.length === 0) throw new Error("malformed-next-link");
+  const first = listResourceUrl(listId, initialUrl);
+  const expectedSegments = first.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  if (typeof listId !== "string" || listId.length === 0) throw new Error("unknown-list");
   const visited = new Set();
   const items = [];
-  let next = initialUrl;
+  let next = first.href;
   let pages = 0;
   while (next) {
     pages += 1;
     if (pages > 50) throw new Error("page-limit");
     if (typeof next !== "string" || next.length === 0) throw new Error("malformed-next-link");
-      const pageUrl = new URL(next);
+      const pageUrl = listResourceUrl(listId, next);
       const pageSegments = pageUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-      if (pageUrl.origin !== expectedOrigin || pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");
+      if (pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");
       if (visited.has(pageUrl.href)) throw new Error("loop");
       visited.add(pageUrl.href);
       const response = await globalThis.fetch(pageUrl, { method: "GET" });
@@ -481,7 +500,7 @@ export function buildSharePointODataUrl(base, listId, field, value, siteUrl) {
   const fields = READ_ALLOWLISTS[listId];
   if (!fields) throw new Error("unknown-list");
   if (!fields.includes(field)) throw new Error("unknown-field");
-  const url = siteBoundaryUrl(base, siteUrl);
+  const url = listResourceUrl(listId, base);
   const params = new URLSearchParams();
   params.set("$select", fields.join(","));
   const escaped = String(value).replaceAll("'", "''");
@@ -1435,8 +1454,8 @@ describe("WP-06 raw artifact authority", () => {
     const value = contract(["SP-ODATA-001"], false);
     const rawSource = FRONTEND_SOURCE
       .replace(
-        "export function buildSharePointODataUrl(base, listId, field, value) {",
-        "export function buildSharePointODataUrl(base, listId, value) {",
+        "export function buildSharePointODataUrl(base, listId, field, value, siteUrl) {",
+        "export function buildSharePointODataUrl(base, listId, value, siteUrl) {",
       )
       .replace('  if (!fields.includes(field)) throw new Error("unknown-field");\n', "")
       .replace('  const escaped = String(value).replaceAll("\'", "\'\'");\n  params.set("$filter", `${field} eq \'${escaped}\'`);',
@@ -1497,17 +1516,17 @@ describe("WP-06 raw artifact authority", () => {
     try {
       await assert.rejects(
         frontend.loadAllSharePointPages(
-          "https://example.test/sites/app-evil/_api/web/lists",
-          "https://example.test",
+           "https://example.test/sites/app-evil/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
+           "protected-items",
           "/sites/app",
         ),
         /boundary/,
       );
       await assert.rejects(
-        frontend.loadAllSharePointPages("not a url", "https://example.test", "/sites/app"),
+        frontend.loadAllSharePointPages("not a url", "protected-items", "https://example.test/sites/app"),
       );
       await assert.rejects(
-        frontend.loadAllSharePointPages("", "https://example.test", "/sites/app"),
+        frontend.loadAllSharePointPages("", "protected-items", "https://example.test/sites/app"),
         /malformed-next-link/,
       );
       assert.equal(calls, 0);
@@ -1530,12 +1549,54 @@ describe("WP-06 raw artifact authority", () => {
     try {
       await assert.rejects(
         frontend.loadAllSharePointPages(
-          "https://example.test/sites/app/_api/web/lists",
-          "https://example.test",
-          "/sites/app",
+          "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
+          "protected-items",
+          "https://example.test/sites/app",
         ),
         /malformed-next-link/,
       );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  test("WP14 RED: pagination rejects wrong origin, site, sibling, and list resources", async () => {
+    const moduleUrl = "data:text/javascript;base64," + Buffer.from(FRONTEND_SOURCE).toString("base64") + "#pagination-boundaries";
+    const frontend = await import(moduleUrl) as {
+      loadAllSharePointPages: (initialUrl: string, listId: string, siteUrl: string) => Promise<unknown>;
+    };
+    const originalFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return { ok: true, status: 200, json: async () => ({ value: [], "@odata.nextLink": null }) } as Response;
+    }) as typeof fetch;
+    const cases: readonly [string, RegExp][] = [
+      [
+        "https://evil.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
+        /site-boundary/,
+      ],
+      [
+        "https://example.test/sites/other/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
+        /site-boundary/,
+      ],
+      [
+        "https://example.test/sites/app-evil/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
+        /site-boundary/,
+      ],
+      [
+        "https://example.test/sites/app/_api/web/lists/getbytitle('OTHER_LIST')",
+        /list-boundary/,
+      ],
+    ];
+    try {
+      for (const [initialUrl, expectedError] of cases) {
+        await assert.rejects(
+          frontend.loadAllSharePointPages(initialUrl, "protected-items", "https://example.test/sites/app"),
+          expectedError,
+        );
+      }
+      assert.equal(calls, 0);
     } finally {
       globalThis.fetch = originalFetch;
     }
@@ -1555,9 +1616,9 @@ describe("WP-06 raw artifact authority", () => {
     try {
       await assert.rejects(
         frontend.loadAllSharePointPages(
-          "https://example.test/sites/app/_api/web/lists",
-          "https://example.test",
-          "/sites/app",
+          "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
+          "protected-items",
+          "https://example.test/sites/app",
         ),
         /response-failed/,
       );
@@ -1581,9 +1642,9 @@ describe("WP-06 raw artifact authority", () => {
       for (let attempt = 0; attempt < 2; attempt += 1) {
         await assert.rejects(
           frontend.loadAllSharePointPages(
-            "https://example.test/sites/app/_api/web/lists",
-            "https://example.test",
-            "/sites/app",
+            "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
+            "protected-items",
+            "https://example.test/sites/app",
           ),
           /response-failed/,
         );
@@ -1606,6 +1667,7 @@ describe("WP-06 raw artifact authority", () => {
     const originalFetch = globalThis.fetch;
     const run = async (readback: { ok: boolean; status: number; json: () => Promise<unknown> }) => {
       const responses = [
+        { ok: true, status: 200, json: async () => ({ "@odata.etag": '"synthetic-etag"' }) },
         { ok: true, status: 200, json: async () => ({ FormDigestValue: "synthetic-digest" }) },
         { ok: true, status: 204, json: async () => ({}) },
         readback,
@@ -1613,7 +1675,7 @@ describe("WP-06 raw artifact authority", () => {
       globalThis.fetch = (async () => responses.shift() as Response) as typeof fetch;
       return frontend.saveSharePointItem(
         "protected-items",
-        "https://example.test/sites/app/_api/web/lists/items(1)",
+           "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)",
         '"synthetic-etag"',
         { Title: "Expected" },
         "https://example.test/sites/app",
@@ -1639,6 +1701,62 @@ describe("WP-06 raw artifact authority", () => {
     }
   });
 
+  test("WP14 RED: Save rejects wildcard, malformed, missing, and mismatched ETags", async () => {
+    const moduleUrl = "data:text/javascript;base64," + Buffer.from(FRONTEND_SOURCE).toString("base64") + "#etag-boundaries";
+    const frontend = await import(moduleUrl) as {
+      saveSharePointItem: (
+        listId: string,
+        itemUrl: string,
+        etag: string,
+        patch: Record<string, unknown>,
+        siteUrl: string,
+      ) => Promise<unknown>;
+    };
+    const itemUrl = "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)";
+    const originalFetch = globalThis.fetch;
+    try {
+      for (const etag of ["*", 'W/"synthetic-etag"', "", undefined]) {
+        let calls = 0;
+        globalThis.fetch = (async () => {
+          calls += 1;
+          return { ok: true, status: 200, json: async () => ({ "@odata.etag": '"synthetic-etag"' }) } as Response;
+        }) as typeof fetch;
+        await assert.rejects(
+          frontend.saveSharePointItem(
+            "protected-items",
+            itemUrl,
+            etag as string,
+            { Title: "Expected" },
+            "https://example.test/sites/app",
+          ),
+          /invalid-etag/,
+        );
+        assert.equal(calls, 0);
+      }
+
+      for (const currentBody of [{}, { "@odata.etag": '"other-etag"' }]) {
+        let calls = 0;
+        globalThis.fetch = (async () => {
+          calls += 1;
+          return { ok: true, status: 200, json: async () => currentBody } as Response;
+        }) as typeof fetch;
+        await assert.rejects(
+          frontend.saveSharePointItem(
+            "protected-items",
+            itemUrl,
+            '"synthetic-etag"',
+            { Title: "Expected" },
+            "https://example.test/sites/app",
+          ),
+          /etag-mismatch/,
+        );
+        assert.equal(calls, 1);
+      }
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test("fresh digest rejects a failed response even when it contains a digest", async () => {
     const moduleUrl = `data:text/javascript;base64,${Buffer.from(FRONTEND_SOURCE).toString("base64")}#failed-digest`;
     const frontend = await import(moduleUrl) as {
@@ -1658,6 +1776,7 @@ describe("WP-06 raw artifact authority", () => {
         { ok: true, status: 200, json: async () => ({ FormDigestValue: 42 }) },
       ]) {
         const responses = [
+          { ok: true, status: 200, json: async () => ({ "@odata.etag": '"synthetic-etag"' }) },
           digestResponse,
           { ok: true, status: 204, json: async () => ({}) },
           { ok: true, status: 200, json: async () => ({ Title: "Expected" }) },
@@ -1666,7 +1785,7 @@ describe("WP-06 raw artifact authority", () => {
         await assert.rejects(
           frontend.saveSharePointItem(
             "protected-items",
-            "https://example.test/sites/app/_api/web/lists/items(1)",
+         "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)",
             '"synthetic-etag"',
             { Title: "Expected" },
             "https://example.test/sites/app",
@@ -1699,7 +1818,7 @@ describe("WP-06 raw artifact authority", () => {
     };
     await assert.rejects(
       Promise.resolve().then(() => frontend.buildSharePointODataUrl(
-        "https://evil.test/sites/app/_api/web/lists",
+        "https://evil.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
         "protected-items",
         "Title",
         "value",
@@ -1709,13 +1828,33 @@ describe("WP-06 raw artifact authority", () => {
     );
     await assert.rejects(
       Promise.resolve().then(() => frontend.buildSharePointODataUrl(
-        "https://example.test/sites/app-evil/_api/web/lists",
+        "https://example.test/sites/app-evil/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
         "protected-items",
         "Title",
         "value",
         "https://example.test/sites/app",
       )),
       /site-boundary/,
+    );
+    await assert.rejects(
+      Promise.resolve().then(() => frontend.buildSharePointODataUrl(
+        "https://example.test/sites/other/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
+        "protected-items",
+        "Title",
+        "value",
+        "https://example.test/sites/app",
+      )),
+      /site-boundary/,
+    );
+    await assert.rejects(
+      Promise.resolve().then(() => frontend.buildSharePointODataUrl(
+        "https://example.test/sites/app/_api/web/lists/getbytitle('OTHER_LIST')",
+        "protected-items",
+        "Title",
+        "value",
+        "https://example.test/sites/app",
+      )),
+      /list-boundary/,
     );
     await assert.rejects(
       Promise.resolve().then(() => frontend.buildSharePointODataUrl(
@@ -1739,28 +1878,59 @@ describe("WP-06 raw artifact authority", () => {
       await assert.rejects(
         frontend.saveSharePointItem(
           "protected-items",
-          "https://example.test/sites/app-evil/_api/web/lists/items(1)",
+          "https://example.test/sites/app-evil/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)",
           '"synthetic-etag"',
           { Title: "Expected" },
           "https://example.test/sites/app",
         ),
         /site-boundary/,
       );
+      await assert.rejects(
+        frontend.saveSharePointItem(
+          "protected-items",
+          "https://evil.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)",
+          '"synthetic-etag"',
+          { Title: "Expected" },
+          "https://example.test/sites/app",
+        ),
+        /site-boundary/,
+      );
+      await assert.rejects(
+        frontend.saveSharePointItem(
+          "protected-items",
+          "https://example.test/sites/other/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)",
+          '"synthetic-etag"',
+          { Title: "Expected" },
+          "https://example.test/sites/app",
+        ),
+        /site-boundary/,
+      );
+      await assert.rejects(
+        frontend.saveSharePointItem(
+          "protected-items",
+          "https://example.test/sites/app/_api/web/lists/getbytitle('OTHER_LIST')/items(1)",
+          '"synthetic-etag"',
+          { Title: "Expected" },
+          "https://example.test/sites/app",
+        ),
+        /list-boundary/,
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }
 
     const validOData = frontend.buildSharePointODataUrl(
-      "https://example.test/sites/app/_api/web/lists",
+      "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')",
       "protected-items",
       "Title",
       "safe value",
-      "https://example.test/sites/app",
+      "https://evil.test/sites/other",
     );
     assert.equal(validOData.origin, "https://example.test");
-    assert.equal(validOData.pathname, "/sites/app/_api/web/lists");
+    assert.equal(validOData.pathname, "/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')");
 
     const validResponses = [
+      { ok: true, status: 200, json: async () => ({ "@odata.etag": '"synthetic-etag"' }) },
       { ok: true, status: 200, json: async () => ({ FormDigestValue: "synthetic-digest" }) },
       { ok: true, status: 204, json: async () => ({}) },
       { ok: true, status: 200, json: async () => ({ Title: "Expected" }) },
@@ -1774,17 +1944,18 @@ describe("WP-06 raw artifact authority", () => {
       assert.deepEqual(
         await frontend.saveSharePointItem(
           "protected-items",
-          "https://example.test/sites/app/_api/web/lists/items(1)",
+         "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)",
           '"synthetic-etag"',
           { Title: "Expected" },
-          "https://example.test/sites/app",
+          "https://evil.test/sites/other",
         ),
         { Title: "Expected" },
       );
       assert.deepEqual(requestUrls, [
+        "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)",
         "https://example.test/sites/app/_api/contextinfo",
-        "https://example.test/sites/app/_api/web/lists/items(1)",
-        "https://example.test/sites/app/_api/web/lists/items(1)",
+        "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)",
+        "https://example.test/sites/app/_api/web/lists/getbytitle('PROTECTED_ITEMS')/items(1)",
       ]);
     } finally {
       globalThis.fetch = originalFetch;
@@ -1793,14 +1964,10 @@ describe("WP-06 raw artifact authority", () => {
 
   test("legacy prefix and unchecked readback grammars cannot create frontend authority", async () => {
     const scenarios = [
-      FRONTEND_SOURCE
-        .replace('  const expectedUrl = new URL(expectedPathname, expectedOrigin);\n', "")
-        .replace('  if (expectedUrl.origin !== expectedOrigin || expectedUrl.search || expectedUrl.hash) throw new Error("invalid-boundary");\n', "")
-        .replace('  const expectedSegments = expectedUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);\n', "")
-        .replace('    if (typeof next !== "string" || next.length === 0) throw new Error("malformed-next-link");\n', "")
-        .replace('    const pageSegments = pageUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);\n', "")
-        .replace('    if (pageUrl.origin !== expectedOrigin || pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");', '    if (pageUrl.origin !== expectedOrigin || !pageUrl.pathname.startsWith(expectedPathname)) throw new Error("boundary");')
-        .replace('    next = body["@odata.nextLink"] ?? null;\n    if (next !== null && typeof next !== "string") throw new Error("malformed-next-link");', '    next = body["@odata.nextLink"];'),
+      FRONTEND_SOURCE.replace(
+        "      const pageUrl = listResourceUrl(listId, next);",
+        "      const pageUrl = new URL(next);",
+      ),
       FRONTEND_SOURCE.replace(
         '  if (!readback.ok || readback.status !== 200) throw new Error("readback-failed");',
         '  if (false) throw new Error("readback-failed");',
@@ -1825,16 +1992,16 @@ describe("WP-06 raw artifact authority", () => {
     const value = contract(FRONTEND_RULES, false);
     const unreachable = FRONTEND_SOURCE
       .replace(
-        "export async function saveSharePointItem(listId, itemUrl, etag, patch) {",
-        "export async function saveSharePointItem(listId, itemUrl, etag, patch) { return undefined;",
+        "export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) {",
+        "export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) { return undefined;",
       )
       .replace(
-        "export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) {",
-        "export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) { return [];",
+        "export async function loadAllSharePointPages(initialUrl, listId, siteUrl) {",
+        "export async function loadAllSharePointPages(initialUrl, listId, siteUrl) { return [];",
       )
       .replace(
-        "export function buildSharePointODataUrl(base, listId, value) {",
-        "export function buildSharePointODataUrl(base, listId, value) { return base;",
+        "export function buildSharePointODataUrl(base, listId, field, value, siteUrl) {",
+        "export function buildSharePointODataUrl(base, listId, field, value, siteUrl) { return base;",
       );
     try {
       await writeContract(root, value);
@@ -1856,16 +2023,16 @@ describe("WP-06 raw artifact authority", () => {
     const value = contract(FRONTEND_RULES, false);
     const unreachable = FRONTEND_SOURCE
       .replace(
-        "export async function saveSharePointItem(listId, itemUrl, etag, patch) {",
-        "export async function saveSharePointItem(listId, itemUrl, etag, patch) { if (true) return undefined;",
+        "export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) {",
+        "export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) { if (true) return undefined;",
       )
       .replace(
-        "export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) {",
-        "export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) { if (true) return [];",
+        "export async function loadAllSharePointPages(initialUrl, listId, siteUrl) {",
+        "export async function loadAllSharePointPages(initialUrl, listId, siteUrl) { if (true) return [];",
       )
       .replace(
-        "export function buildSharePointODataUrl(base, listId, value) {",
-        "export function buildSharePointODataUrl(base, listId, value) { if (true) return base;",
+        "export function buildSharePointODataUrl(base, listId, field, value, siteUrl) {",
+        "export function buildSharePointODataUrl(base, listId, field, value, siteUrl) { if (true) return base;",
       );
     try {
       await writeContract(root, value);
@@ -1931,6 +2098,119 @@ describe("WP-06 raw artifact authority", () => {
       } finally {
         await rm(root, { recursive: true, force: true });
       }
+    }
+  });
+
+  test("WP14 RED: caller-selected site and list resources cannot create frontend authority", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-wp14-resource-red-"));
+    const value = contract(FRONTEND_RULES, false);
+    const callerSelectedResources = FRONTEND_SOURCE
+      .replace('const SITE_URL = "https://example.test/sites/app";', 'const SITE_URL = "https://example.test/sites/other";')
+      .replace('/_api/web/lists/getbytitle(\'PROTECTED_ITEMS\')', '/_api/web/lists/getbytitle(\'OTHER_LIST\')');
+    try {
+      await writeContract(root, value);
+      await writeFrontend(root, callerSelectedResources);
+      const context = await validationContext(root, value);
+
+      assert.equal(context.adapterEvidence.wp06Derivations?.length, 0);
+      assert.deepEqual(
+        (await diagnostics(context, FRONTEND_RULES)).map(({ code }) => code),
+        FRONTEND_RULES,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("WP14 RED: exact ETag grammar fails closed for wildcard, missing, or mismatched reads", async () => {
+    const scenarios = [
+      FRONTEND_SOURCE.replace(
+        '  if (typeof etag !== "string" || ',
+        '  if (typeof etag !== "string" || false || ',
+      ),
+      FRONTEND_SOURCE.replace(
+        'typeof currentBody["@odata.etag"] !== "string" || ',
+        "false || ",
+      ),
+      FRONTEND_SOURCE.replace(
+        'currentBody["@odata.etag"] !== etag',
+        'currentBody["@odata.etag"] !== "other-etag"',
+      ),
+    ];
+    for (const [index, source] of scenarios.entries()) {
+      const root = await mkdtemp(join(tmpdir(), "spflow-wp14-etag-red-" + index + "-"));
+      const value = contract(FRONTEND_RULES, false);
+      try {
+        await writeContract(root, value);
+        await writeFrontend(root, source);
+        const context = await validationContext(root, value);
+        assert.equal(context.adapterEvidence.wp06Derivations?.length, 0);
+        assert.deepEqual(
+          (await diagnostics(context, FRONTEND_RULES)).map(({ code }) => code),
+          FRONTEND_RULES,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test("WP14 RED: runtime Save and OData cannot target another list", async () => {
+    const moduleUrl = `data:text/javascript;base64,${Buffer.from(FRONTEND_SOURCE).toString("base64")}#wp14-resource-red`;
+    const frontend = await import(moduleUrl) as {
+      buildSharePointODataUrl: (
+        base: string,
+        listId: string,
+        field: string,
+        value: unknown,
+        siteUrl: string,
+      ) => URL;
+      saveSharePointItem: (
+        listId: string,
+        itemUrl: string,
+        etag: string,
+        patch: Record<string, unknown>,
+        siteUrl: string,
+      ) => Promise<unknown>;
+    };
+    const siteUrl = "https://example.test/sites/app";
+    const wrongListUrl = `${siteUrl}/_api/web/lists/getbytitle('OTHER_LIST')/items(1)`;
+    const originalFetch = globalThis.fetch;
+    try {
+      assert.throws(
+        () => frontend.buildSharePointODataUrl(
+          `${siteUrl}/_api/web/lists/getbytitle('OTHER_LIST')`,
+          "protected-items",
+          "Title",
+          "value",
+          siteUrl,
+        ),
+        /list-boundary/,
+      );
+
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = new URL(input.toString());
+        if (init?.method === "POST" && url.pathname.endsWith("/_api/contextinfo")) {
+          return { ok: true, status: 200, json: async () => ({ FormDigestValue: "synthetic-digest" }) } as Response;
+        }
+        if (init?.method === "POST") {
+          return { ok: true, status: 204, json: async () => ({}) } as Response;
+        }
+        return { ok: true, status: 200, json: async () => ({ Title: "Expected" }) } as Response;
+      }) as typeof fetch;
+
+      await assert.rejects(
+        frontend.saveSharePointItem(
+          "protected-items",
+          wrongListUrl,
+          '"synthetic-etag"',
+          { Title: "Expected" },
+          siteUrl,
+        ),
+        /list-boundary/,
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 

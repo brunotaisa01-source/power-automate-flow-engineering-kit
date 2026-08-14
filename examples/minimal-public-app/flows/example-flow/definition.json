@@ -1,0 +1,13 @@
+{
+  "properties": {
+    "definition": {
+      "triggers": {
+        "manual": {
+          "type": "Request"
+        }
+      },
+      "actions": {}
+    },
+    "connectionReferences": {}
+  }
+}

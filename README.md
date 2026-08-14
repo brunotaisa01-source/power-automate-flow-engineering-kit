@@ -78,43 +78,54 @@ npm run build
 npm test
 ```
 
-Validate a project contract:
+The public example is a complete, synthetic project. It contains a
+contract-bound frontend, a zero-action flow envelope for package inspection,
+and exact bundle/package manifests. It contains no tenant values, credentials,
+mailboxes, company identifiers, or production exports.
+
+Validate the example project contract:
 
 ```powershell
-node packages/cli/dist/bin/spflow.js validate contract project.contract.json --format text
+node packages/cli/dist/bin/spflow.js validate contract examples/minimal-public-app/project.contract.json --format text
 ```
 
-Validate every shipped local rule (the default):
+Validate every shipped local rule against the example (global scope):
 
 ```powershell
-node packages/cli/dist/bin/spflow.js validate rules --root . --format text
+node packages/cli/dist/bin/spflow.js validate rules --root examples/minimal-public-app --format text
 ```
 
-Validate only the exact rule IDs declared by the project contract:
+Validate only the exact rule IDs declared by the example contract (required-only
+scope):
 
 ```powershell
-node packages/cli/dist/bin/spflow.js validate rules --root . --required-only --format text
+node packages/cli/dist/bin/spflow.js validate rules --root examples/minimal-public-app --required-only --format text
 ```
 
-`--required-only` is a bounded rule-set check. It must not be reported as a
+Global validation evaluates the shipped rule registry. The required-only
+command is a bounded contract rule-set check and must never be reported as a
 global validation pass.
 
-Validate a Power Platform solution artifact against a contract:
+Validate the example Power Platform solution artifact against its contract:
 
 ```powershell
-node packages/cli/dist/bin/spflow.js validate artifact artifacts/solution.zip --contract project.contract.json --format text
+node packages/cli/dist/bin/spflow.js validate artifact examples/minimal-public-app/artifacts/example-solution.zip --contract examples/minimal-public-app/project.contract.json --format text
 ```
 
-Run the offline verification command:
+Run the example offline verification command:
 
 ```powershell
-node packages/cli/dist/bin/spflow.js verify --root . --offline --format text
+node packages/cli/dist/bin/spflow.js verify --root examples/minimal-public-app --offline --format text
 ```
 
-Offline verification must not be interpreted as tenant verification. External
-gates are explicit `NOT_RUN` evidence when their prerequisites are unavailable.
-Rule-specific `LIVE_SMOKE NOT_RUN` entries are derived from the required rule
-IDs and their shipped catalog metadata; they are not runtime observations.
+Offline verification must not be interpreted as tenant verification. In an
+environment without the official public-data scanner, this command is
+expected to return exit `8` with `NOT_RUN=public-data-scanner`; unavailable
+engines are never promoted to PASS. Tenant import, rebinding, enablement,
+execution, mutation, semantic readback, publication readback, and rule-specific
+`LIVE_SMOKE` checks remain explicit `NOT_RUN` gates. Rule-specific
+`LIVE_SMOKE NOT_RUN` entries are derived from the required rule IDs and their
+shipped catalog metadata; they are not runtime observations.
 
 ## Repository Map
 
@@ -123,6 +134,8 @@ IDs and their shipped catalog metadata; they are not runtime observations.
 - `packages/package-adapters/`: safe archive/XML inspection and normalized flow evidence.
 - `packages/rules/`: deterministic package and Power Automate rule detectors.
 - `packages/cli/`: the `spflow` command-line interface and reporters.
+- `examples/minimal-public-app/`: the synthetic contract, frontend, flow definition,
+  package ZIP, and exact manifests used by the README commands.
 - `fixtures/`: synthetic RED, GREEN, positive-control, and mutation fixtures.
 - `tests/`: unit, integration, adapter-boundary, and shipped-CLI verification tests.
 - `docs/specs/`: contracts and evidence model.
@@ -143,6 +156,11 @@ a canonical projection from an exact frontend file or declared normalized flow
 definition. The evidence must match that projection and bind to the exact raw
 artifact, project contract, and required bundle/definition/ZIP graph. See
 [WP-06 Source IR](docs/specs/wp06-source-ir.md).
+
+The contract-bound runtime profile for frontend Save, OData, and pagination is
+defined in [WP-14 Contract-Bound Runtime Authority](docs/specs/wp14-contract-bound-runtime.md).
+Its RED/GREEN evidence is recorded in
+[the WP-14 review record](docs/reviews/wp-14-contract-bound-resource-authority-red-green-record.md).
 
 ## Privacy Boundary
 

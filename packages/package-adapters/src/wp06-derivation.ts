@@ -98,6 +98,106 @@ function stringPolicy(source: ts.SourceFile, name: string): StringPolicy | undef
   return policy.size > 0 ? policy : undefined;
 }
 
+function stringConstant(source: ts.SourceFile, name: string): string | undefined {
+  const matches = source.statements.flatMap((statement) => {
+    if (!ts.isVariableStatement(statement)) return [];
+    if ((statement.declarationList.flags & ts.NodeFlags.Const) === 0) return [];
+    return statement.declarationList.declarations.filter((declaration) =>
+      ts.isIdentifier(declaration.name)
+      && declaration.name.text === name
+      && declaration.initializer !== undefined
+      && ts.isStringLiteralLike(declaration.initializer)
+    );
+  });
+  const declaration = matches[0];
+  return matches.length === 1
+    && declaration?.initializer !== undefined
+    && ts.isStringLiteralLike(declaration.initializer)
+    ? declaration.initializer.text
+    : undefined;
+}
+
+function stringRecord(source: ts.SourceFile, name: string): ReadonlyMap<string, string> | undefined {
+  const matches = source.statements.flatMap((statement) => {
+    if (!ts.isVariableStatement(statement)) return [];
+    if ((statement.declarationList.flags & ts.NodeFlags.Const) === 0) return [];
+    return statement.declarationList.declarations.filter((declaration) =>
+      ts.isIdentifier(declaration.name)
+      && declaration.name.text === name
+      && declaration.initializer !== undefined
+    );
+  });
+  const declaration = matches[0];
+  if (matches.length !== 1 || declaration?.initializer === undefined) return undefined;
+  const value = unwrapFreeze(declaration.initializer);
+  if (!ts.isObjectLiteralExpression(value)) return undefined;
+  const result = new Map<string, string>();
+  for (const property of value.properties) {
+    if (!ts.isPropertyAssignment(property) || !ts.isStringLiteralLike(property.initializer)) return undefined;
+    const key = ts.isStringLiteralLike(property.name)
+      ? property.name.text
+      : ts.isIdentifier(property.name)
+      ? property.name.text
+      : undefined;
+    if (key === undefined || result.has(key)) return undefined;
+    result.set(key, property.initializer.text);
+  }
+  return result.size > 0 ? result : undefined;
+}
+
+function contractSiteUrl(contract: ProjectContract): string | undefined {
+  const binding = contract.environmentBindings.find(({ key }) =>
+    key === contract.sharePoint.siteUrlBinding
+  );
+  if (binding?.kind !== "site-url") return undefined;
+  try {
+    const url = new URL(binding.example);
+    if (
+      (url.protocol !== "https:" && url.protocol !== "http:")
+      || url.search
+      || url.hash
+      || url.username
+      || url.password
+      || url.pathname.endsWith("/")
+    ) return undefined;
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}
+
+function contractListResources(contract: ProjectContract): ReadonlyMap<string, string> | undefined {
+  if (!contract.frontend.directPatch.enabled) return undefined;
+  const lists = new Map(contract.sharePoint.lists.map((list) => [list.id, list]));
+  const resources = new Map<string, string>();
+  for (const listId of contract.frontend.directPatch.listIds) {
+    const list = lists.get(listId);
+    if (list === undefined) return undefined;
+    resources.set(listId, `/_api/web/lists/getbytitle('${list.titleBinding}')`);
+  }
+  return resources.size > 0 ? resources : undefined;
+}
+
+function policyMatchesContract(
+  actual: StringPolicy,
+  contract: ProjectContract,
+  property: "patchAllowlist" | "readAllowlist",
+): boolean {
+  const expected = new Map(
+    contract.frontend.directPatch.listIds.map((listId) => {
+      const list = contract.sharePoint.lists.find(({ id }) => id === listId);
+      return [listId, list?.[property] ?? []] as const;
+    }),
+  );
+  if (actual.size !== expected.size) return false;
+  for (const [listId, fields] of expected) {
+    const observed = actual.get(listId);
+    if (observed === undefined || observed.length !== fields.length) return false;
+    if (!observed.every((field, index) => field === fields[index])) return false;
+  }
+  return true;
+}
+
 interface AstShape {
   readonly kind: number;
   readonly text?: string;
@@ -169,16 +269,19 @@ function policyDeclaration(statement: ts.Statement, name: string): boolean {
 function supportsFrontendInventory(source: ts.SourceFile): boolean {
   const names = [
     "siteBoundaryUrl",
+    "listResourceUrl",
     "allowlistedPatch",
     "freshDigest",
     "saveSharePointItem",
     "loadAllSharePointPages",
     "buildSharePointODataUrl",
   ] as const;
-  return source.statements.length === 8
+  return source.statements.length === 11
     && policyDeclaration(source.statements[0]!, "PATCH_ALLOWLISTS")
     && policyDeclaration(source.statements[1]!, "READ_ALLOWLISTS")
-    && source.statements.slice(2).every((statement, index) =>
+    && stringConstant(source, "SITE_URL") !== undefined
+    && stringRecord(source, "LIST_RESOURCES") !== undefined
+    && source.statements.slice(4).every((statement, index) =>
       ts.isFunctionDeclaration(statement) && statement.name?.text === names[index]
     );
 }
@@ -188,7 +291,7 @@ function supportsSiteBoundary(source: ts.SourceFile): boolean {
   return functionHeaderMatches(helper, "siteBoundaryUrl", ["candidate", "siteUrl"], [])
     && bodyMatches(helper.body, [
       `try {
-        const configured = new URL(siteUrl);
+        const configured = new URL(SITE_URL);
         if ((configured.protocol !== "https:" && configured.protocol !== "http:") || configured.search || configured.hash || configured.username || configured.password) throw new Error("invalid-site");
         const actual = new URL(candidate, configured);
         const expectedSegments = configured.pathname.split("/").filter(Boolean).map(decodeURIComponent);
@@ -198,6 +301,22 @@ function supportsSiteBoundary(source: ts.SourceFile): boolean {
       } catch {
         throw new Error("site-boundary");
       }`,
+    ]);
+}
+
+function supportsListResource(source: ts.SourceFile): boolean {
+  const helper = topLevelFunction(source, "listResourceUrl");
+  return functionHeaderMatches(helper, "listResourceUrl", ["listId", "candidate"], [])
+    && bodyMatches(helper.body, [
+      "const resource = LIST_RESOURCES[listId];",
+      'if (!resource) throw new Error("unknown-list");',
+      "const actual = siteBoundaryUrl(candidate, SITE_URL);",
+      "const configured = new URL(SITE_URL);",
+      'const expected = new URL((configured.pathname.endsWith("/") ? configured.pathname.slice(0, -1) : configured.pathname) + resource, configured.origin);',
+      "const expectedSegments = expected.pathname.split(\"/\").filter(Boolean).map(decodeURIComponent);",
+      "const actualSegments = actual.pathname.split(\"/\").filter(Boolean).map(decodeURIComponent);",
+      'if (actual.origin !== expected.origin || actualSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => actualSegments[index] === segment)) throw new Error("list-boundary");',
+      "return actual;",
     ]);
 }
 
@@ -215,10 +334,10 @@ function supportsPatchHelper(source: ts.SourceFile): boolean {
 
 function supportsFreshDigest(source: ts.SourceFile): boolean {
   const helper = topLevelFunction(source, "freshDigest");
-  return functionHeaderMatches(helper, "freshDigest", ["itemUrl", "siteUrl"], [ts.SyntaxKind.AsyncKeyword])
+  return functionHeaderMatches(helper, "freshDigest", ["listId", "itemUrl", "siteUrl"], [ts.SyntaxKind.AsyncKeyword])
     && bodyMatches(helper.body, [
-      "const item = siteBoundaryUrl(itemUrl, siteUrl);",
-      "const site = siteBoundaryUrl(siteUrl, siteUrl);",
+      "const item = listResourceUrl(listId, itemUrl);",
+      "const site = siteBoundaryUrl(SITE_URL, SITE_URL);",
       'const digestUrl = new URL(site.pathname.replace(/\\/$/, "") + "/_api/contextinfo", site.origin);',
       'const response = await globalThis.fetch(digestUrl, { method: "POST" });',
       'if (!response.ok || response.status < 200 || response.status >= 300) throw new Error("digest-failed");',
@@ -237,9 +356,14 @@ function supportsSave(source: ts.SourceFile): boolean {
     [ts.SyntaxKind.ExportKeyword, ts.SyntaxKind.AsyncKeyword],
   )
     && bodyMatches(save.body, [
-      "const item = siteBoundaryUrl(itemUrl, siteUrl);",
+      "const item = listResourceUrl(listId, itemUrl);",
       "const body = allowlistedPatch(listId, patch);",
-      "const digest = await freshDigest(item, siteUrl);",
+      'if (typeof etag !== "string" || !/^"(?:[^"\\\\]|\\\\.)+"$/.test(etag)) throw new Error("invalid-etag");',
+      'const currentResponse = await globalThis.fetch(item, { method: "GET" });',
+      'if (!currentResponse.ok || currentResponse.status !== 200) throw new Error("etag-read-failed");',
+      "const currentBody = await currentResponse.json();",
+      'if (currentBody === null || typeof currentBody !== "object" || typeof currentBody["@odata.etag"] !== "string" || currentBody["@odata.etag"] !== etag) throw new Error("etag-mismatch");',
+      "const digest = await freshDigest(listId, itemUrl, siteUrl);",
       `const response = await globalThis.fetch(item, {
         method: "POST",
         headers: {
@@ -285,7 +409,7 @@ function supportsPagination(source: ts.SourceFile): number | undefined {
   if (!functionHeaderMatches(
     pagination,
     "loadAllSharePointPages",
-    ["initialUrl", "expectedOrigin", "expectedPathname"],
+    ["initialUrl", "listId", "siteUrl"],
     [ts.SyntaxKind.ExportKeyword, ts.SyntaxKind.AsyncKeyword],
   )) return undefined;
   const loop = pagination.body.statements[8];
@@ -293,21 +417,21 @@ function supportsPagination(source: ts.SourceFile): number | undefined {
   const limit = paginationLimit(loop);
   if (limit === undefined) return undefined;
   return bodyMatches(pagination.body, [
-    "const expectedUrl = new URL(expectedPathname, expectedOrigin);",
-    'if (expectedUrl.origin !== expectedOrigin || expectedUrl.search || expectedUrl.hash) throw new Error("invalid-boundary");',
-    'const expectedSegments = expectedUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);',
     'if (typeof initialUrl !== "string" || initialUrl.length === 0) throw new Error("malformed-next-link");',
+    "const first = listResourceUrl(listId, initialUrl);",
+    'const expectedSegments = first.pathname.split("/").filter(Boolean).map(decodeURIComponent);',
+    'if (typeof listId !== "string" || listId.length === 0) throw new Error("unknown-list");',
     "const visited = new Set();",
     "const items = [];",
-    "let next = initialUrl;",
+    "let next = first.href;",
     "let pages = 0;",
     `while (next) {
       pages += 1;
       if (pages > ${limit}) throw new Error("page-limit");
       if (typeof next !== "string" || next.length === 0) throw new Error("malformed-next-link");
-      const pageUrl = new URL(next);
+      const pageUrl = listResourceUrl(listId, next);
       const pageSegments = pageUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-      if (pageUrl.origin !== expectedOrigin || pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");
+      if (pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");
       if (visited.has(pageUrl.href)) throw new Error("loop");
       visited.add(pageUrl.href);
       const response = await globalThis.fetch(pageUrl, { method: "GET" });
@@ -334,7 +458,7 @@ function supportsOData(source: ts.SourceFile): boolean {
     "const fields = READ_ALLOWLISTS[listId];",
     'if (!fields) throw new Error("unknown-list");',
     'if (!fields.includes(field)) throw new Error("unknown-field");',
-    "const url = siteBoundaryUrl(base, siteUrl);",
+    "const url = listResourceUrl(listId, base);",
     "const params = new URLSearchParams();",
     'params.set("$select", fields.join(","));',
     'const escaped = String(value).replaceAll("\'", "\'\'");',
@@ -344,14 +468,36 @@ function supportsOData(source: ts.SourceFile): boolean {
   ]);
 }
 
-function frontendSemantics(text: string, path: string): FrontendSemantics | undefined {
+function frontendSemantics(
+  contract: ProjectContract,
+  text: string,
+  path: string,
+): FrontendSemantics | undefined {
   const source = frontendSource(text, path);
-  if (source === undefined || !supportsFrontendInventory(source) || !supportsSiteBoundary(source)) return undefined;
+  if (
+    source === undefined
+    || !supportsFrontendInventory(source)
+    || !supportsSiteBoundary(source)
+    || !supportsListResource(source)
+  ) return undefined;
   const patchAllowlists = stringPolicy(source, "PATCH_ALLOWLISTS");
   const readAllowlists = stringPolicy(source, "READ_ALLOWLISTS");
+  const siteUrl = stringConstant(source, "SITE_URL");
+  const listResources = stringRecord(source, "LIST_RESOURCES");
+  const expectedSiteUrl = contractSiteUrl(contract);
+  const expectedResources = contractListResources(contract);
   const pageLimit = supportsPagination(source);
   return patchAllowlists !== undefined
       && readAllowlists !== undefined
+      && siteUrl !== undefined
+      && listResources !== undefined
+      && expectedSiteUrl !== undefined
+      && expectedResources !== undefined
+      && new URL(siteUrl).href === expectedSiteUrl
+      && listResources.size === expectedResources.size
+      && [...expectedResources].every(([listId, resource]) => listResources.get(listId) === resource)
+      && policyMatchesContract(patchAllowlists, contract, "patchAllowlist")
+      && policyMatchesContract(readAllowlists, contract, "readAllowlist")
       && pageLimit !== undefined
       && supportsSave(source)
       && supportsOData(source)
@@ -1510,7 +1656,7 @@ export function deriveFrontendWp06(
   source: FrontendFileRuleEvidence,
   text: string,
 ): readonly Wp06AdapterDerivation[] {
-  const semantics = frontendSemantics(text, source.relativePath);
+  const semantics = frontendSemantics(contract, text, source.relativePath);
   if (semantics === undefined) return [];
   const facts = frontendFacts(semantics);
   return (["saveTransactions", "paginationTraversals", "odataRequests"] as const)
