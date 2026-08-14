@@ -558,7 +558,7 @@ function indexPlanActions(
       "POST",
       "/_api/contextinfo",
       {},
-      "IndexPlanDigest",
+      "IndexPlanAssert",
     ),
     IndexRemoveLegacy: semanticConnector(
       "index-remove:protected-items:LegacyCode",
@@ -613,7 +613,7 @@ function indexPlanActions(
       else: failureElse("IndexAddReadbackFailed"),
     },
   } : {};
-  const finalPredecessor = mode === "APPLY" ? "IndexStepAssertTitle" : "IndexPlanDigest";
+  const finalPredecessor = mode === "APPLY" ? "IndexStepAssertTitle" : "IndexPlanAssert";
   return {
     IndexRead: semanticConnector(
       "index-read:protected-items",
@@ -632,6 +632,14 @@ function indexPlanActions(
           type: "Compose",
           metadata: { spflowRole: "index-plan-digest:protected-items" },
           inputs: "@sha256(concat(string(body('IndexRead')['value']),'|','Title'))",
+        },
+        IndexPlanAssert: {
+          type: "If",
+          metadata: { spflowRole: "index-plan-assert:protected-items" },
+          runAfter: { IndexPlanDigest: ["Succeeded"] },
+          expression: "@equals(triggerBody()['ApprovedPlanDigest'],outputs('IndexPlanDigest'))",
+          actions: {},
+          else: failureElse("IndexPlanDigestMismatch"),
         },
         ...applyActions,
         IndexFinalReadback: semanticConnector(
@@ -653,7 +661,10 @@ function indexPlanActions(
           type: "Compose",
           metadata: { spflowRole: "index-result:protected-items" },
           runAfter: { IndexFinalAssert: ["Succeeded"] },
-          inputs: mode,
+          inputs: {
+            result: mode,
+            planDigest: "@{outputs('IndexPlanDigest')}",
+          },
         },
       },
       else: failureElse("IndexCurrentStateMismatch"),
@@ -798,6 +809,10 @@ function builderDefinition(indexMode: "APPLY" | "NO_OP" = "APPLY"): Record<strin
                     __metadata: { type: field.metadataType },
                     FieldTypeKind: field.fieldTypeKind,
                     InternalName: field.internalName,
+                    Required: true,
+                    Indexed: field.indexed,
+                    EnforceUniqueValues: false,
+                    ...(field.maxLength === undefined ? {} : { MaxLength: field.maxLength }),
                   },
                 },
               ),
@@ -1299,6 +1314,35 @@ describe("WP-06 raw artifact authority", () => {
     }
   });
 
+  test("shadowed globalThis, unreachable conflict handling, and parser errors fail closed", async () => {
+    const scenarios = [
+      `const globalThis = Object.freeze({ fetch: async () => ({ ok: true }) });\n${FRONTEND_SOURCE}`,
+      FRONTEND_SOURCE.replace(
+        'if (response.status === 412) throw new Error("conflict");',
+        'if (response.status === 412) { return globalThis.fetch(itemUrl, { method: "GET" }); throw new Error("conflict"); }',
+      ),
+      `${FRONTEND_SOURCE}\nexport const malformed = ;\n`,
+      `const frontendBehaviorDecoy = ${JSON.stringify(FRONTEND_SOURCE)};\n`,
+    ];
+    for (const source of scenarios) {
+      const root = await mkdtemp(join(tmpdir(), "spflow-raw-frontend-fail-closed-"));
+      const value = contract(FRONTEND_RULES, false);
+      try {
+        await writeContract(root, value);
+        await writeFrontend(root, source);
+        const context = await validationContext(root, value);
+
+        assert.equal(context.adapterEvidence.wp06Derivations?.length, 0);
+        assert.deepEqual(
+          (await diagnostics(context, FRONTEND_RULES)).map(({ code }) => code),
+          FRONTEND_RULES,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
   test("shadowed fetch and unreachable loop behavior cannot create frontend authority", async () => {
     for (const source of [
       `function fetch() { return { ok: true, json: async () => ({}) }; }\n${FRONTEND_SOURCE.replaceAll("globalThis.fetch", "fetch")}`,
@@ -1607,6 +1651,31 @@ describe("WP-06 raw artifact authority", () => {
     }
   });
 
+  test("schema creation payload must include every contract-required property", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-schema-payload-"));
+    const value = contract(BUILDER_RULES, true);
+    const definition = builderDefinition();
+    visitDefinitionActions(definition, (action) => {
+      if ((action.metadata as any)?.spflowRole === "field-write:protected-items:Title") {
+        const body = (action.inputs as any).body;
+        delete body.Required;
+        delete body.MaxLength;
+      }
+    });
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+      assert.equal(
+        adapterEvidence.wp06Derivations?.some(({ section }) => section === "fieldOperations"),
+        false,
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
   test("unlabelled writes inside trusted schema or index branches fail closed", async () => {
     for (const section of ["fieldOperations", "indexPlans"] as const) {
       const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-extra-${section}-`));
@@ -1680,6 +1749,34 @@ describe("WP-06 raw artifact authority", () => {
     }
   });
 
+  test("index writes require an approved digest assertion and an output-bound result", async () => {
+    for (const scenario of ["missing-assertion", "unbound-result"] as const) {
+      const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-index-${scenario}-`));
+      const value = contract(["SP-INDEX-001", "SP-INDEX-002"], true);
+      const definition = builderDefinition() as any;
+      const actions = definition.properties.definition.actions.IndexCurrentAssert.actions;
+      if (scenario === "missing-assertion") {
+        delete actions.IndexPlanAssert;
+        actions.IndexRequestDigest.runAfter = { IndexPlanDigest: ["Succeeded"] };
+      } else {
+        actions.IndexResult.inputs = "APPLY";
+      }
+      try {
+        await writeContract(root, value);
+        await writeBuilder(root, definition);
+        const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+        assert.equal(
+          adapterEvidence.wp06Derivations?.some(({ section }) => section === "indexPlans"),
+          false,
+          scenario,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
   test("authorization cannot claim owner or amount absent from the target read", async () => {
     for (const scenario of ["missing-fields", "unused-fields"] as const) {
       const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-authority-${scenario}-`));
@@ -1714,6 +1811,31 @@ describe("WP-06 raw artifact authority", () => {
     const value = contract(BUILDER_RULES, true);
     const definition = builderDefinition();
     removeDefinitionActionsByRole(definition, "permission-grant");
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const context = await validationContext(root, value);
+
+      assert.equal(
+        context.adapterEvidence.wp06Derivations?.some(({ section }) =>
+          section === "permissionModels" || section === "permissionProbes"
+        ),
+        false,
+      );
+      assert.deepEqual(
+        (await diagnostics(context, ["SP-ACL-001", "SP-ACL-002"])).map(({ code }) => code),
+        ["SP-ACL-001", "SP-ACL-002"],
+      );
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("permission inheritance is derived from executable settings, not the contract claim", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-permission-inheritance-"));
+    const value = contract(["SP-ACL-001", "SP-ACL-002"], true);
+    value.sharePoint.lists[0]!.permissions.inheritance = "inherit";
+    const definition = builderDefinition();
     try {
       await writeContract(root, value);
       await writeBuilder(root, definition);

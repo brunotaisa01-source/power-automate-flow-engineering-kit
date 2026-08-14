@@ -15,18 +15,21 @@ inventories, and safely inspect native solution ZIP bytes. Repository-authored
 evidence, source IR, projections, and JSON stored under a `.zip` name cannot
 authorize a production PASS.
 
-WP-09 local hardening recognizes a deliberately narrow set of executable
-patterns. Frontend authority requires explicit `globalThis.fetch` calls and
-exact supported statement sequences. Schema authority requires response-bound
-FOUND/MISSING/FAILED branches, creation only in MISSING, and post-create GET
-readback. Index authority requires a complete indexed-field read, a
-digest-bound exact current-state assertion, serial remove-before-add writes,
-full per-step/final readbacks, and a compatible zero-write `NO_OP`. Protected
-authorization facts are emitted only when Owner and Amount contract fields are
-selected by the target GET and consumed by the reachable guard. Unsupported or
-ambiguous structures produce no trusted derivation. A compiled CLI process
-covers the fourteen contract-required WP-06 rules from raw synthetic files and
-real ZIP bytes. This is not a release-readiness claim.
+WP-10 local hardening recognizes a deliberately narrow executable grammar.
+Frontend authority requires a parser-clean, closed module inventory and exact
+supported AST shapes whose network calls use the unshadowed
+`globalThis.fetch` API. Schema authority requires a complete contract-bound
+create payload, response-bound FOUND/MISSING/FAILED branches, creation only in
+MISSING, and post-create GET readback. Index authority requires a complete
+indexed-field read, exact current-state assertion, an approved digest
+assertion consumed by the executable plan, serial remove-before-add writes,
+full per-step/final readbacks, and a compatible zero-write `NO_OP`. Permission
+inheritance is derived only from the accepted executable `break-clear` shape.
+Protected authorization facts are emitted only when Owner and Amount contract
+fields are selected by the target GET and consumed by the reachable guard.
+Unsupported or ambiguous structures produce no trusted derivation. A compiled
+CLI process covers the fourteen contract-required WP-06 rules from raw
+synthetic files and real ZIP bytes. This is not a release-readiness claim.
 
 All results are local evidence only. Tenant import, rebinding, enablement,
 execution, mutation, semantic readback, and publication readback are separate

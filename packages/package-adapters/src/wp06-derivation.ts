@@ -16,7 +16,17 @@ interface FrontendSemantics {
   readonly pageLimit: number;
 }
 
-function frontendSource(text: string, path: string): ts.SourceFile {
+function frontendSource(text: string, path: string): ts.SourceFile | undefined {
+  const diagnostics = ts.transpileModule(text, {
+    fileName: path,
+    reportDiagnostics: true,
+    compilerOptions: {
+      allowJs: true,
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).diagnostics ?? [];
+  if (diagnostics.some(({ category }) => category === ts.DiagnosticCategory.Error)) return undefined;
   return ts.createSourceFile(
     path,
     text,
@@ -88,231 +98,209 @@ function stringPolicy(source: ts.SourceFile, name: string): StringPolicy | undef
   return policy.size > 0 ? policy : undefined;
 }
 
-function constantBoolean(expression: ts.Expression): boolean | undefined {
-  if (expression.kind === ts.SyntaxKind.TrueKeyword) return true;
-  if (expression.kind === ts.SyntaxKind.FalseKeyword) return false;
-  if (ts.isParenthesizedExpression(expression)) return constantBoolean(expression.expression);
-  if (ts.isPrefixUnaryExpression(expression) && expression.operator === ts.SyntaxKind.ExclamationToken) {
-    const value = constantBoolean(expression.operand);
-    return value === undefined ? undefined : !value;
-  }
-  return undefined;
+interface AstShape {
+  readonly kind: number;
+  readonly text?: string;
+  readonly children: readonly AstShape[];
 }
 
-function statementTerminates(statement: ts.Statement): boolean {
-  if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) return true;
-  if (ts.isBlock(statement)) return statement.statements.some(statementTerminates);
-  if (!ts.isIfStatement(statement)) return false;
-  const condition = constantBoolean(statement.expression);
-  if (condition === true) return statementTerminates(statement.thenStatement);
-  if (condition === false) {
-    return statement.elseStatement !== undefined && statementTerminates(statement.elseStatement);
-  }
-  return statement.elseStatement !== undefined
-    && statementTerminates(statement.thenStatement)
-    && statementTerminates(statement.elseStatement);
+function astShape(node: ts.Node): AstShape {
+  const text = ts.isIdentifier(node) || ts.isStringLiteralLike(node) || ts.isNumericLiteral(node)
+    ? node.text
+    : undefined;
+  const children: AstShape[] = [];
+  ts.forEachChild(node, (child) => {
+    children.push(astShape(child));
+  });
+  return text === undefined ? { kind: node.kind, children } : { kind: node.kind, text, children };
 }
 
-function hasUnreachableTopLevel(body: ts.Block): boolean {
-  return body.statements.some((statement, index) =>
-    index < body.statements.length - 1 && statementTerminates(statement)
-  );
+function grammarStatement(text: string): ts.Statement | undefined {
+  const source = ts.createSourceFile("<frontend-grammar>.ts", text, ts.ScriptTarget.ES2022, true, ts.ScriptKind.TS);
+  return source.statements.length === 1 ? source.statements[0] : undefined;
 }
 
-function variableInitializer(
-  body: ts.Block,
+function statementMatches(actual: ts.Statement, expected: string): boolean {
+  const parsed = grammarStatement(expected);
+  return parsed !== undefined && JSON.stringify(astShape(actual)) === JSON.stringify(astShape(parsed));
+}
+
+function bodyMatches(body: ts.Block, expected: readonly string[]): boolean {
+  return body.statements.length === expected.length
+    && body.statements.every((statement, index) => statementMatches(statement, expected[index]!));
+}
+
+function functionHeaderMatches(
+  declaration: ts.FunctionDeclaration | undefined,
   name: string,
-): ts.Expression | undefined {
-  const matches = body.statements.flatMap((statement) => {
-    if (!ts.isVariableStatement(statement)) return [];
-    return statement.declarationList.declarations.filter((declaration) =>
-      ts.isIdentifier(declaration.name) && declaration.name.text === name && declaration.initializer !== undefined
+  parameters: readonly string[],
+  modifiers: readonly ts.SyntaxKind[],
+): declaration is ts.FunctionDeclaration & { readonly body: ts.Block } {
+  if (
+    declaration?.body === undefined
+    || declaration.name?.text !== name
+    || declaration.asteriskToken !== undefined
+    || declaration.type !== undefined
+    || declaration.typeParameters !== undefined
+  ) return false;
+  const actualModifiers = declaration.modifiers?.map(({ kind }) => kind) ?? [];
+  return actualModifiers.length === modifiers.length
+    && actualModifiers.every((kind, index) => kind === modifiers[index])
+    && declaration.parameters.length === parameters.length
+    && declaration.parameters.every((parameter, index) =>
+      ts.isIdentifier(parameter.name)
+      && parameter.name.text === parameters[index]
+      && parameter.initializer === undefined
+      && parameter.type === undefined
+      && parameter.dotDotDotToken === undefined
+      && parameter.questionToken === undefined
+      && parameter.modifiers === undefined
     );
-  });
-  return matches.length === 1 ? matches[0]!.initializer : undefined;
 }
 
-function unawait(expression: ts.Expression): ts.Expression {
-  return ts.isAwaitExpression(expression) ? expression.expression : expression;
+function policyDeclaration(statement: ts.Statement, name: string): boolean {
+  return ts.isVariableStatement(statement)
+    && (statement.declarationList.flags & ts.NodeFlags.Const) !== 0
+    && statement.declarationList.declarations.length === 1
+    && ts.isIdentifier(statement.declarationList.declarations[0]!.name)
+    && statement.declarationList.declarations[0]!.name.text === name;
 }
 
-function callGlobal(expression: ts.Expression, name: string): ts.CallExpression | undefined {
-  const value = unawait(expression);
-  return ts.isCallExpression(value)
-      && ts.isPropertyAccessExpression(value.expression)
-      && ts.isIdentifier(value.expression.expression)
-      && value.expression.expression.text === "globalThis"
-      && value.expression.name.text === name
-    ? value
-    : undefined;
-}
-
-function propertyValue(object: ts.ObjectLiteralExpression, name: string): ts.Expression | undefined {
-  const matches = object.properties.filter((property): property is ts.PropertyAssignment => {
-    if (!ts.isPropertyAssignment(property)) return false;
-    return (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name))
-      && property.name.text.toLowerCase() === name.toLowerCase();
-  });
-  return matches.length === 1 ? matches[0]!.initializer : undefined;
-}
-
-function stringValue(expression: ts.Expression | undefined): string | undefined {
-  return expression !== undefined && ts.isStringLiteralLike(expression) ? expression.text : undefined;
-}
-
-function isIdentifierNamed(expression: ts.Expression | undefined, name: string): boolean {
-  return expression !== undefined && ts.isIdentifier(expression) && expression.text === name;
-}
-
-function fetchRequest(
-  expression: ts.Expression | undefined,
-): { readonly target: ts.Expression; readonly options: ts.ObjectLiteralExpression } | undefined {
-  if (expression === undefined) return undefined;
-  const call = callGlobal(expression, "fetch");
-  const target = call?.arguments[0];
-  const options = call?.arguments[1];
-  return target !== undefined && options !== undefined && ts.isObjectLiteralExpression(options)
-    ? { target, options }
-    : undefined;
-}
-
-function isGetReturn(statement: ts.Statement, source: ts.SourceFile): boolean {
-  if (!ts.isReturnStatement(statement)) return false;
-  const request = fetchRequest(statement.expression);
-  return request !== undefined
-    && request.target.getText(source) === "itemUrl"
-    && stringValue(propertyValue(request.options, "method")) === "GET";
+function supportsFrontendInventory(source: ts.SourceFile): boolean {
+  const names = [
+    "allowlistedPatch",
+    "freshDigest",
+    "saveSharePointItem",
+    "loadAllSharePointPages",
+    "buildSharePointODataUrl",
+  ] as const;
+  return source.statements.length === 7
+    && policyDeclaration(source.statements[0]!, "PATCH_ALLOWLISTS")
+    && policyDeclaration(source.statements[1]!, "READ_ALLOWLISTS")
+    && source.statements.slice(2).every((statement, index) =>
+      ts.isFunctionDeclaration(statement) && statement.name?.text === names[index]
+    );
 }
 
 function supportsPatchHelper(source: ts.SourceFile): boolean {
   const helper = topLevelFunction(source, "allowlistedPatch");
-  if (
-    helper?.body === undefined
-    || helper.body.statements.length !== 3
-    || hasUnreachableTopLevel(helper.body)
-  ) return false;
-  const fields = variableInitializer(helper.body, "fields");
-  const returned = helper.body.statements.find(ts.isReturnStatement)?.expression;
-  return fields?.getText(source) === "PATCH_ALLOWLISTS[listId]"
-    && returned?.getText(source) === "Object.fromEntries(fields.map((field) => [field, patch[field]]))"
-    && helper.body.statements.some((statement) =>
-      ts.isIfStatement(statement)
-      && statement.expression.getText(source) === "!fields"
-      && statement.thenStatement.getText(source).includes("throw")
-    );
+  return functionHeaderMatches(helper, "allowlistedPatch", ["listId", "patch"], [])
+    && bodyMatches(helper.body, [
+      "const fields = PATCH_ALLOWLISTS[listId];",
+      'if (!fields) throw new Error("unknown-list");',
+      "return Object.fromEntries(fields.map((field) => [field, patch[field]]));",
+    ]);
 }
 
 function supportsFreshDigest(source: ts.SourceFile): boolean {
   const helper = topLevelFunction(source, "freshDigest");
-  if (
-    helper?.body === undefined
-    || helper.body.statements.length !== 3
-    || hasUnreachableTopLevel(helper.body)
-  ) return false;
-  const response = fetchRequest(variableInitializer(helper.body, "response"));
-  const body = variableInitializer(helper.body, "body");
-  const returned = helper.body.statements.find(ts.isReturnStatement)?.expression;
-  return response !== undefined
-    && response.target.getText(source) === "new URL(\"/_api/contextinfo\", itemUrl)"
-    && stringValue(propertyValue(response.options, "method")) === "POST"
-    && body?.getText(source) === "await response.json()"
-    && returned?.getText(source) === "body.FormDigestValue";
+  return functionHeaderMatches(helper, "freshDigest", ["itemUrl"], [ts.SyntaxKind.AsyncKeyword])
+    && bodyMatches(helper.body, [
+      'const response = await globalThis.fetch(new URL("/_api/contextinfo", itemUrl), { method: "POST" });',
+      "const body = await response.json();",
+      "return body.FormDigestValue;",
+    ]);
 }
 
 function supportsSave(source: ts.SourceFile): boolean {
   const save = topLevelFunction(source, "saveSharePointItem");
-  if (
-    save?.body === undefined
-    || save.body.statements.length !== 6
-    || hasUnreachableTopLevel(save.body)
-  ) return false;
-  const body = variableInitializer(save.body, "body");
-  const digest = variableInitializer(save.body, "digest");
-  const request = fetchRequest(variableInitializer(save.body, "response"));
-  if (
-    body?.getText(source) !== "allowlistedPatch(listId, patch)"
-    || digest?.getText(source) !== "await freshDigest(itemUrl)"
-    || request === undefined
-    || request.target.getText(source) !== "itemUrl"
-    || stringValue(propertyValue(request.options, "method")) !== "POST"
-  ) return false;
-  const headers = propertyValue(request.options, "headers");
-  const requestBody = propertyValue(request.options, "body");
-  if (
-    headers === undefined
-    || !ts.isObjectLiteralExpression(headers)
-    || stringValue(propertyValue(headers, "X-HTTP-Method")) !== "MERGE"
-    || !isIdentifierNamed(propertyValue(headers, "IF-MATCH"), "etag")
-    || !isIdentifierNamed(propertyValue(headers, "X-RequestDigest"), "digest")
-    || requestBody?.getText(source) !== "JSON.stringify(body)"
-  ) return false;
-  const conflict = save.body.statements.find((statement) =>
-    ts.isIfStatement(statement)
-    && statement.expression.getText(source) === "response.status === 412"
-    && statement.thenStatement.getText(source).includes("throw")
-  );
-  const reconcile = save.body.statements.find((statement) =>
-    ts.isIfStatement(statement)
-    && statement.expression.getText(source) === "!response.ok"
-    && isGetReturn(statement.thenStatement, source)
-  );
-  return conflict !== undefined
-    && reconcile !== undefined
-    && isGetReturn(save.body.statements.at(-1)!, source)
+  return functionHeaderMatches(
+    save,
+    "saveSharePointItem",
+    ["listId", "itemUrl", "etag", "patch"],
+    [ts.SyntaxKind.ExportKeyword, ts.SyntaxKind.AsyncKeyword],
+  )
+    && bodyMatches(save.body, [
+      "const body = allowlistedPatch(listId, patch);",
+      "const digest = await freshDigest(itemUrl);",
+      `const response = await globalThis.fetch(itemUrl, {
+        method: "POST",
+        headers: {
+          "X-HTTP-Method": "MERGE",
+          "IF-MATCH": etag,
+          "X-RequestDigest": digest
+        },
+        body: JSON.stringify(body)
+      });`,
+      'if (response.status === 412) throw new Error("conflict");',
+      'if (!response.ok) return globalThis.fetch(itemUrl, { method: "GET" });',
+      'return globalThis.fetch(itemUrl, { method: "GET" });',
+    ])
     && supportsPatchHelper(source)
     && supportsFreshDigest(source);
 }
 
+function paginationLimit(loop: ts.WhileStatement): number | undefined {
+  if (!ts.isBlock(loop.statement)) return undefined;
+  const guard = loop.statement.statements[1];
+  if (
+    guard === undefined
+    || !ts.isIfStatement(guard)
+    || !ts.isBinaryExpression(guard.expression)
+    || guard.expression.operatorToken.kind !== ts.SyntaxKind.GreaterThanToken
+    || !ts.isIdentifier(guard.expression.left)
+    || guard.expression.left.text !== "pages"
+    || !ts.isNumericLiteral(guard.expression.right)
+  ) return undefined;
+  const value = Number(guard.expression.right.text);
+  return Number.isSafeInteger(value) && value > 0 ? value : undefined;
+}
+
 function supportsPagination(source: ts.SourceFile): number | undefined {
   const pagination = topLevelFunction(source, "loadAllSharePointPages");
-  if (
-    pagination?.body === undefined
-    || pagination.body.statements.length !== 6
-    || hasUnreachableTopLevel(pagination.body)
-  ) return undefined;
-  const loop = pagination.body.statements.find(ts.isWhileStatement);
-  if (loop === undefined || loop.expression.getText(source) !== "next" || !ts.isBlock(loop.statement)) {
-    return undefined;
-  }
-  const statements = loop.statement.statements.map((statement) => statement.getText(source));
-  const limit = /^if \(pages > (\d+)\) throw new Error\("page-limit"\);$/.exec(statements[1] ?? "")?.[1];
-  if (
-    limit === undefined
-    || statements.length !== 10
-    || statements[0] !== "pages += 1;"
-    || statements[2] !== "const pageUrl = new URL(next);"
-    || statements[3] !== "if (pageUrl.origin !== expectedOrigin || !pageUrl.pathname.startsWith(expectedPathname)) throw new Error(\"boundary\");"
-    || statements[4] !== "if (visited.has(pageUrl.href)) throw new Error(\"loop\");"
-    || statements[5] !== "visited.add(pageUrl.href);"
-    || statements[6] !== "const response = await globalThis.fetch(pageUrl, { method: \"GET\" });"
-    || statements[7] !== "const body = await response.json();"
-    || statements[8] !== "items.push(...body.value);"
-    || statements[9] !== "next = body[\"@odata.nextLink\"];"
-    || pagination.body.statements.at(-1)?.getText(source) !== "return items;"
-  ) return undefined;
-  return Number(limit);
+  if (!functionHeaderMatches(
+    pagination,
+    "loadAllSharePointPages",
+    ["initialUrl", "expectedOrigin", "expectedPathname"],
+    [ts.SyntaxKind.ExportKeyword, ts.SyntaxKind.AsyncKeyword],
+  )) return undefined;
+  const loop = pagination.body.statements[4];
+  if (loop === undefined || !ts.isWhileStatement(loop)) return undefined;
+  const limit = paginationLimit(loop);
+  if (limit === undefined) return undefined;
+  return bodyMatches(pagination.body, [
+    "const visited = new Set();",
+    "const items = [];",
+    "let next = initialUrl;",
+    "let pages = 0;",
+    `while (next) {
+      pages += 1;
+      if (pages > ${limit}) throw new Error("page-limit");
+      const pageUrl = new URL(next);
+      if (pageUrl.origin !== expectedOrigin || !pageUrl.pathname.startsWith(expectedPathname)) throw new Error("boundary");
+      if (visited.has(pageUrl.href)) throw new Error("loop");
+      visited.add(pageUrl.href);
+      const response = await globalThis.fetch(pageUrl, { method: "GET" });
+      const body = await response.json();
+      items.push(...body.value);
+      next = body["@odata.nextLink"];
+    }`,
+    "return items;",
+  ]) ? limit : undefined;
 }
 
 function supportsOData(source: ts.SourceFile): boolean {
   const odata = topLevelFunction(source, "buildSharePointODataUrl");
-  if (
-    odata?.body === undefined
-    || odata.body.statements.length !== 8
-    || hasUnreachableTopLevel(odata.body)
-  ) return false;
-  const statements = odata.body.statements.map((statement) => statement.getText(source));
-  return statements[0] === "const fields = READ_ALLOWLISTS[listId];"
-    && statements[1] === "if (!fields) throw new Error(\"unknown-list\");"
-    && statements[2] === "const url = new URL(base);"
-    && statements[3] === "const params = new URLSearchParams();"
-    && statements[4] === "params.set(\"$select\", fields.join(\",\"));"
-    && statements[5] === "params.set(\"$filter\", value.replaceAll(\"'\", \"''\"));"
-    && statements[6] === "url.search = params.toString();"
-    && statements[7] === "return url;";
+  return functionHeaderMatches(
+    odata,
+    "buildSharePointODataUrl",
+    ["base", "listId", "value"],
+    [ts.SyntaxKind.ExportKeyword],
+  ) && bodyMatches(odata.body, [
+    "const fields = READ_ALLOWLISTS[listId];",
+    'if (!fields) throw new Error("unknown-list");',
+    "const url = new URL(base);",
+    "const params = new URLSearchParams();",
+    'params.set("$select", fields.join(","));',
+    'params.set("$filter", value.replaceAll("\'", "\'\'"));',
+    "url.search = params.toString();",
+    "return url;",
+  ]);
 }
 
 function frontendSemantics(text: string, path: string): FrontendSemantics | undefined {
   const source = frontendSource(text, path);
+  if (source === undefined || !supportsFrontendInventory(source)) return undefined;
   const patchAllowlists = stringPolicy(source, "PATCH_ALLOWLISTS");
   const readAllowlists = stringPolicy(source, "READ_ALLOWLISTS");
   const pageLimit = supportsPagination(source);
@@ -698,6 +686,7 @@ function permissionSections(
   let expectedGrantCount = 0;
   const operationUniverse = ["create", "delete", "read", "update"] as const;
   for (const list of contract.sharePoint.lists) {
+    if (list.permissions.inheritance !== "break-clear") return undefined;
     const model = oneRole(flow, `permission-model:${list.id}`);
     if (
       !connectorMatches(
@@ -711,7 +700,7 @@ function permissionSections(
     let finalReadback: NormalizedAction | undefined;
     models.push({
       listId: list.id,
-      inheritance: list.permissions.inheritance,
+      inheritance: "break-clear",
       directUserGrants: "forbidden",
       browserOperations: list.role === "protected-domain"
         ? list.writeModel === "direct-patch" ? ["read", "update"] : ["read"]
@@ -870,6 +859,15 @@ function fieldOperationsFromDefinition(
       const readbackAssert = oneRole(flow, `field-readback-assert:${list.id}:${field.internalName}`);
       const body = write === undefined ? undefined : actionInputs(write)?.body;
       const payload = payloads[field.type];
+      const createBody = payload === undefined ? undefined : {
+        __metadata: { type: payload[0] },
+        FieldTypeKind: payload[1],
+        InternalName: field.internalName,
+        Required: field.required,
+        Indexed: field.indexed,
+        EnforceUniqueValues: field.unique,
+        ...(field.maxLength === undefined ? {} : { MaxLength: field.maxLength }),
+      };
       const properties = Object.keys(expectedProperties(field));
       const select = ["InternalName", "EntityPropertyName", ...properties].filter((value, index, values) =>
         values.indexOf(value) === index
@@ -927,11 +925,7 @@ function fieldOperationsFromDefinition(
         || !conditionMatches(readbackAssert, readbackComparison)
         || !conditionFailsClosed(flow, readbackAssert)
         || !branchHasExactly(flow, readbackAssert, "condition-true", [])
-        || !isRecord(body)
-        || !isRecord(body.__metadata)
-        || body.__metadata.type !== payload[0]
-        || body.FieldTypeKind !== payload[1]
-        || body.InternalName !== field.internalName
+        || !exactRecord(isRecord(body) ? body : undefined, createBody ?? {})
       ) return undefined;
       operations.push({
         listId: list.id,
@@ -1076,6 +1070,7 @@ function indexPlansFromDefinition(
     const read = oneRole(flow, `index-read:${list.id}`);
     const currentAssert = oneRole(flow, `index-current-assert:${list.id}`);
     const planDigest = oneRole(flow, `index-plan-digest:${list.id}`);
+    const planAssert = oneRole(flow, `index-plan-assert:${list.id}`);
     const requestDigest = oneRole(flow, `index-request-digest:${list.id}`);
     const finalReadback = oneRole(flow, `index-final-readback:${list.id}`);
     const finalAssert = oneRole(flow, `index-final-assert:${list.id}`);
@@ -1125,12 +1120,14 @@ function indexPlansFromDefinition(
       operationActions.set(`${kind}:${field}`, action);
     }
     const digestExpression = `@sha256(concat(string(body('${read?.id ?? ""}')['value']),'|','${requiredFields.join(",")}'))`;
+    const planAssertion = `@equals(triggerBody()['ApprovedPlanDigest'],outputs('${planDigest?.id ?? ""}'))`;
     const sortedRequired = [...requiredFields].sort((left, right) => left.localeCompare(right, "en"));
     const result = expectedOperations.length === 0 ? "NO_OP" : "APPLY";
     if (
       read === undefined
       || currentAssert === undefined
       || planDigest === undefined
+      || planAssert === undefined
       || finalReadback === undefined
       || finalAssert === undefined
       || resultAction === undefined
@@ -1142,6 +1139,12 @@ function indexPlansFromDefinition(
       || planDigest.controlBranch !== "condition-true"
       || planDigest.type !== "Compose"
       || planDigest.inputs !== digestExpression
+      || planAssert.parentId !== currentAssert.id
+      || planAssert.controlBranch !== "condition-true"
+      || !succeedsAfter(planAssert, planDigest)
+      || !conditionMatches(planAssert, planAssertion)
+      || !conditionFailsClosed(flow, planAssert)
+      || !branchHasExactly(flow, planAssert, "condition-true", [])
       || !connectorMatches(finalReadback, "GET", `${listPath}/fields`, fieldQuery)
       || finalReadback.parentId !== currentAssert.id
       || finalReadback.controlBranch !== "condition-true"
@@ -1154,7 +1157,10 @@ function indexPlansFromDefinition(
       || resultAction.parentId !== currentAssert.id
       || resultAction.controlBranch !== "condition-true"
       || resultAction.type !== "Compose"
-      || resultAction.inputs !== result
+      || !exactRecord(actionInputs(resultAction), {
+        result,
+        planDigest: `@{outputs('${planDigest.id}')}`,
+      })
       || !succeedsAfter(resultAction, finalAssert)
     ) return undefined;
     if (result === "APPLY") {
@@ -1163,13 +1169,13 @@ function indexPlansFromDefinition(
         || !connectorMatches(requestDigest, "POST", "/_api/contextinfo")
         || requestDigest.parentId !== currentAssert.id
         || requestDigest.controlBranch !== "condition-true"
-        || !succeedsAfter(requestDigest, planDigest)
+        || !succeedsAfter(requestDigest, planAssert)
       ) return undefined;
     } else if (requestDigest !== undefined) {
       return undefined;
     }
     const operations: unknown[] = [];
-    let predecessor = result === "APPLY" ? requestDigest! : planDigest;
+    let predecessor = result === "APPLY" ? requestDigest! : planAssert;
     const observed = new Set(currentFields);
     for (const [index, operation] of expectedOperations.entries()) {
       const write = operationActions.get(`${operation.kind}:${operation.field}`);
@@ -1221,6 +1227,7 @@ function indexPlansFromDefinition(
     }
     const planActions = [
       planDigest,
+      planAssert,
       ...(requestDigest === undefined ? [] : [requestDigest]),
       ...expectedOperations.flatMap((operation) => {
         const write = operationActions.get(`${operation.kind}:${operation.field}`);

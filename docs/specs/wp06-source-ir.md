@@ -80,13 +80,19 @@ with the exact relative path, positive byte length, and SHA-256. The entrypoint
 must exist, every source must be an inventory member, and missing, extra,
 duplicated, escaping, or mismatched entries fail closed.
 
-Only exact source files from a valid inventory are parsed. Supported source
-structure currently covers explicit conflict-safe Save, guarded continuation
+Only exact source files from a valid inventory are parsed. Any parser error
+suppresses frontend derivation. The accepted profile is a closed seven-item
+module grammar: two immutable allowlist declarations followed by the five
+documented functions in fixed order. Each function header and body is compared
+as an AST shape, including calls, objects, conditions, loops, returns, throws,
+and data references. Extra declarations, aliases, branches, statements, parser
+recovery, or unsupported syntax fail closed.
+
+Supported behavior covers explicit conflict-safe Save, guarded continuation
 pagination, and structured OData URL construction. Network calls must use the
-explicit global form `globalThis.fetch`; an identifier named `fetch`, including
-a locally shadowed function, is unsupported. Pagination and OData recognition
-accept only the documented direct statement sequence, so inserted branches,
-breaks, returns, or alternate data flow fail closed. The recognizer is not a
+explicit unshadowed form `globalThis.fetch`; arbitrary identifiers named
+`fetch`, local `globalThis` bindings, aliases, textual decoys, and unreachable
+operations are unsupported. The recognizer intentionally does not attempt a
 general JavaScript control-flow proof. Unsupported source produces no
 derivation.
 
@@ -111,16 +117,24 @@ The executable builder profile emits all six sections: `authorityChecks`,
 status feeds explicit FOUND and MISSING conditions. FOUND performs exact
 property comparisons and never creates. MISSING alone may create, and that path
 must perform a post-write GET plus exact readback assertion. Every other status
-terminates failed. The current profile emits the bounded MISSING/create case as
-local structural evidence; it does not claim a tenant response was observed.
+terminates failed. The create body must exactly match the accepted SharePoint
+field payload, including metadata type, field kind, internal name, required,
+indexed, uniqueness, and max length when declared. Unlabelled extra writes or
+payload properties suppress the complete field section. The current profile
+emits the bounded MISSING/create case as local structural evidence; it does not
+claim a tenant response was observed.
 
 Index plans read the complete `Indexed eq true` set, assert an exact sorted
 current state, and bind that response plus the required set into the plan
-digest. APPLY plans execute sorted removals before contract-ordered additions,
-use serial writes, and assert the complete index set after each operation and
-at completion. A compatible current set emits `NO_OP` with zero writes. Role
-labels and parameter declarations cannot supply current state. Permission
-models require principal and role
+digest. The plan must compare that digest with the explicitly approved digest;
+the final result must also carry the computed digest. A control predecessor is
+not digest data flow. APPLY plans execute sorted removals before
+contract-ordered additions, use serial writes, and assert the complete index
+set after each operation and at completion. A compatible current set emits
+`NO_OP` with zero writes and the same digest assertion. Role labels and
+parameter declarations cannot supply current state. Permission models support
+only an executable `break-clear` profile matching the contract; inheritance
+mismatches suppress both permission sections. They also require principal and role
 resolution, an executable `addroleassignment` call, role-assignment readback,
 and a fail-closed dependent assertion. Permission probes require the
 effective-permission request and a fail-closed dependent assertion over the
