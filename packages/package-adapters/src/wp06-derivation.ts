@@ -188,7 +188,9 @@ function supportsPatchHelper(source: ts.SourceFile): boolean {
     && bodyMatches(helper.body, [
       "const fields = PATCH_ALLOWLISTS[listId];",
       'if (!fields) throw new Error("unknown-list");',
-      "return Object.fromEntries(fields.map((field) => [field, patch[field]]));",
+      "const entries = Object.entries(patch);",
+      'if (entries.length === 0 || !entries.every(([field, value]) => fields.includes(field) && value !== undefined)) throw new Error("invalid-patch");',
+      "return Object.fromEntries(entries);",
     ]);
 }
 
@@ -223,8 +225,14 @@ function supportsSave(source: ts.SourceFile): boolean {
         body: JSON.stringify(body)
       });`,
       'if (response.status === 412) throw new Error("conflict");',
-      'if (!response.ok) return globalThis.fetch(itemUrl, { method: "GET" });',
-      'return globalThis.fetch(itemUrl, { method: "GET" });',
+      `if (!response.ok) {
+        await globalThis.fetch(itemUrl, { method: "GET" });
+        throw new Error("ambiguous-write");
+      }`,
+      'const readback = await globalThis.fetch(itemUrl, { method: "GET" });',
+      "const current = await readback.json();",
+      'if (!Object.entries(body).every(([field, value]) => Object.is(current[field], value))) throw new Error("readback-mismatch");',
+      "return current;",
     ])
     && supportsPatchHelper(source)
     && supportsFreshDigest(source);
@@ -284,15 +292,17 @@ function supportsOData(source: ts.SourceFile): boolean {
   return functionHeaderMatches(
     odata,
     "buildSharePointODataUrl",
-    ["base", "listId", "value"],
+    ["base", "listId", "field", "value"],
     [ts.SyntaxKind.ExportKeyword],
   ) && bodyMatches(odata.body, [
     "const fields = READ_ALLOWLISTS[listId];",
     'if (!fields) throw new Error("unknown-list");',
+    'if (!fields.includes(field)) throw new Error("unknown-field");',
     "const url = new URL(base);",
     "const params = new URLSearchParams();",
     'params.set("$select", fields.join(","));',
-    'params.set("$filter", value.replaceAll("\'", "\'\'"));',
+    'const escaped = String(value).replaceAll("\'", "\'\'");',
+    'params.set("$filter", `${field} eq \'${escaped}\'`);',
     "url.search = params.toString();",
     "return url;",
   ]);
@@ -817,6 +827,17 @@ function fieldOperationsFromDefinition(
     typeof value === "string" ? `'${value.replaceAll("'", "''")}'`
     : typeof value === "number" || typeof value === "boolean" ? String(value)
     : undefined;
+  const typePropertiesValid = (
+    field: ProjectContract["sharePoint"]["lists"][number]["fields"][number],
+  ): boolean => {
+    const hasLookupList = field.lookupListId !== undefined;
+    const hasLookupField = field.lookupField !== undefined;
+    return (field.maxLength === undefined || field.type === "Text")
+      && (field.dateTimeMode === undefined || field.type === "DateTime")
+      && (field.choices === undefined || field.type === "Choice")
+      && (hasLookupList === hasLookupField)
+      && (!hasLookupList || field.type === "Lookup");
+  };
   const expectedProperties = (field: ProjectContract["sharePoint"]["lists"][number]["fields"][number]) => ({
     logicalName: field.logicalName,
     internalName: field.internalName,
@@ -830,6 +851,9 @@ function fieldOperationsFromDefinition(
     sensitive: field.sensitive,
     ...(field.maxLength === undefined ? {} : { maxLength: field.maxLength }),
     ...(field.dateTimeMode === undefined ? {} : { dateTimeMode: field.dateTimeMode }),
+    ...(field.choices === undefined ? {} : { choices: field.choices }),
+    ...(field.lookupListId === undefined ? {} : { lookupListId: field.lookupListId }),
+    ...(field.lookupField === undefined ? {} : { lookupField: field.lookupField }),
   });
   const comparisonExpression = (
     action: NormalizedAction | undefined,
@@ -837,6 +861,12 @@ function fieldOperationsFromDefinition(
   ): string | undefined => {
     const expected = expectedProperties(field);
     const comparisons = Object.entries(expected).map(([property, value]) => {
+      if (Array.isArray(value)) {
+        const serialized = JSON.stringify(value).replaceAll("'", "''");
+        return action === undefined
+          ? undefined
+          : `equals(string(body('${action.id}')['${property}']),'${serialized}')`;
+      }
       const literal = expressionLiteral(value);
       return literal === undefined || action === undefined
         ? undefined
@@ -859,7 +889,7 @@ function fieldOperationsFromDefinition(
       const readbackAssert = oneRole(flow, `field-readback-assert:${list.id}:${field.internalName}`);
       const body = write === undefined ? undefined : actionInputs(write)?.body;
       const payload = payloads[field.type];
-      const createBody = payload === undefined ? undefined : {
+      const createBody = payload === undefined || !typePropertiesValid(field) ? undefined : {
         __metadata: { type: payload[0] },
         FieldTypeKind: payload[1],
         InternalName: field.internalName,
@@ -867,6 +897,12 @@ function fieldOperationsFromDefinition(
         Indexed: field.indexed,
         EnforceUniqueValues: field.unique,
         ...(field.maxLength === undefined ? {} : { MaxLength: field.maxLength }),
+        ...(field.dateTimeMode === undefined
+          ? {}
+          : { DisplayFormat: field.dateTimeMode === "DateOnly" ? 0 : 1 }),
+        ...(field.choices === undefined ? {} : { Choices: { results: field.choices } }),
+        ...(field.lookupListId === undefined ? {} : { LookupList: field.lookupListId }),
+        ...(field.lookupField === undefined ? {} : { LookupField: field.lookupField }),
       };
       const properties = Object.keys(expectedProperties(field));
       const select = ["InternalName", "EntityPropertyName", ...properties].filter((value, index, values) =>
@@ -898,6 +934,7 @@ function fieldOperationsFromDefinition(
           { $select: select },
         )
         || payload === undefined
+        || createBody === undefined
         || !runsAfterStatuses(found, read, ["Failed", "Succeeded"])
         || !conditionMatches(found, foundExpression)
         || !branchHasExactly(flow, found, "condition-true", [foundAssert])
@@ -925,7 +962,7 @@ function fieldOperationsFromDefinition(
         || !conditionMatches(readbackAssert, readbackComparison)
         || !conditionFailsClosed(flow, readbackAssert)
         || !branchHasExactly(flow, readbackAssert, "condition-true", [])
-        || !exactRecord(isRecord(body) ? body : undefined, createBody ?? {})
+        || !exactRecord(isRecord(body) ? body : undefined, createBody)
       ) return undefined;
       operations.push({
         listId: list.id,
@@ -1261,6 +1298,53 @@ function indexPlansFromDefinition(
   return plans;
 }
 
+function flowMutationClosure(
+  contract: ProjectContract,
+  flow: NonNullable<DefinitionRuleEvidence["flow"]>,
+  sections: ReadonlyMap<Wp06AdapterDerivation["section"], readonly unknown[]>,
+): boolean {
+  const approvedRoles = new Set<string>();
+  if (sections.has("authorityChecks")) approvedRoles.add("mutation");
+  if (sections.has("permissionModels")) {
+    for (const list of contract.sharePoint.lists) {
+      approvedRoles.add(`permission-model:${list.id}`);
+      for (const role of list.permissions.minimumRoles) {
+        approvedRoles.add(`permission-grant:${list.id}:${role.principalBinding}`);
+      }
+    }
+  }
+  if (sections.has("fieldOperations")) {
+    for (const list of contract.sharePoint.lists) {
+      for (const field of list.fields) approvedRoles.add(`field-write:${list.id}:${field.internalName}`);
+    }
+  }
+  if (sections.has("indexPlans")) {
+    for (const list of contract.sharePoint.lists.filter(({ indexes }) => indexes.length > 0)) {
+      approvedRoles.add(`index-request-digest:${list.id}`);
+      for (const action of rolesByPrefix(flow, `index-remove:${list.id}`)) {
+        if (action.declaredRole !== undefined) approvedRoles.add(action.declaredRole);
+      }
+      for (const action of rolesByPrefix(flow, `index-add:${list.id}`)) {
+        if (action.declaredRole !== undefined) approvedRoles.add(action.declaredRole);
+      }
+    }
+  }
+  for (const action of flow.actions.values()) {
+    const operationId = action.connector?.operationId;
+    const method = actionMethod(action);
+    const overrideMethod = action.connector?.overrideMethod?.toUpperCase();
+    const connectorIsUnsupported = operationId !== undefined && operationId !== "HttpRequest";
+    const httpMethodIsAmbiguous = operationId === "HttpRequest" && method === undefined;
+    const methodCanMutate = method !== undefined && !["GET", "HEAD", "OPTIONS"].includes(method);
+    const overrideCanMutate = overrideMethod !== undefined
+      && !["GET", "HEAD", "OPTIONS"].includes(overrideMethod);
+    if (httpMethodIsAmbiguous || connectorIsUnsupported) return false;
+    if (!methodCanMutate && !overrideCanMutate) continue;
+    if (action.declaredRole === undefined || !approvedRoles.has(action.declaredRole)) return false;
+  }
+  return true;
+}
+
 function builderSections(
   contract: ProjectContract,
   definition: DefinitionRuleEvidence,
@@ -1285,7 +1369,7 @@ function builderSections(
   if (fields !== undefined) sections.set("fieldOperations", fields);
   if (http !== undefined) sections.set("httpClassifications", http);
   if (indexes !== undefined && indexes.length > 0) sections.set("indexPlans", indexes);
-  return sections.size === 0 ? undefined : sections;
+  return sections.size === 0 || !flowMutationClosure(contract, flow, sections) ? undefined : sections;
 }
 
 function derivation(

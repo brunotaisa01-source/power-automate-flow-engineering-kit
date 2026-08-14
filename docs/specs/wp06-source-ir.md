@@ -94,7 +94,14 @@ explicit unshadowed form `globalThis.fetch`; arbitrary identifiers named
 `fetch`, local `globalThis` bindings, aliases, textual decoys, and unreachable
 operations are unsupported. The recognizer intentionally does not attempt a
 general JavaScript control-flow proof. Unsupported source produces no
-derivation.
+derivation. The Save profile rejects empty patches, unknown fields, and
+`undefined` values. An ambiguous response performs GET reconciliation and then
+fails; it does not report success. A successful Save parses the GET readback
+and requires every serialized write-body entry to match by field and value.
+The OData profile accepts only an equality expression for a field present in
+the list read allowlist. It converts the value to a quoted literal, doubles
+single quotes, and delegates percent encoding to `URLSearchParams`; raw filter
+fragments and arbitrary operators are outside the grammar.
 
 ## Definition And Package Authority
 
@@ -111,6 +118,14 @@ closed. Contract values are comparison targets. A role label, unrelated
 property, parameter-only claim, no-op URI, or JSON enumeration order is
 insufficient.
 
+The adapter also applies flow-wide mutation closure before emitting any
+builder section. Every normalized connector action and HTTP method is examined,
+including actions outside recognized parents and branches. A mutating action
+must have an exact contract-derived role already proven by its section.
+Unsupported connector operations, missing HTTP methods, unlabelled writes,
+forged role extensions, and extra index, schema, permission, or protected-item
+writes suppress the complete builder derivation.
+
 The executable builder profile emits all six sections: `authorityChecks`,
 `permissionModels`, `permissionProbes`, `fieldOperations`,
 `httpClassifications`, and `indexPlans`. Field operations require a GET whose
@@ -119,8 +134,10 @@ property comparisons and never creates. MISSING alone may create, and that path
 must perform a post-write GET plus exact readback assertion. Every other status
 terminates failed. The create body must exactly match the accepted SharePoint
 field payload, including metadata type, field kind, internal name, required,
-indexed, uniqueness, and max length when declared. Unlabelled extra writes or
-payload properties suppress the complete field section. The current profile
+indexed, uniqueness, maximum length, DateTime display mode, exact ordered
+Choice values, and Lookup list/field bindings when declared. Optional
+properties are accepted only for their supported field type. Missing, extra,
+or wrong payload properties suppress the complete field section. The current profile
 emits the bounded MISSING/create case as local structural evidence; it does not
 claim a tenant response was observed.
 

@@ -392,7 +392,9 @@ const READ_ALLOWLISTS = Object.freeze({ "protected-items": Object.freeze(["ID", 
 function allowlistedPatch(listId, patch) {
   const fields = PATCH_ALLOWLISTS[listId];
   if (!fields) throw new Error("unknown-list");
-  return Object.fromEntries(fields.map((field) => [field, patch[field]]));
+  const entries = Object.entries(patch);
+  if (entries.length === 0 || !entries.every(([field, value]) => fields.includes(field) && value !== undefined)) throw new Error("invalid-patch");
+  return Object.fromEntries(entries);
 }
 
 async function freshDigest(itemUrl) {
@@ -414,8 +416,14 @@ export async function saveSharePointItem(listId, itemUrl, etag, patch) {
     body: JSON.stringify(body)
   });
   if (response.status === 412) throw new Error("conflict");
-  if (!response.ok) return globalThis.fetch(itemUrl, { method: "GET" });
-  return globalThis.fetch(itemUrl, { method: "GET" });
+  if (!response.ok) {
+    await globalThis.fetch(itemUrl, { method: "GET" });
+    throw new Error("ambiguous-write");
+  }
+  const readback = await globalThis.fetch(itemUrl, { method: "GET" });
+  const current = await readback.json();
+  if (!Object.entries(body).every(([field, value]) => Object.is(current[field], value))) throw new Error("readback-mismatch");
+  return current;
 }
 
 export async function loadAllSharePointPages(initialUrl, expectedOrigin, expectedPathname) {
@@ -438,13 +446,15 @@ export async function loadAllSharePointPages(initialUrl, expectedOrigin, expecte
   return items;
 }
 
-export function buildSharePointODataUrl(base, listId, value) {
+export function buildSharePointODataUrl(base, listId, field, value) {
   const fields = READ_ALLOWLISTS[listId];
   if (!fields) throw new Error("unknown-list");
+  if (!fields.includes(field)) throw new Error("unknown-field");
   const url = new URL(base);
   const params = new URLSearchParams();
   params.set("$select", fields.join(","));
-  params.set("$filter", value.replaceAll("'", "''"));
+  const escaped = String(value).replaceAll("'", "''");
+  params.set("$filter", \`\${field} eq '\${escaped}'\`);
   url.search = params.toString();
   return url;
 }
@@ -1142,6 +1152,86 @@ function removeDefinitionActionsByRole(
   walk(root);
 }
 
+function configureFieldFixture(
+  value: ProjectContract,
+  definition: Record<string, unknown>,
+  listId: string,
+  internalName: string,
+  changes: Record<string, unknown>,
+): void {
+  const list = value.sharePoint.lists.find(({ id }) => id === listId)!;
+  const field = list.fields.find((candidate) => candidate.internalName === internalName)! as any;
+  for (const optional of ["maxLength", "dateTimeMode", "choices", "lookupListId", "lookupField"]) {
+    delete field[optional];
+  }
+  Object.assign(field, changes);
+
+  const actions = new Map<string, any>();
+  visitDefinitionActions(definition, (action) => {
+    const role = (action.metadata as any)?.spflowRole;
+    if (typeof role === "string") actions.set(role, action);
+  });
+  const suffix = `${listId.replaceAll("-", "_")}_${internalName}`;
+  const readId = `FieldRead_${suffix}`;
+  const readbackId = `FieldReadback_${suffix}`;
+  const expected = {
+    logicalName: field.logicalName,
+    internalName: field.internalName,
+    type: field.type,
+    required: field.required,
+    indexed: field.indexed,
+    unique: field.unique,
+    clientEditable: field.clientEditable,
+    serverAuthoritative: field.serverAuthoritative,
+    immutableAfterCreate: field.immutableAfterCreate,
+    sensitive: field.sensitive,
+    ...(field.maxLength === undefined ? {} : { maxLength: field.maxLength }),
+    ...(field.dateTimeMode === undefined ? {} : { dateTimeMode: field.dateTimeMode }),
+    ...(field.choices === undefined ? {} : { choices: field.choices }),
+    ...(field.lookupListId === undefined ? {} : { lookupListId: field.lookupListId }),
+    ...(field.lookupField === undefined ? {} : { lookupField: field.lookupField }),
+  };
+  const literal = (value: unknown) => typeof value === "string"
+    ? `'${value.replaceAll("'", "''")}'`
+    : String(value);
+  const comparison = (actionId: string) => `@and(`
+    + `equals(body('${actionId}')['InternalName'],'${internalName}'),`
+    + `equals(body('${actionId}')['EntityPropertyName'],'${internalName}'),`
+    + `${Object.entries(expected).map(([name, property]) => Array.isArray(property)
+      ? `equals(string(body('${actionId}')['${name}']),'${JSON.stringify(property)}')`
+      : `equals(body('${actionId}')['${name}'],${literal(property)})`
+    ).join(",")})`;
+  const select = ["InternalName", "EntityPropertyName", ...Object.keys(expected)].join(",");
+  const fieldPath = `/_api/web/lists/getbytitle('${list.titleBinding}')/fields/getbyinternalnameortitle('${internalName}')`;
+  actions.get(`field-read:${listId}:${internalName}`).inputs.uri = `${fieldPath}?$select=${select}`;
+  actions.get(`field-readback:${listId}:${internalName}`).inputs.uri = `${fieldPath}?$select=${select}`;
+  actions.get(`field-found-assert:${listId}:${internalName}`).expression = comparison(readId);
+  actions.get(`field-readback-assert:${listId}:${internalName}`).expression = comparison(readbackId);
+
+  const payloadByType: Record<string, readonly [string, number]> = {
+    Boolean: ["SP.FieldBoolean", 8], Choice: ["SP.FieldChoice", 6], Currency: ["SP.FieldCurrency", 10],
+    DateTime: ["SP.FieldDateTime", 4], Guid: ["SP.FieldGuid", 14], Lookup: ["SP.FieldLookup", 7],
+    Note: ["SP.FieldMultiLineText", 3], Number: ["SP.FieldNumber", 9], Text: ["SP.FieldText", 2],
+    User: ["SP.FieldUser", 20],
+  };
+  const payload = payloadByType[field.type]!;
+  actions.get(`field-write:${listId}:${internalName}`).inputs.body = {
+    __metadata: { type: payload[0] },
+    FieldTypeKind: payload[1],
+    InternalName: field.internalName,
+    Required: field.required,
+    Indexed: field.indexed,
+    EnforceUniqueValues: field.unique,
+    ...(field.maxLength === undefined ? {} : { MaxLength: field.maxLength }),
+    ...(field.dateTimeMode === undefined
+      ? {}
+      : { DisplayFormat: field.dateTimeMode === "DateOnly" ? 0 : 1 }),
+    ...(field.choices === undefined ? {} : { Choices: { results: field.choices } }),
+    ...(field.lookupListId === undefined ? {} : { LookupList: field.lookupListId }),
+    ...(field.lookupField === undefined ? {} : { LookupField: field.lookupField }),
+  };
+}
+
 async function writeContract(root: string, value: ProjectContract): Promise<void> {
   await writeJson(root, "project.contract.json", value);
 }
@@ -1247,6 +1337,60 @@ describe("WP-06 raw artifact authority", () => {
       assert.equal(context.adapterEvidence.frontendBundles?.[0]?.valid, true);
       assert.equal(context.adapterEvidence.wp06Derivations?.length, 3);
       assert.deepEqual(await diagnostics(context, FRONTEND_RULES), []);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+
+  test("raw OData fragments cannot create authority while the parameterized grammar can", async () => {
+    const approvedRoot = await mkdtemp(join(tmpdir(), "spflow-odata-parameterized-"));
+    const rawRoot = await mkdtemp(join(tmpdir(), "spflow-odata-raw-"));
+    const value = contract(["SP-ODATA-001"], false);
+    const rawSource = FRONTEND_SOURCE
+      .replace(
+        "export function buildSharePointODataUrl(base, listId, field, value) {",
+        "export function buildSharePointODataUrl(base, listId, value) {",
+      )
+      .replace('  if (!fields.includes(field)) throw new Error("unknown-field");\n', "")
+      .replace('  const escaped = String(value).replaceAll("\'", "\'\'");\n  params.set("$filter", `${field} eq \'${escaped}\'`);',
+        '  params.set("$filter", value);');
+    try {
+      await writeContract(approvedRoot, value);
+      await writeFrontend(approvedRoot);
+      const approved = await validationContext(approvedRoot, value);
+      assert.deepEqual(await diagnostics(approved, ["SP-ODATA-001"]), []);
+
+      await writeContract(rawRoot, value);
+      await writeFrontend(rawRoot, rawSource);
+      const raw = await validationContext(rawRoot, value);
+      assert.equal(raw.adapterEvidence.wp06Derivations?.some(({ section }) => section === "odataRequests"), false);
+      assert.deepEqual(
+        (await diagnostics(raw, ["SP-ODATA-001"])).map(({ code }) => code),
+        ["SP-ODATA-001"],
+      );
+    } finally {
+      await rm(approvedRoot, { recursive: true, force: true });
+      await rm(rawRoot, { recursive: true, force: true });
+    }
+  });
+
+  test("a GET without a field-by-field assertion is not semantic save readback", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-save-nonsemantic-readback-"));
+    const value = contract(["APP-SAVE-001"], false);
+    const nonSemantic = FRONTEND_SOURCE.replace(
+      '  if (!Object.entries(body).every(([field, value]) => Object.is(current[field], value))) throw new Error("readback-mismatch");',
+      '  if (false) throw new Error("readback-mismatch");',
+    );
+    try {
+      await writeContract(root, value);
+      await writeFrontend(root, nonSemantic);
+      const context = await validationContext(root, value);
+
+      assert.equal(context.adapterEvidence.wp06Derivations?.some(({ section }) => section === "saveTransactions"), false);
+      assert.deepEqual(
+        (await diagnostics(context, ["APP-SAVE-001"])).map(({ code }) => code),
+        ["APP-SAVE-001"],
+      );
     } finally {
       await rm(root, { recursive: true, force: true });
     }
@@ -1676,6 +1820,77 @@ describe("WP-06 raw artifact authority", () => {
     }
   });
 
+  test("Choice, Lookup, and DateTime fields require complete type-specific comparison and create payloads", async () => {
+    const validRoot = await mkdtemp(join(tmpdir(), "spflow-raw-builder-schema-types-valid-"));
+    const value = contract(["SP-SCHEMA-001", "SP-SCHEMA-002", "SP-SCHEMA-003"], true);
+    const definition = builderDefinition();
+    configureFieldFixture(value, definition, "protected-items", "Title", {
+      type: "Choice",
+      choices: ["Open", "Closed"],
+    });
+    configureFieldFixture(value, definition, "access-control", "PrincipalKey", {
+      type: "Lookup",
+      lookupListId: "protected-items",
+      lookupField: "Title",
+    });
+    configureFieldFixture(value, definition, "protected-items", "Amount", {
+      type: "DateTime",
+      dateTimeMode: "DateOnly",
+    });
+    try {
+      await writeContract(validRoot, value);
+      await writeBuilder(validRoot, definition);
+      const context = await validationContext(validRoot, value);
+      assert.equal(context.adapterEvidence.wp06Derivations?.some(({ section }) => section === "fieldOperations"), true);
+      assert.deepEqual(await diagnostics(context, ["SP-SCHEMA-001", "SP-SCHEMA-002", "SP-SCHEMA-003"]), []);
+    } finally {
+      await rm(validRoot, { recursive: true, force: true });
+    }
+
+    for (const scenario of ["choices", "lookup", "date-time"] as const) {
+      const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-schema-${scenario}-`));
+      const mutatedValue = contract(["SP-SCHEMA-001", "SP-SCHEMA-002", "SP-SCHEMA-003"], true);
+      const mutated = builderDefinition();
+      configureFieldFixture(mutatedValue, mutated, "protected-items", "Title", {
+        type: "Choice",
+        choices: ["Open", "Closed"],
+      });
+      configureFieldFixture(mutatedValue, mutated, "access-control", "PrincipalKey", {
+        type: "Lookup",
+        lookupListId: "protected-items",
+        lookupField: "Title",
+      });
+      configureFieldFixture(mutatedValue, mutated, "protected-items", "Amount", {
+        type: "DateTime",
+        dateTimeMode: "DateOnly",
+      });
+      visitDefinitionActions(mutated, (action) => {
+        const role = (action.metadata as any)?.spflowRole;
+        if (scenario === "choices" && role === "field-write:protected-items:Title") {
+          delete (action.inputs as any).body.Choices;
+        }
+        if (scenario === "lookup" && role === "field-write:access-control:PrincipalKey") {
+          delete (action.inputs as any).body.LookupField;
+        }
+        if (scenario === "date-time" && role === "field-write:protected-items:Amount") {
+          delete (action.inputs as any).body.DisplayFormat;
+        }
+      });
+      try {
+        await writeContract(root, mutatedValue);
+        await writeBuilder(root, mutated);
+        const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, mutatedValue);
+        assert.equal(
+          adapterEvidence.wp06Derivations?.some(({ section }) => section === "fieldOperations"),
+          false,
+          scenario,
+        );
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
   test("unlabelled writes inside trusted schema or index branches fail closed", async () => {
     for (const section of ["fieldOperations", "indexPlans"] as const) {
       const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-extra-${section}-`));
@@ -1705,6 +1920,66 @@ describe("WP-06 raw artifact authority", () => {
       } finally {
         await rm(root, { recursive: true, force: true });
       }
+    }
+  });
+
+  test("compiled CLI rejects flow-wide index, schema, permission, and protected-item bypass writes", async () => {
+    const protectedUri = "/_api/web/lists/getbytitle('PROTECTED_ITEMS')";
+    for (const scenario of ["index", "schema", "permission", "protected-item"] as const) {
+      const root = await mkdtemp(join(tmpdir(), `spflow-raw-builder-bypass-${scenario}-`));
+      const value = contract(BUILDER_RULES, true);
+      const definition = builderDefinition() as any;
+      const actions = definition.properties.definition.actions;
+      const bypass = scenario === "index"
+        ? semanticConnector("bypass", "POST", `${protectedUri}/fields/getbyinternalnameortitle('Title')`, {}, undefined, {
+          body: { __metadata: { type: "SP.Field" }, Indexed: false },
+        })
+        : scenario === "schema"
+        ? semanticConnector("bypass", "POST", `${protectedUri}/fields`, {}, undefined, {
+          body: { __metadata: { type: "SP.FieldText" }, FieldTypeKind: 2, InternalName: "Bypass" },
+        })
+        : scenario === "permission"
+        ? semanticConnector("bypass", "POST", `${protectedUri}/breakroleinheritance(copyRoleAssignments=true,clearSubscopes=false)`, {})
+        : semanticConnector("bypass", "POST", `${protectedUri}/items(1)`, {}, undefined, {
+          headers: { "X-HTTP-Method": "MERGE", "IF-MATCH": "*" },
+          body: { Status: "Bypassed" },
+        });
+      delete (bypass as any).metadata;
+      actions[`Bypass_${scenario.replace("-", "_")}`] = bypass;
+      try {
+        await writeContract(root, value);
+        await writeBuilder(root, definition);
+        const result = await runBuiltCli(root);
+
+        assert.notEqual(result.exitCode, 0, `${scenario}: ${result.stdout}`);
+        assert.equal(result.report.result, "FAIL", `${scenario}: ${result.stdout}`);
+        assert.ok(result.report.diagnostics.length > 0, scenario);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    }
+  });
+
+  test("a forged mutation role cannot extend the exact approved action set", async () => {
+    const root = await mkdtemp(join(tmpdir(), "spflow-raw-builder-forged-mutation-role-"));
+    const value = contract(BUILDER_RULES, true);
+    const definition = builderDefinition() as any;
+    definition.properties.definition.actions.ForgedFieldWrite = semanticConnector(
+      "field-write:protected-items:Bypass",
+      "POST",
+      "/_api/web/lists/getbytitle('PROTECTED_ITEMS')/fields",
+      {},
+      undefined,
+      { body: { __metadata: { type: "SP.FieldText" }, FieldTypeKind: 2, InternalName: "Bypass" } },
+    );
+    try {
+      await writeContract(root, value);
+      await writeBuilder(root, definition);
+      const { adapterEvidence } = await inspectTrustedProjectArtifacts(root, value);
+
+      assert.equal(adapterEvidence.wp06Derivations?.length, 0);
+    } finally {
+      await rm(root, { recursive: true, force: true });
     }
   });
 
