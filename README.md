@@ -1,10 +1,16 @@
 # SharePoint Flow Engineering Kit
 
-SharePoint Flow Engineering Kit is a public, synthetic-data toolkit for designing and validating applications built from:
+SharePoint Flow Engineering Kit is a public, synthetic-data toolkit for designing and validating Power Automate and Power Platform applications across connector-backed systems such as SharePoint, Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, and approvals.
+
+The reference profile is:
 
 `frontend -> SharePoint lists -> Power Automate -> SharePoint -> frontend`
 
-It gives an AI or engineer a project contract, deterministic artifact inspection, Power Automate and package rules, RED/GREEN fixtures, evidence boundaries, and a local CLI. The repository is designed to prevent common failures before any tenant operation is considered.
+The same engineering boundaries apply when the authoritative backend is Excel, Power Apps, Dataverse, or another connector:
+
+`frontend -> connector-backed data/services -> Power Automate -> authoritative systems -> frontend`
+
+The current executable frontend profile is intentionally SharePoint-specific, while the contracts, package/flow rules, evidence model, and self-improvement skill are designed to generalize across Power Automate connectors. The kit gives an AI or engineer a project contract, deterministic artifact inspection, RED/GREEN fixtures, evidence boundaries, and a local CLI. It is designed to prevent common failures before any tenant operation is considered.
 
 ## Status
 
