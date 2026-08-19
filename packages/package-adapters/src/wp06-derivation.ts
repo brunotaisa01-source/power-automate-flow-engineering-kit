@@ -269,14 +269,17 @@ function policyDeclaration(statement: ts.Statement, name: string): boolean {
 function supportsFrontendInventory(source: ts.SourceFile): boolean {
   const names = [
     "siteBoundaryUrl",
-    "listResourceUrl",
+    "listPath",
+    "saveItemUrl",
+    "odataListUrl",
+    "paginationCollectionUrl",
     "allowlistedPatch",
     "freshDigest",
     "saveSharePointItem",
     "loadAllSharePointPages",
     "buildSharePointODataUrl",
   ] as const;
-  return source.statements.length === 11
+  return source.statements.length === 14
     && policyDeclaration(source.statements[0]!, "PATCH_ALLOWLISTS")
     && policyDeclaration(source.statements[1]!, "READ_ALLOWLISTS")
     && stringConstant(source, "SITE_URL") !== undefined
@@ -304,18 +307,50 @@ function supportsSiteBoundary(source: ts.SourceFile): boolean {
     ]);
 }
 
-function supportsListResource(source: ts.SourceFile): boolean {
-  const helper = topLevelFunction(source, "listResourceUrl");
-  return functionHeaderMatches(helper, "listResourceUrl", ["listId", "candidate"], [])
+function supportsListPath(source: ts.SourceFile): boolean {
+  const helper = topLevelFunction(source, "listPath");
+  return functionHeaderMatches(helper, "listPath", ["listId"], [])
     && bodyMatches(helper.body, [
       "const resource = LIST_RESOURCES[listId];",
       'if (!resource) throw new Error("unknown-list");',
-      "const actual = siteBoundaryUrl(candidate, SITE_URL);",
       "const configured = new URL(SITE_URL);",
-      'const expected = new URL((configured.pathname.endsWith("/") ? configured.pathname.slice(0, -1) : configured.pathname) + resource, configured.origin);',
-      "const expectedSegments = expected.pathname.split(\"/\").filter(Boolean).map(decodeURIComponent);",
-      "const actualSegments = actual.pathname.split(\"/\").filter(Boolean).map(decodeURIComponent);",
-      'if (actual.origin !== expected.origin || actualSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => actualSegments[index] === segment)) throw new Error("list-boundary");',
+      'return new URL((configured.pathname.endsWith("/") ? configured.pathname.slice(0, -1) : configured.pathname) + resource, configured.origin).pathname;',
+    ]);
+}
+
+function supportsSaveItemUrl(source: ts.SourceFile): boolean {
+  const helper = topLevelFunction(source, "saveItemUrl");
+  return functionHeaderMatches(helper, "saveItemUrl", ["listId", "candidate"], [])
+    && bodyMatches(helper.body, [
+      'if (typeof candidate !== "string" || candidate.includes(String.fromCharCode(92)) || candidate.includes("/./") || candidate.endsWith("/.") || candidate.includes("/../") || candidate.endsWith("/..") || candidate.toLowerCase().includes("%2e") || candidate.toLowerCase().includes("%2f") || candidate.toLowerCase().includes("%5c")) throw new Error("endpoint-boundary");',
+      "const actual = siteBoundaryUrl(candidate, SITE_URL);",
+      "const expected = listPath(listId);",
+      'const prefix = `${expected}/items(`;',
+      'if (actual.search || !actual.pathname.startsWith(prefix) || !actual.pathname.endsWith(")") || !/^[1-9][0-9]*$/.test(actual.pathname.slice(prefix.length, -1))) throw new Error("endpoint-boundary");',
+      "return actual;",
+    ]);
+}
+
+function supportsODataListUrl(source: ts.SourceFile): boolean {
+  const helper = topLevelFunction(source, "odataListUrl");
+  return functionHeaderMatches(helper, "odataListUrl", ["listId", "candidate"], [])
+    && bodyMatches(helper.body, [
+      'if (typeof candidate !== "string" || candidate.includes(String.fromCharCode(92)) || candidate.includes("/./") || candidate.endsWith("/.") || candidate.includes("/../") || candidate.endsWith("/..") || candidate.toLowerCase().includes("%2e") || candidate.toLowerCase().includes("%2f") || candidate.toLowerCase().includes("%5c")) throw new Error("endpoint-boundary");',
+      "const actual = siteBoundaryUrl(candidate, SITE_URL);",
+      "const expected = listPath(listId);",
+      'if (actual.search || actual.pathname !== expected) throw new Error("endpoint-boundary");',
+      "return actual;",
+    ]);
+}
+
+function supportsPaginationCollectionUrl(source: ts.SourceFile): boolean {
+  const helper = topLevelFunction(source, "paginationCollectionUrl");
+  return functionHeaderMatches(helper, "paginationCollectionUrl", ["listId", "candidate"], [])
+    && bodyMatches(helper.body, [
+      'if (typeof candidate !== "string" || candidate.includes(String.fromCharCode(92)) || candidate.includes("/./") || candidate.endsWith("/.") || candidate.includes("/../") || candidate.endsWith("/..") || candidate.toLowerCase().includes("%2e") || candidate.toLowerCase().includes("%2f") || candidate.toLowerCase().includes("%5c")) throw new Error("endpoint-boundary");',
+      "const actual = siteBoundaryUrl(candidate, SITE_URL);",
+      "const expected = listPath(listId);",
+      'if (actual.pathname !== expected) throw new Error("endpoint-boundary");',
       "return actual;",
     ]);
 }
@@ -336,7 +371,7 @@ function supportsFreshDigest(source: ts.SourceFile): boolean {
   const helper = topLevelFunction(source, "freshDigest");
   return functionHeaderMatches(helper, "freshDigest", ["listId", "itemUrl", "siteUrl"], [ts.SyntaxKind.AsyncKeyword])
     && bodyMatches(helper.body, [
-      "const item = listResourceUrl(listId, itemUrl);",
+      "const item = saveItemUrl(listId, itemUrl);",
       "const site = siteBoundaryUrl(SITE_URL, SITE_URL);",
       'const digestUrl = new URL(site.pathname.replace(/\\/$/, "") + "/_api/contextinfo", site.origin);',
       'const response = await globalThis.fetch(digestUrl, { method: "POST" });',
@@ -356,7 +391,7 @@ function supportsSave(source: ts.SourceFile): boolean {
     [ts.SyntaxKind.ExportKeyword, ts.SyntaxKind.AsyncKeyword],
   )
     && bodyMatches(save.body, [
-      "const item = listResourceUrl(listId, itemUrl);",
+      "const item = saveItemUrl(listId, itemUrl);",
       "const body = allowlistedPatch(listId, patch);",
       'if (typeof etag !== "string" || etag === \'"*"\' || /[\\u0000-\\u001f\\u007f]/.test(etag) || !/^"(?:[^"\\\\]|\\\\.)+"$/.test(etag)) throw new Error("invalid-etag");',
       'const currentResponse = await globalThis.fetch(item, { method: "GET" });',
@@ -412,14 +447,13 @@ function supportsPagination(source: ts.SourceFile): number | undefined {
     ["initialUrl", "listId", "siteUrl"],
     [ts.SyntaxKind.ExportKeyword, ts.SyntaxKind.AsyncKeyword],
   )) return undefined;
-  const loop = pagination.body.statements[8];
+  const loop = pagination.body.statements[7];
   if (loop === undefined || !ts.isWhileStatement(loop)) return undefined;
   const limit = paginationLimit(loop);
   if (limit === undefined) return undefined;
   return bodyMatches(pagination.body, [
     'if (typeof initialUrl !== "string" || initialUrl.length === 0) throw new Error("malformed-next-link");',
-    "const first = listResourceUrl(listId, initialUrl);",
-    'const expectedSegments = first.pathname.split("/").filter(Boolean).map(decodeURIComponent);',
+    "const first = paginationCollectionUrl(listId, initialUrl);",
     'if (typeof listId !== "string" || listId.length === 0) throw new Error("unknown-list");',
     "const visited = new Set();",
     "const items = [];",
@@ -429,9 +463,7 @@ function supportsPagination(source: ts.SourceFile): number | undefined {
       pages += 1;
       if (pages > ${limit}) throw new Error("page-limit");
       if (typeof next !== "string" || next.length === 0) throw new Error("malformed-next-link");
-      const pageUrl = listResourceUrl(listId, next);
-      const pageSegments = pageUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-      if (pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");
+      const pageUrl = paginationCollectionUrl(listId, next);
       if (visited.has(pageUrl.href)) throw new Error("loop");
       visited.add(pageUrl.href);
       const response = await globalThis.fetch(pageUrl, { method: "GET" });
@@ -458,7 +490,7 @@ function supportsOData(source: ts.SourceFile): boolean {
     "const fields = READ_ALLOWLISTS[listId];",
     'if (!fields) throw new Error("unknown-list");',
     'if (!fields.includes(field)) throw new Error("unknown-field");',
-    "const url = listResourceUrl(listId, base);",
+    "const url = odataListUrl(listId, base);",
     "const params = new URLSearchParams();",
     'params.set("$select", fields.join(","));',
     'const escaped = String(value).replaceAll("\'", "\'\'");',
@@ -478,7 +510,10 @@ function frontendSemantics(
     source === undefined
     || !supportsFrontendInventory(source)
     || !supportsSiteBoundary(source)
-    || !supportsListResource(source)
+    || !supportsListPath(source)
+    || !supportsSaveItemUrl(source)
+    || !supportsODataListUrl(source)
+    || !supportsPaginationCollectionUrl(source)
   ) return undefined;
   const patchAllowlists = stringPolicy(source, "PATCH_ALLOWLISTS");
   const readAllowlists = stringPolicy(source, "READ_ALLOWLISTS");

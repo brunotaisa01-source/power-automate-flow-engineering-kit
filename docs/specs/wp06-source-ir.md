@@ -81,13 +81,15 @@ must exist, every source must be an inventory member, and missing, extra,
 duplicated, escaping, or mismatched entries fail closed.
 
 Only exact source files from a valid inventory are parsed. Any parser error
-suppresses frontend derivation. The accepted profile is a closed eight-item
-module grammar: two immutable allowlist declarations followed by the site
-boundary helper and five documented functions in fixed order. Each function
-header and body is compared
-as an AST shape, including calls, objects, conditions, loops, returns, throws,
-and data references. Extra declarations, aliases, branches, statements, parser
-recovery, or unsupported syntax fail closed.
+suppresses frontend derivation. The accepted profile is a closed fourteen-
+statement module grammar: four immutable contract declarations followed by
+`siteBoundaryUrl`, `listPath`, `saveItemUrl`, `odataListUrl`,
+`paginationCollectionUrl`, `allowlistedPatch`, `freshDigest`,
+`saveSharePointItem`, `loadAllSharePointPages`, and
+`buildSharePointODataUrl` in fixed order. Each declaration and function body
+is compared as an AST shape, including calls, objects, conditions, loops,
+returns, throws, and data references. Extra declarations, aliases, branches,
+statements, parser recovery, or unsupported syntax fail closed.
 
 Supported behavior covers explicit conflict-safe Save, guarded continuation
 pagination, and structured OData URL construction. Network calls must use the
@@ -99,8 +101,15 @@ derivation. The `siteUrl` argument is the resolved value of the contract's
 `sharePoint.siteUrlBinding`; it is not a caller-selected authority. The site
 boundary helper rejects malformed configuration or candidate URLs, credentials,
 hashes, origin changes, and sibling-prefix paths using exact decoded path
-segments. Save validates the item URL before any request, obtains context info
-under the configured site path, and accepts a digest only when `response.ok`,
+segments. The three operation-specific endpoint helpers then enforce separate
+exact grammars bound to the same contract-derived origin, site path, and list
+path: Save accepts only `/items(<positive integer>)` with no query, OData accepts
+only the exact list path with no query, and pagination accepts only the exact
+list path while allowing a server continuation query. Each helper rejects raw
+or encoded traversal, encoded separators, extra path segments, resource
+substitutions, and malformed URLs before any request. Save validates the item
+URL before any request, obtains context info under the configured site path, and
+accepts a digest only when `response.ok`,
 the status is `2xx`, and `FormDigestValue` is a non-empty string. The Save
 profile rejects empty patches, unknown fields, and `undefined` values. An
 ambiguous response performs GET reconciliation and then fails; it does not

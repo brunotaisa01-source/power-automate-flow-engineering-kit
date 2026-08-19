@@ -12,6 +12,11 @@ This specification is intentionally narrow. It describes what the current
 frontend adapter can prove locally. It does not authorize tenant discovery,
 flow execution, mutation, or publication.
 
+WP-16 supersedes the shared-prefix endpoint rule in this document. WP-14
+remains the foundation for contract-derived origin, site, and list binding;
+the operation-specific endpoint grammars below are now the required runtime
+authority check.
+
 ## Contract Binding
 
 1. Resolve the site URL from `sharePoint.siteUrlBinding`.
@@ -35,21 +40,30 @@ The current grammar proves a literal contract match. A future expression-based
 binding must be added as a new grammar shape with its own RED fixtures; a
 string that merely looks like a binding expression is not sufficient.
 
-## URL Boundary
+## URL Boundary (WP-16)
 
-Every Save item URL, OData base URL, initial pagination URL, and continuation
-URL must pass the same sequence:
+All operation helpers first parse through the contract-derived origin and site
+boundary. They then apply an operation-specific grammar to the exact decoded
+pathname. A raw or encoded traversal marker is rejected before URL parsing so
+URL normalization cannot turn an unsafe candidate into an apparently valid
+one. Encoded slash and backslash separators are also rejected.
 
-1. Parse with the URL API.
-2. Match the contract site origin exactly.
-3. Match the configured site path using decoded path segments, not a raw
-   string prefix. A site named `app-evil` must not satisfy a site named
-   `app`.
-4. Match the configured list resource using decoded segment equality. The exact
-   list resource and legitimate item descendants are allowed. A sibling list
-   or another list on the same site is rejected.
-5. Reject credentials, hashes, malformed URLs, origin changes, site escapes,
-   sibling prefixes, and unknown list IDs before network I/O.
+The accepted shapes are:
+
+| Operation | Accepted endpoint | Query rule |
+| --- | --- | --- |
+| Save item | `<listPath>/items(<positive integer>)` | No query or fragment |
+| OData base | `<listPath>` | No query or fragment |
+| Pagination collection/continuation | `<listPath>` | Query allowed only for a server continuation |
+
+`<listPath>` is derived from the contract-bound site and configured list
+resource. The three helpers reject `/fields`, `/items`, item paths supplied to
+collection operations, extra descendants, resource substitutions, sibling
+paths, credentials, hashes, malformed URLs, origin changes, site escapes, and
+unknown list IDs before network I/O. Save item IDs must be positive decimal
+integers; an item query is not accepted. Pagination query text is not a path
+authority and may only be carried by a continuation URL that has already
+passed the exact collection-path check.
 
 Relative URLs that resolve outside the configured site are rejected. A valid
 synthetic URL uses the configured site path, for example:
@@ -87,6 +101,8 @@ that chain.
 Pagination must validate the initial URL before the first fetch and validate
 each server continuation before the next fetch. It must:
 
+- use the exact contract-bound list path for both the initial collection and
+  each continuation;
 - require successful 2xx responses;
 - require an object body with an array `value`;
 - append values in server order;
@@ -116,6 +132,10 @@ Permanent tests must cover each of Save, OData, and pagination with:
 - sibling site prefix;
 - wrong list on the same site.
 
+WP-16 also requires `/fields`, `/items`, extra descendants, malformed URLs,
+encoded traversal, encoded separators, resource substitutions, and wrong
+collection/item forms to fail independently in all three operation grammars.
+
 Save must additionally cover wildcard, malformed, missing, and mismatched
 ETags. A negative probe is GREEN only when the invalid source or runtime input
 fails closed and no trusted derivation or unauthorized request is produced.
@@ -128,8 +148,9 @@ An AI creating a new project should:
    frontend code.
 2. Resolve site and list identities from contract bindings, never from request
    data.
-3. Generate the exact accepted resource helper and keep Save, OData, and
-   pagination on that single helper.
+3. Generate the three exact endpoint helpers: Save item, OData base, and
+   pagination collection/continuation. Bind each to the same contract-derived
+   origin, site path, and list path, but do not reuse a generic prefix check.
 4. Generate the current-ETag GET before the mutation and bind that value to
    IF-MATCH.
 5. Generate status checks before parsing every response body.

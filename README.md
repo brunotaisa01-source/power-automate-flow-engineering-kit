@@ -61,6 +61,15 @@ Unsupported or ambiguous structures produce no trusted derivation. A compiled
 CLI process covers the fourteen contract-required WP-06 rules from raw
 synthetic files and real ZIP bytes. This is not a release-readiness claim.
 
+WP-16 removes the remaining shared-prefix endpoint assumption. The accepted
+frontend source has separate exact grammars for Save item URLs, OData list
+URLs, and pagination collection/continuation URLs. Save accepts only the
+contract-bound list path followed by `/items(<positive integer>)`; OData accepts
+only the exact list path; pagination accepts only that exact collection path,
+with a server continuation query allowed. `/fields`, `/items`, extra segments,
+resource substitutions, malformed URLs, raw or encoded traversal, and encoded
+separators fail closed before any fetch.
+
 `PA-CONNECTOR-001` is method-aware: HTTP GET, HEAD, and OPTIONS actions are
 reads and do not require MERGE headers. Recognized item and field updates still
 require `POST`, `X-HTTP-Method: MERGE`, and a non-wildcard exact ETag. Unknown
@@ -169,6 +178,10 @@ The contract-bound runtime profile for frontend Save, OData, and pagination is
 defined in [WP-14 Contract-Bound Runtime Authority](docs/specs/wp14-contract-bound-runtime.md).
 Its RED/GREEN evidence is recorded in
 [the WP-14 review record](docs/reviews/wp-14-contract-bound-resource-authority-red-green-record.md).
+The operation-specific WP-16 plan, specification, and RED/GREEN records are in
+[the WP-16 plan](docs/plans/wp-16-operation-specific-endpoint-authority-plan.md),
+[the WP-16 specification](docs/specs/wp16-operation-specific-endpoint-authority.md),
+and [the WP-16 remediation record](docs/reviews/wp-16-operation-specific-endpoint-authority-remediation-record.md).
 
 ## Privacy Boundary
 

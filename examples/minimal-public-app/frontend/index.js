@@ -17,15 +17,35 @@ function siteBoundaryUrl(candidate, siteUrl) {
   }
 }
 
-function listResourceUrl(listId, candidate) {
+function listPath(listId) {
   const resource = LIST_RESOURCES[listId];
   if (!resource) throw new Error("unknown-list");
-  const actual = siteBoundaryUrl(candidate, SITE_URL);
   const configured = new URL(SITE_URL);
-  const expected = new URL((configured.pathname.endsWith("/") ? configured.pathname.slice(0, -1) : configured.pathname) + resource, configured.origin);
-  const expectedSegments = expected.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-  const actualSegments = actual.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-  if (actual.origin !== expected.origin || actualSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => actualSegments[index] === segment)) throw new Error("list-boundary");
+  return new URL((configured.pathname.endsWith("/") ? configured.pathname.slice(0, -1) : configured.pathname) + resource, configured.origin).pathname;
+}
+
+function saveItemUrl(listId, candidate) {
+  if (typeof candidate !== "string" || candidate.includes(String.fromCharCode(92)) || candidate.includes("/./") || candidate.endsWith("/.") || candidate.includes("/../") || candidate.endsWith("/..") || candidate.toLowerCase().includes("%2e") || candidate.toLowerCase().includes("%2f") || candidate.toLowerCase().includes("%5c")) throw new Error("endpoint-boundary");
+  const actual = siteBoundaryUrl(candidate, SITE_URL);
+  const expected = listPath(listId);
+  const prefix = `${expected}/items(`;
+  if (actual.search || !actual.pathname.startsWith(prefix) || !actual.pathname.endsWith(")") || !/^[1-9][0-9]*$/.test(actual.pathname.slice(prefix.length, -1))) throw new Error("endpoint-boundary");
+  return actual;
+}
+
+function odataListUrl(listId, candidate) {
+  if (typeof candidate !== "string" || candidate.includes(String.fromCharCode(92)) || candidate.includes("/./") || candidate.endsWith("/.") || candidate.includes("/../") || candidate.endsWith("/..") || candidate.toLowerCase().includes("%2e") || candidate.toLowerCase().includes("%2f") || candidate.toLowerCase().includes("%5c")) throw new Error("endpoint-boundary");
+  const actual = siteBoundaryUrl(candidate, SITE_URL);
+  const expected = listPath(listId);
+  if (actual.search || actual.pathname !== expected) throw new Error("endpoint-boundary");
+  return actual;
+}
+
+function paginationCollectionUrl(listId, candidate) {
+  if (typeof candidate !== "string" || candidate.includes(String.fromCharCode(92)) || candidate.includes("/./") || candidate.endsWith("/.") || candidate.includes("/../") || candidate.endsWith("/..") || candidate.toLowerCase().includes("%2e") || candidate.toLowerCase().includes("%2f") || candidate.toLowerCase().includes("%5c")) throw new Error("endpoint-boundary");
+  const actual = siteBoundaryUrl(candidate, SITE_URL);
+  const expected = listPath(listId);
+  if (actual.pathname !== expected) throw new Error("endpoint-boundary");
   return actual;
 }
 
@@ -38,7 +58,7 @@ function allowlistedPatch(listId, patch) {
 }
 
 async function freshDigest(listId, itemUrl, siteUrl) {
-  const item = listResourceUrl(listId, itemUrl);
+  const item = saveItemUrl(listId, itemUrl);
   const site = siteBoundaryUrl(SITE_URL, SITE_URL);
   const digestUrl = new URL(site.pathname.replace(/\/$/, "") + "/_api/contextinfo", site.origin);
   const response = await globalThis.fetch(digestUrl, { method: "POST" });
@@ -49,7 +69,7 @@ async function freshDigest(listId, itemUrl, siteUrl) {
 }
 
 export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) {
-  const item = listResourceUrl(listId, itemUrl);
+  const item = saveItemUrl(listId, itemUrl);
   const body = allowlistedPatch(listId, patch);
   if (typeof etag !== "string" || etag === '"*"' || /[\u0000-\u001f\u007f]/.test(etag) || !/^"(?:[^"\\]|\\.)+"$/.test(etag)) throw new Error("invalid-etag");
   const currentResponse = await globalThis.fetch(item, { method: "GET" });
@@ -80,8 +100,7 @@ export async function saveSharePointItem(listId, itemUrl, etag, patch, siteUrl) 
 
 export async function loadAllSharePointPages(initialUrl, listId, siteUrl) {
   if (typeof initialUrl !== "string" || initialUrl.length === 0) throw new Error("malformed-next-link");
-  const first = listResourceUrl(listId, initialUrl);
-  const expectedSegments = first.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  const first = paginationCollectionUrl(listId, initialUrl);
   if (typeof listId !== "string" || listId.length === 0) throw new Error("unknown-list");
   const visited = new Set();
   const items = [];
@@ -91,9 +110,7 @@ export async function loadAllSharePointPages(initialUrl, listId, siteUrl) {
     pages += 1;
     if (pages > 50) throw new Error("page-limit");
     if (typeof next !== "string" || next.length === 0) throw new Error("malformed-next-link");
-    const pageUrl = listResourceUrl(listId, next);
-    const pageSegments = pageUrl.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-    if (pageSegments.length < expectedSegments.length || !expectedSegments.every((segment, index) => pageSegments[index] === segment)) throw new Error("boundary");
+    const pageUrl = paginationCollectionUrl(listId, next);
     if (visited.has(pageUrl.href)) throw new Error("loop");
     visited.add(pageUrl.href);
     const response = await globalThis.fetch(pageUrl, { method: "GET" });
@@ -112,7 +129,7 @@ export function buildSharePointODataUrl(base, listId, field, value, siteUrl) {
   const fields = READ_ALLOWLISTS[listId];
   if (!fields) throw new Error("unknown-list");
   if (!fields.includes(field)) throw new Error("unknown-field");
-  const url = listResourceUrl(listId, base);
+  const url = odataListUrl(listId, base);
   const params = new URLSearchParams();
   params.set("$select", fields.join(","));
   const escaped = String(value).replaceAll("'", "''");
