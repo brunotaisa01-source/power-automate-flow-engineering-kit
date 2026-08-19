@@ -144,6 +144,20 @@ execution, mutation, semantic readback, publication readback, and rule-specific
 `LIVE_SMOKE NOT_RUN` entries are derived from the required rule IDs and their
 shipped catalog metadata; they are not runtime observations.
 
+## AI Skill
+
+Install or copy [`skills/sharepoint-flow-engineering-kit/SKILL.md`](skills/sharepoint-flow-engineering-kit/SKILL.md) into an AI skill directory. It teaches a clean-context AI to read the project contract, derive contract-bound resources, generate operation-specific endpoint helpers, use typed command queues, enforce SharePoint and Power Automate boundaries, handle ETags/readbacks/schema states/indexes/permissions, run RED before GREEN, preserve privacy, and report residual evidence gates. Its documentation TDD records a pressure scenario that is RED without the skill and GREEN with it.
+
+The skill is advisory and agent-neutral: it invokes the same `spflow` contracts and CLI. It never authorizes tenant mutation and never uses a write-capable MCP.
+
+The companion [`sharepoint-flow-engineering-kit-self-improvement` skill](skills/sharepoint-flow-engineering-kit-self-improvement/SKILL.md) automatically loads the connector-agnostic lesson registry for Power Automate and Power Platform work, including Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, approvals, and future connectors. It captures new RED/review findings as sanitized candidates; only independently approved lessons become global instructions. Audit it with:
+
+```powershell
+node packages/cli/dist/bin/spflow.js learn audit knowledge/self-improvement/registry.json --format text
+```
+
+An open candidate intentionally returns exit `1` until its executable RED/GREEN/positive-control and independent review gates pass.
+
 ## Repository Map
 
 - `contracts/`: strict project, SharePoint, flow, package, rule, and evidence schemas.
@@ -159,6 +173,8 @@ shipped catalog metadata; they are not runtime observations.
 - `docs/architecture/`: product boundary, architecture, threat model, and source-derived patterns.
 - `docs/plans/`: implementation and remediation plans.
 - `docs/reviews/`: review records and acceptance gates.
+- `knowledge/self-improvement/`: approved global lessons and unresolved sanitized candidates.
+- `skills/`: the core engineering skill and the automatic connector-agnostic self-improvement skill.
 
 ## Engineering Model
 

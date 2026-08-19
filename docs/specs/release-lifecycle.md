@@ -20,7 +20,7 @@ DRAFT
   -> PUBLISHED
 ```
 
-The public toolkit normally stops at a code-host `PUBLISHED` claim backed by local/package/repository evidence. Tenant states apply only to a separately authorized application target.
+The public toolkit normally stops at a code-host `PUBLISHED` claim backed by local/package/repository evidence. Tenant states apply only to a separately authorized application target. A missing official scanner engine or external runtime is recorded as `NOT_RUN` with its required exit code; it never becomes a release PASS.
 
 ## 3. Stage Gates
 

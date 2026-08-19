@@ -79,6 +79,39 @@ describe("CLI argument parsing", () => {
       },
     },
     {
+      args: ["learn", "audit", "knowledge/self-improvement/registry.json", "--execute", "--format=json"],
+      expected: {
+        kind: "command",
+        route: "learn-audit",
+        command: "learn audit",
+        format: "json",
+        path: "knowledge/self-improvement/registry.json",
+        executeBindings: true,
+      },
+    },
+    {
+      args: ["learn", "capture", "knowledge/self-improvement/candidates/example.json"],
+      expected: {
+        kind: "command",
+        route: "learn-capture",
+        command: "learn capture",
+        format: "text",
+        path: "knowledge/self-improvement/candidates/example.json",
+      },
+    },
+    {
+      args: ["learn", "promote", "knowledge/self-improvement/candidates/example.json", "--review", "docs/review.md", "--reviewer-role", "independent-luna-max-reviewer"],
+      expected: {
+        kind: "command",
+        route: "learn-promote",
+        command: "learn promote",
+        format: "text",
+        path: "knowledge/self-improvement/candidates/example.json",
+        reviewPath: "docs/review.md",
+        reviewerRole: "independent-luna-max-reviewer",
+      },
+    },
+    {
       args: ["verify", "--root", ".", "--offline", "--format=json"],
       expected: {
         kind: "command",

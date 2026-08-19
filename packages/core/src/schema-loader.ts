@@ -15,6 +15,7 @@ import type { ListContract } from "./types/sharepoint.js";
 
 const SCHEMA_FILES = {
   evidence: "evidence.schema.json",
+  "self-improvement": "self-improvement.schema.json",
   "flow-contract": "flow-contract.schema.json",
   "package-profile": "package-profile.schema.json",
   "project-contract": "project-contract.schema.json",

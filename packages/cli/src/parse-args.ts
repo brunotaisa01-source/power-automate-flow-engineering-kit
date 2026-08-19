@@ -11,6 +11,9 @@ export type CommandRoute =
   | "validate-artifact"
   | "validate-evidence"
   | "scan-public-data"
+  | "learn-audit"
+  | "learn-capture"
+  | "learn-promote"
   | "verify";
 
 export interface CommandDiagnostic {
@@ -73,6 +76,9 @@ export type ParsedCliArgs =
       path: string;
       history: boolean;
     })
+  | (ParsedBase & { route: "learn-audit"; path: string; executeBindings: boolean })
+  | (ParsedBase & { route: "learn-capture"; path: string })
+  | (ParsedBase & { route: "learn-promote"; path: string; reviewPath: string; reviewerRole: string })
   | (ParsedBase & { route: "verify"; root: string; offline: true });
 
 export class CliUsageError extends Error {
@@ -341,6 +347,31 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
       path: parsed.positionals[0] ?? "",
       history: parsed.values.history ?? false,
     };
+  }
+  if (first === "learn" && second === "audit") {
+    const parsed = parseOptions(args.slice(2), { execute: { type: "boolean" }, format: { type: "string" } }, "learn audit");
+    if (parsed.positionals.length !== 1) {
+      throw new CliUsageError("learn audit requires exactly one registry path.");
+    }
+    return {
+      kind: "command",
+      route: "learn-audit",
+      command: "learn audit",
+      format: parseFormat(parsed.values.format),
+      path: parsed.positionals[0] ?? "",
+      executeBindings: parsed.values.execute ?? false,
+    };
+  }
+  if (first === "learn" && second === "capture") {
+    const parsed = parseOptions(args.slice(2), { format: { type: "string" } }, "learn capture");
+    if (parsed.positionals.length !== 1) throw new CliUsageError("learn capture requires exactly one candidate path.");
+    return { kind: "command", route: "learn-capture", command: "learn capture", format: parseFormat(parsed.values.format), path: parsed.positionals[0] ?? "" };
+  }
+  if (first === "learn" && second === "promote") {
+    const parsed = parseOptions(args.slice(2), { review: { type: "string" }, "reviewer-role": { type: "string" }, format: { type: "string" } }, "learn promote");
+    if (parsed.positionals.length !== 1) throw new CliUsageError("learn promote requires exactly one candidate path.");
+    if (typeof parsed.values.review !== "string" || typeof parsed.values["reviewer-role"] !== "string") throw new CliUsageError("learn promote requires --review <path> and --reviewer-role <role>.");
+    return { kind: "command", route: "learn-promote", command: "learn promote", format: parseFormat(parsed.values.format), path: parsed.positionals[0] ?? "", reviewPath: parsed.values.review, reviewerRole: parsed.values["reviewer-role"] };
   }
   if (first === "verify") {
     const parsed = parseOptions(

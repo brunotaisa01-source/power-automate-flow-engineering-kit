@@ -2,6 +2,7 @@
 
 import { pathToFileURL } from "node:url";
 
+import { learnAuditCommand, learnCaptureCommand, learnPromoteCommand } from "../commands/learn.ts";
 import { scanPublicDataCommand } from "../commands/scan-public-data.ts";
 import { validateArtifactCommand } from "../commands/validate-artifact.ts";
 import { validateContractCommand } from "../commands/validate-contract.ts";
@@ -30,6 +31,9 @@ export const HELP_TEXT = [
   "  validate artifact <path> --contract <path> [--format text|json]",
   "  evidence validate <path> [--format text|json]",
   "  scan public-data <path> [--history] [--format text|json]",
+  "  learn audit <registry-path> [--execute] [--format text|json]",
+  "  learn capture <candidate-path> [--format text|json]",
+  "  learn promote <candidate-path> --review <path> --reviewer-role <role> [--format text|json]",
   "  verify --root <repository> --offline [--format text|json]",
   "",
 ].join("\n");
@@ -40,6 +44,9 @@ const DEFAULT_HANDLERS: CliHandlers = {
   "validate-artifact": validateArtifactCommand,
   "validate-evidence": validateEvidenceCommand,
   "scan-public-data": scanPublicDataCommand,
+  "learn-audit": learnAuditCommand,
+  "learn-capture": learnCaptureCommand,
+  "learn-promote": learnPromoteCommand,
   verify: verifyCommand,
 };
 

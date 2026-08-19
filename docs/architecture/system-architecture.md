@@ -81,7 +81,7 @@ Paths are repository-relative POSIX paths. Absolute paths are never emitted. Nod
 2. It requests only fields declared in `readAllowlist`.
 3. It URL-encodes OData literals and query parameters.
 4. It follows continuation links until exhaustion for complete queries.
-5. It accepts a continuation URL only when scheme, host, and expected site path match the original request.
+5. It accepts an operation-specific collection or continuation URL only when scheme, host, exact contract-bound site path, and exact list resource match the original request; `/fields`, `/items`, extra descendants, sibling prefixes, and resource substitutions fail closed.
 6. It treats loaded records as authoritative snapshots with exact ETags.
 
 ### 5.2 Default write path: typed command queue
@@ -101,6 +101,14 @@ The browser may provide a requested action and trace correlation ID. It may not 
 
 Direct patch is allowed only when all changed fields are declared `clientEditable: true`. The browser performs explicit Save, obtains a transaction-specific request digest, sends a minimal allowlisted patch using HTTP `POST` with `X-HTTP-Method: MERGE`, supplies exact `IF-MATCH`, handles HTTP 412 as a conflict, and performs semantic GET readback. An ambiguous write is reconciled by GET and is never blindly replayed.
 
+### 5.4 Operation-specific endpoint authority
+
+Save, OData, and pagination use separate exact endpoint grammars derived from the
+contract origin, site path, and list path. Raw and encoded traversal/separators
+are rejected before URL normalization. The static frontend adapter accepts only
+the closed source inventory whose AST proves those same helpers, and the bundle
+manifest binds the real source digest and byte length.
+
 ## 6. CLI Boundary
 
 The CLI is read-only with respect to inspected artifacts and all tenants.
@@ -111,12 +119,25 @@ spflow validate rules --root <repository>
 spflow validate artifact <path> --contract <project.contract.json>
 spflow evidence validate <evidence.json>
 spflow scan public-data <path> [--history]
+spflow learn audit <registry-path>
 spflow verify --root <repository> --offline
 ```
 
 All commands support `--format text|json`; CI uses JSON. The global command validates contracts, rule catalog, fixtures, detector mutation controls, generated definitions, final ZIPs, manifests, public-data policy, documentation consistency, and evidence claims.
 
-### 6.1 Diagnostic contract
+### 6.1 Global self-improvement gate
+
+`spflow learn audit` is read-only. It validates the versioned connector-agnostic
+lesson registry, binds RED/GREEN/positive-control tests and independent review
+records to real repository files, rejects private markers and open candidates,
+and never writes a lesson or tenant. Offline `verify` runs the audit automatically
+when the repository contains `knowledge/self-improvement/registry.json`.
+
+A future plugin or read-only MCP may expose registry metadata and approved lessons
+only. It has no create, update, approve, promote, import, enable, trigger,
+permission, or tenant-mutation operation.
+
+### 6.2 Diagnostic contract
 
 ```ts
 interface Diagnostic {
@@ -144,7 +165,7 @@ interface CommandReport {
 
 Diagnostics are sorted by `(severity, ruleId, artifactPath, jsonPointer, code)`. Timestamps, random IDs, machine names, absolute paths, and environment values are excluded from deterministic output.
 
-### 6.2 Exit statuses
+### 6.3 Exit statuses
 
 | Code | Meaning |
 |---:|---|

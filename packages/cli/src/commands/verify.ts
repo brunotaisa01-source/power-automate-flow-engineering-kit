@@ -8,6 +8,7 @@ import {
   type ReportFinding,
 } from "../parse-args.ts";
 import { validateOfflineRepository } from "./offline-validation.ts";
+import { learnAuditCommand } from "./learn.ts";
 import { scanPublicDataCommand } from "./scan-public-data.ts";
 
 const OFFLINE_RESIDUAL_GATES = [
@@ -85,6 +86,7 @@ async function ruleSpecificOfflineGates(root: string): Promise<{
 export function createVerifyCommand(
   steps: readonly CommandHandler[],
   publicDataStep: CommandHandler = scanPublicDataCommand,
+  learningStep: CommandHandler = learnAuditCommand,
 ): CommandHandler {
   return {
     async run(args) {
@@ -118,6 +120,23 @@ export function createVerifyCommand(
         : [];
       for (const step of steps) {
         reports.push(await step.run(args));
+      }
+      const learningRegistryPath = resolve(parsed.root, "knowledge/self-improvement/registry.json");
+      try {
+        await stat(learningRegistryPath);
+        reports.push(await learningStep.run(["learn", "audit", learningRegistryPath, "--execute"]));
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+          reports.push(createCommandReport("learn audit", [{
+            exitCode: 2,
+            ruleId: "SELF-IMPROVEMENT-001",
+            severity: "error",
+            code: "SELF_LEARNING_REGISTRY_UNREADABLE",
+            message: "The global self-improvement registry could not be inspected.",
+            artifactPath: "knowledge/self-improvement/registry.json",
+            remediation: "Restore a readable synthetic registry or keep the self-improvement gate open.",
+          }]));
+        }
       }
       reports.push(await publicDataStep.run([
         "scan",

@@ -1,0 +1,60 @@
+{
+  "id": "skill-tdd-loophole",
+  "version": 1,
+  "status": "CANDIDATE",
+  "scope": [
+    "skills",
+    "evidence"
+  ],
+  "trigger": {
+    "kind": "review-finding",
+    "summary": "A token-only documentation test and canned response did not prove that an AI follows the skill."
+  },
+  "invariant": "Skill TDD must execute adversarial counterexamples with no-fetch assertions, independent positive controls, status/body/readback checks, and evidence-promotion rejection; phrases alone are insufficient.",
+  "red": {
+    "path": "tests/skills/sharepoint-flow-engineering-kit-skill.test.ts",
+    "testName": "pressure scenario without the skill is an executable RED",
+    "runner": "node-test",
+    "expectedExitCode": 0
+  },
+  "green": {
+    "path": "tests/skills/sharepoint-flow-engineering-kit-skill.test.ts",
+    "testName": "skill procedure rejects endpoint attacks before any fetch",
+    "runner": "node-test",
+    "expectedExitCode": 0
+  },
+  "positiveControl": {
+    "path": "tests/unit/core/self-improvement.test.ts",
+    "testName": "an approved connector-neutral lesson with independent controls is GREEN",
+    "runner": "node-test",
+    "expectedExitCode": 0
+  },
+  "claimBoundary": "LOCAL_RUNTIME",
+  "provenance": {
+    "workPackage": "WP-17",
+    "recordPath": "docs/specs/self-improvement.md"
+  },
+  "review": {
+    "decision": "BLOCKED",
+    "recordPath": "docs/reviews/wp-17-skill-loophole-review-r01.md",
+    "reviewerRole": "independent-luna-max-reviewer"
+  },
+  "privacy": "synthetic-public",
+  "lifecycle": {
+    "current": "CANDIDATE",
+    "history": [
+      {
+        "status": "CANDIDATE",
+        "recordPath": "docs/reviews/wp-17-skill-loophole-review-r01.md"
+      },
+      {
+        "status": "BLOCKED",
+        "recordPath": "docs/plans/wp-17-global-self-improvement-control-plane-plan.md"
+      },
+      {
+        "status": "CANDIDATE",
+        "recordPath": "docs/specs/self-improvement.md"
+      }
+    ]
+  }
+}

@@ -20,3 +20,31 @@ Local static and package evidence must not be promoted to tenant evidence. Keep 
 ## Test Language
 
 Rule tests must be deterministic. A positive control must have a structurally independent topology. A mutation must change behaviorally relevant evidence, not only a label or identifier.
+
+## Work package checkpoints
+
+Every work package and review record is written in English and records: state, work
+package, files, last command, RED/GREEN phase, next action, and blocker. Keep old
+evidence immutable; add a new review or remediation record instead of rewriting a
+stronger claim. After implementation, request a fresh independent review and
+retire the worker after its report.
+
+## Documentation, skills, and release
+
+- Validate documentation skills with a pressure scenario: RED without the skill,
+  GREEN with the skill, then a loophole review and final English/privacy review.
+- Treat self-improvement as Power Automate/Power Platform and connector-agnostic;
+  cover SharePoint, Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL,
+  approvals, and future connectors rather than assuming SharePoint.
+- Run `spflow learn audit knowledge/self-improvement/registry.json --execute`;
+  capture new findings locally, and promote only with an independent APPROVED
+  review. These hooks must never mutate a tenant or use a write-capable MCP.
+- Keep endpoint helpers operation-specific: Save item, OData list, and pagination
+  collection/continuation. Do not restore a generic list-prefix authority check.
+- Run `npm ci`, the Node 22 build, the complete suite, README example commands,
+  `git diff --check`, dependency audit, and the official history-aware scanner.
+- If the scanner engine is unavailable, record exit `8` and `NOT_RUN`; never call
+  that result PASS. Do not publish until explicit publication authorization, clean
+  scope, privacy review, independent approval, and required readbacks exist.
+- Never use `git add -A` for mixed scope. Stage explicit paths and preserve
+  unrelated worktree changes.
