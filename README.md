@@ -12,6 +12,8 @@ The same engineering boundaries apply when the authoritative backend is Excel, P
 
 The current executable frontend profile is intentionally SharePoint-specific, while the contracts, package/flow rules, evidence model, and self-improvement skill are designed to generalize across Power Automate connectors. The kit gives an AI or engineer a project contract, deterministic artifact inspection, RED/GREEN fixtures, evidence boundaries, and a local CLI. It is designed to prevent common failures before any tenant operation is considered.
 
+The repository does not contain a tenant-connected HTTP backend. The `spflow` CLI is offline/read-only with respect to tenants, and generalized connector contracts and self-improvement documentation do not constitute runtime evidence for Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, approvals, or future connectors. See the [architecture](docs/architecture/ARCHITECTURE.md) for the complete backend, orchestration, connector-boundary, and evidence model.
+
 ## Status
 
 The current implementation contains offline package/flow validation plus WP-06
