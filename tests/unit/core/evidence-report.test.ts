@@ -204,6 +204,95 @@ describe("local evidence report builder", () => {
     assert.deepEqual(diagnostic?.actual, [true, null, { value: "observed" }]);
   });
 
+  test("sanitizes unsafe prepared and local-artifact paths", () => {
+    const unsafePaths = [
+      "../../tenant/private.json",
+      "/opt/private/tenant.json",
+      "file:///Users/private/tenant.json",
+      "C:\\Users\\private\\x",
+      "\\\\server\\share\\x",
+    ];
+
+    for (const unsafePath of unsafePaths) {
+      const report = createLocalEvidenceReport({
+        preparedDefinition: {
+          path: unsafePath,
+          result: "PASS",
+          diagnostics: [{
+            code: "UNSAFE-PREPARED-PATH",
+            message: "Synthetic prepared path diagnostic.",
+            path: unsafePath,
+          }],
+        },
+        localArtifacts: [{
+          kind: "flow",
+          path: unsafePath,
+          result: "PASS",
+          diagnostics: [{
+            code: "UNSAFE-ARTIFACT-PATH",
+            message: "Synthetic artifact path diagnostic.",
+            path: unsafePath,
+          }],
+        }],
+      });
+      const serialized = JSON.stringify(report);
+
+      assert.doesNotMatch(serialized, new RegExp(unsafePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      assert.equal(report.result, "PASS");
+      assert.equal(report.claims.find(({ subject }) => subject === "prepared-definition")?.artifactPath, "<redacted-path>");
+      assert.equal(report.claims.find(({ subject }) => subject === "local-artifact")?.artifactPath, "<redacted-path>");
+    }
+  });
+
+  test("preserves valid repository-relative prepared and artifact paths", () => {
+    const report = createLocalEvidenceReport({
+      preparedDefinition: {
+        path: "flows/synthetic.json",
+        result: "PASS",
+        diagnostics: [{
+          code: "SAFE-PREPARED-PATH",
+          message: "Synthetic prepared path diagnostic.",
+          path: "flows/synthetic.json",
+        }],
+      },
+      localArtifacts: [{
+        kind: "flow",
+        path: "artifacts/synthetic.json",
+        result: "PASS",
+        diagnostics: [{
+          code: "SAFE-ARTIFACT-PATH",
+          message: "Synthetic artifact path diagnostic.",
+          path: "artifacts/synthetic.json",
+        }],
+      }],
+    });
+
+    assert.equal(report.result, "PASS");
+    assert.match(JSON.stringify(report), /flows\/synthetic\.json/);
+    assert.match(JSON.stringify(report), /artifacts\/synthetic\.json/);
+  });
+
+  test("fails closed for a prepared-definition getter that throws", () => {
+    const hostile = new Proxy({
+      localArtifacts: reportInput().localArtifacts,
+    }, {
+      get(target, property, receiver) {
+        if (property === "preparedDefinition") {
+          throw new Error("synthetic getter failure");
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    const report = createLocalEvidenceReport(hostile);
+
+    assert.equal(report.result, "NOT_RUN");
+    assert.equal(report.claims.length, 0);
+    assert.equal(report.diagnostics[0]?.code, "LOCAL_EVIDENCE_INPUT_INVALID");
+    assert.equal(report.providerGate, "NOT_VERIFIED");
+    assert.equal(report.uatGate, "NOT_VERIFIED");
+  });
+
   test("requires an actual diagnostics array for object-form prepared evidence", () => {
     const undefinedDiagnostics = createLocalEvidenceReport({
       preparedDefinition: {

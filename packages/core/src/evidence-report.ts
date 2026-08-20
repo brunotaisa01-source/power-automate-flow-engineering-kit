@@ -170,8 +170,25 @@ function isJsonSafeValue(value: unknown, ancestors = new Set<object>()): boolean
   }
 }
 
+function safeRelativePath(value: string): boolean {
+  if (
+    value.length === 0
+    || value.startsWith("/")
+    || value.startsWith("\\")
+    || value.includes("\\")
+    || value.includes(":")
+    || /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    return false;
+  }
+  return value.split("/").every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
+}
+
 function normalizedPath(value: unknown, fallback: string): string {
-  return typeof value === "string" && value.length > 0 ? redactText(value) : fallback;
+  if (typeof value !== "string" || value.length === 0) {
+    return fallback;
+  }
+  return safeRelativePath(value) ? value : "<redacted-path>";
 }
 
 function normalizedStatus(value: unknown): LocalEvidenceStatus | undefined {
@@ -335,7 +352,7 @@ function createGates(): readonly LocalEvidenceGate[] {
   ]);
 }
 
-export function createLocalEvidenceReport(input: unknown): LocalEvidenceReport {
+function buildLocalEvidenceReport(input: unknown): LocalEvidenceReport {
   const claims: LocalEvidenceClaim[] = [];
   const missingDiagnostics: LocalEvidenceDiagnostic[] = [];
   let incompleteEvidence = false;
@@ -541,4 +558,30 @@ export function createLocalEvidenceReport(input: unknown): LocalEvidenceReport {
     gates: createGates(),
     diagnostics,
   };
+}
+
+function invalidEvidenceReport(): LocalEvidenceReport {
+  return {
+    schemaVersion: "1.0",
+    result: "NOT_RUN",
+    claimClass: "LOCAL_SYNTHETIC",
+    providerGate: "NOT_VERIFIED",
+    uatGate: "NOT_VERIFIED",
+    claims: [],
+    gates: createGates(),
+    diagnostics: [shapeDiagnostic(
+      "LOCAL_EVIDENCE_INPUT_INVALID",
+      "Local evidence input could not be inspected safely.",
+      "<input>",
+      "Provide a plain JSON-compatible local evidence object.",
+    )],
+  };
+}
+
+export function createLocalEvidenceReport(input: unknown): LocalEvidenceReport {
+  try {
+    return buildLocalEvidenceReport(input);
+  } catch {
+    return invalidEvidenceReport();
+  }
 }
