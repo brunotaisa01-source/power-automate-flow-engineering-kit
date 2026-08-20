@@ -12,18 +12,33 @@ export interface SyntheticConnectorAdapter {
   readonly connector: string;
   readonly transportMode: "http" | "connector-action";
   readonly mutationConcurrency: "etag" | "row-version" | "version-token" | "optimistic";
+  readonly connectionKind: string;
+  readonly nativeReadOperation: string;
+  readonly nativeMutationOperation: string;
+  readonly mutationRole: string;
+  readonly paginationMode: "none" | "continuation-url" | "page-token" | "offset" | "future";
+  readonly payloadMode: "parameterized-fields" | "parameterized-query" | "parameterized-http" | "future";
+  readonly permissionReadbackFields: readonly string[];
+  readonly paginationPageSize: number;
+  readonly paginationReadbackRequired: true;
+  readonly payloadRequiredFields: readonly string[];
+  readonly payloadForbiddenFields: readonly string[];
 }
 
+const PERMISSION_READBACK_FIELDS = ["principal", "role", "effective"] as const;
+const PAYLOAD_REQUIRED_FIELDS = ["recordId", "idempotencyKey"] as const;
+const PAYLOAD_FORBIDDEN_FIELDS = ["tenantId", "rawUrl", "accessToken", "rawQuery", "queryFragment"] as const;
+
 export const SYNTHETIC_CONNECTOR_ADAPTERS: readonly SyntheticConnectorAdapter[] = [
-  { connector: "sharepoint", transportMode: "connector-action", mutationConcurrency: "etag" },
-  { connector: "excel", transportMode: "connector-action", mutationConcurrency: "row-version" },
-  { connector: "power-apps", transportMode: "connector-action", mutationConcurrency: "optimistic" },
-  { connector: "dataverse", transportMode: "connector-action", mutationConcurrency: "version-token" },
-  { connector: "outlook", transportMode: "connector-action", mutationConcurrency: "optimistic" },
-  { connector: "graph", transportMode: "connector-action", mutationConcurrency: "optimistic" },
-  { connector: "http", transportMode: "http", mutationConcurrency: "optimistic" },
-  { connector: "sql", transportMode: "connector-action", mutationConcurrency: "optimistic" },
-  { connector: "approvals", transportMode: "connector-action", mutationConcurrency: "optimistic" },
+  { connector: "sharepoint", transportMode: "connector-action", mutationConcurrency: "etag", connectionKind: "sharepoint-site-list", nativeReadOperation: "GetItem", nativeMutationOperation: "UpdateItem", mutationRole: "list-item-write", paginationMode: "continuation-url", payloadMode: "parameterized-fields", permissionReadbackFields: PERMISSION_READBACK_FIELDS, paginationPageSize: 50, paginationReadbackRequired: true, payloadRequiredFields: PAYLOAD_REQUIRED_FIELDS, payloadForbiddenFields: PAYLOAD_FORBIDDEN_FIELDS },
+  { connector: "excel", transportMode: "connector-action", mutationConcurrency: "row-version", connectionKind: "excel-workbook-table", nativeReadOperation: "GetRow", nativeMutationOperation: "UpdateRow", mutationRole: "workbook-table-write", paginationMode: "offset", payloadMode: "parameterized-fields", permissionReadbackFields: PERMISSION_READBACK_FIELDS, paginationPageSize: 50, paginationReadbackRequired: true, payloadRequiredFields: PAYLOAD_REQUIRED_FIELDS, payloadForbiddenFields: PAYLOAD_FORBIDDEN_FIELDS },
+  { connector: "power-apps", transportMode: "connector-action", mutationConcurrency: "optimistic", connectionKind: "power-apps-app", nativeReadOperation: "InvokeAppRead", nativeMutationOperation: "InvokeAppUpdate", mutationRole: "app-record-write", paginationMode: "page-token", payloadMode: "parameterized-fields", permissionReadbackFields: PERMISSION_READBACK_FIELDS, paginationPageSize: 50, paginationReadbackRequired: true, payloadRequiredFields: PAYLOAD_REQUIRED_FIELDS, payloadForbiddenFields: PAYLOAD_FORBIDDEN_FIELDS },
+  { connector: "dataverse", transportMode: "connector-action", mutationConcurrency: "version-token", connectionKind: "dataverse-table", nativeReadOperation: "GetRow", nativeMutationOperation: "UpdateRow", mutationRole: "table-row-write", paginationMode: "continuation-url", payloadMode: "parameterized-fields", permissionReadbackFields: PERMISSION_READBACK_FIELDS, paginationPageSize: 50, paginationReadbackRequired: true, payloadRequiredFields: PAYLOAD_REQUIRED_FIELDS, payloadForbiddenFields: PAYLOAD_FORBIDDEN_FIELDS },
+  { connector: "outlook", transportMode: "connector-action", mutationConcurrency: "optimistic", connectionKind: "outlook-mailbox", nativeReadOperation: "GetMessage", nativeMutationOperation: "UpdateMessage", mutationRole: "mailbox-message-write", paginationMode: "page-token", payloadMode: "parameterized-fields", permissionReadbackFields: PERMISSION_READBACK_FIELDS, paginationPageSize: 50, paginationReadbackRequired: true, payloadRequiredFields: PAYLOAD_REQUIRED_FIELDS, payloadForbiddenFields: PAYLOAD_FORBIDDEN_FIELDS },
+  { connector: "graph", transportMode: "connector-action", mutationConcurrency: "optimistic", connectionKind: "graph-resource", nativeReadOperation: "GetResource", nativeMutationOperation: "PatchResource", mutationRole: "graph-resource-write", paginationMode: "page-token", payloadMode: "parameterized-fields", permissionReadbackFields: PERMISSION_READBACK_FIELDS, paginationPageSize: 50, paginationReadbackRequired: true, payloadRequiredFields: PAYLOAD_REQUIRED_FIELDS, payloadForbiddenFields: PAYLOAD_FORBIDDEN_FIELDS },
+  { connector: "http", transportMode: "http", mutationConcurrency: "optimistic", connectionKind: "http-endpoint", nativeReadOperation: "GET", nativeMutationOperation: "PATCH", mutationRole: "http-endpoint-write", paginationMode: "continuation-url", payloadMode: "parameterized-http", permissionReadbackFields: PERMISSION_READBACK_FIELDS, paginationPageSize: 50, paginationReadbackRequired: true, payloadRequiredFields: PAYLOAD_REQUIRED_FIELDS, payloadForbiddenFields: PAYLOAD_FORBIDDEN_FIELDS },
+  { connector: "sql", transportMode: "connector-action", mutationConcurrency: "optimistic", connectionKind: "sql-connection", nativeReadOperation: "ExecuteParameterizedSelect", nativeMutationOperation: "ExecuteParameterizedUpdate", mutationRole: "sql-parameterized-write", paginationMode: "offset", payloadMode: "parameterized-query", permissionReadbackFields: PERMISSION_READBACK_FIELDS, paginationPageSize: 50, paginationReadbackRequired: true, payloadRequiredFields: PAYLOAD_REQUIRED_FIELDS, payloadForbiddenFields: PAYLOAD_FORBIDDEN_FIELDS },
+  { connector: "approvals", transportMode: "connector-action", mutationConcurrency: "optimistic", connectionKind: "approval-resource", nativeReadOperation: "GetApproval", nativeMutationOperation: "RespondApproval", mutationRole: "approval-response", paginationMode: "page-token", payloadMode: "parameterized-fields", permissionReadbackFields: PERMISSION_READBACK_FIELDS, paginationPageSize: 50, paginationReadbackRequired: true, payloadRequiredFields: PAYLOAD_REQUIRED_FIELDS, payloadForbiddenFields: PAYLOAD_FORBIDDEN_FIELDS },
 ];
 
 export function getSyntheticConnectorAdapter(connector: string): SyntheticConnectorAdapter | undefined {
@@ -64,6 +79,10 @@ function stringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string" && item.length > 0);
 }
 
+function exactStringArray(actual: unknown, expected: readonly string[]): boolean {
+  return stringArray(actual) && actual.length === expected.length && actual.every((value, index) => value === expected[index]);
+}
+
 function add(diagnostics: ConnectorDiagnostic[], code: string, path: string, message: string): void {
   diagnostics.push({ code, path, message });
 }
@@ -73,6 +92,19 @@ function semanticDiagnostics(profile: Record<string, unknown>): ConnectorDiagnos
   const connector = profile.connector;
   if (typeof connector !== "string" || (!SUPPORTED_CONNECTORS.includes(connector as never) && connector !== "custom" && !connector.startsWith("future-"))) {
     add(diagnostics, "CONNECTOR_PROFILE_UNKNOWN_CONNECTOR", "/connector", "Connector must be supported or explicitly future/custom.");
+  }
+  const connectorContract = record(profile.connectorContract);
+  const nativeOperations = connectorContract !== undefined ? record(connectorContract.nativeOperations) : undefined;
+  const permission = connectorContract !== undefined ? record(connectorContract.permission) : undefined;
+  const pagination = connectorContract !== undefined ? record(connectorContract.pagination) : undefined;
+  const payload = connectorContract !== undefined ? record(connectorContract.payload) : undefined;
+  const adapter = typeof connector === "string" ? getSyntheticConnectorAdapter(connector) : undefined;
+  if (adapter !== undefined) {
+    if (connectorContract?.connectionKind !== adapter.connectionKind) add(diagnostics, "CONNECTOR_PROFILE_CONNECTION_KIND", "/connectorContract/connectionKind", "Connection kind does not match the registered adapter.");
+    if (nativeOperations?.read !== adapter.nativeReadOperation || nativeOperations?.mutation !== adapter.nativeMutationOperation) add(diagnostics, "CONNECTOR_PROFILE_NATIVE_OPERATIONS", "/connectorContract/nativeOperations", "Native operation catalog does not match the registered adapter.");
+    if (permission?.required !== true || permission.mutationRole !== adapter.mutationRole || !exactStringArray(permission.readbackFields, adapter.permissionReadbackFields)) add(diagnostics, "CONNECTOR_PROFILE_PERMISSION_CONTRACT", "/connectorContract/permission", "Permission contract does not exactly match the registered adapter.");
+    if (pagination?.mode !== adapter.paginationMode || pagination.pageSize !== adapter.paginationPageSize || pagination.readbackRequired !== adapter.paginationReadbackRequired) add(diagnostics, "CONNECTOR_PROFILE_PAGINATION_CONTRACT", "/connectorContract/pagination", "Pagination contract does not exactly match the registered adapter.");
+    if (payload?.mode !== adapter.payloadMode || !exactStringArray(payload.requiredFields, adapter.payloadRequiredFields) || !exactStringArray(payload.forbiddenFields, adapter.payloadForbiddenFields)) add(diagnostics, "CONNECTOR_PROFILE_PAYLOAD_CONTRACT", "/connectorContract/payload", "Payload policy does not exactly match the registered adapter.");
   }
   const operations = Array.isArray(profile.operations) ? profile.operations : [];
   const ids = new Set<string>();
@@ -92,7 +124,9 @@ function semanticDiagnostics(profile: Record<string, unknown>): ConnectorDiagnos
     const idempotency = record(operation.idempotency);
     const closure = record(operation.mutationClosure);
     const preRead = record(operation.preRead);
-    const adapter = typeof connector === "string" ? getSyntheticConnectorAdapter(connector) : undefined;
+    const declaredNativeOperation = kind === "read" ? nativeOperations?.read : nativeOperations?.mutation;
+    const actualNativeOperation = transport?.mode === "http" ? transport.method : transport?.action;
+    if (adapter !== undefined && declaredNativeOperation !== undefined && actualNativeOperation !== declaredNativeOperation) add(diagnostics, "CONNECTOR_PROFILE_NATIVE_OPERATION", path + "/transport", "Operation does not match the connector contract native operation catalog.");
     if (adapter !== undefined && transport?.mode !== adapter.transportMode) add(diagnostics, "CONNECTOR_PROFILE_ADAPTER_TRANSPORT", path + "/transport/mode", "Operation transport does not match the registered connector adapter.");
     if (adapter !== undefined && kind !== "read" && concurrency?.mode !== adapter.mutationConcurrency) add(diagnostics, "CONNECTOR_PROFILE_ADAPTER_CONCURRENCY", path + "/concurrency/mode", "Mutation concurrency does not match the registered connector adapter.");
     if (transport?.mode === "connector-action" && (transport.method !== "ACTION" || typeof transport.action !== "string")) add(diagnostics, "CONNECTOR_PROFILE_ACTION_TRANSPORT", path + "/transport", "Connector-action transport requires ACTION and a named action.");

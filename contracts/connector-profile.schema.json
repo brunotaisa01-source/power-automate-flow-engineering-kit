@@ -4,7 +4,7 @@
   "title": "Synthetic Power Automate Connector Profile",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "profileId", "connector", "target", "operations", "evidence"],
+  "required": ["schemaVersion", "profileId", "connector", "target", "connectorContract", "operations", "evidence"],
   "properties": {
     "schemaVersion": { "const": "1.0" },
     "profileId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
@@ -16,6 +16,53 @@
       "properties": {
         "resource": { "type": "string", "minLength": 1 },
         "synthetic": { "const": true }
+      }
+    },
+    "connectorContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["connectionKind", "nativeOperations", "permission", "pagination", "payload"],
+      "properties": {
+        "connectionKind": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "nativeOperations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["read", "mutation"],
+          "properties": {
+            "read": { "type": "string", "minLength": 1 },
+            "mutation": { "type": "string", "minLength": 1 }
+          }
+        },
+        "permission": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "mutationRole", "readbackFields"],
+          "properties": {
+            "required": { "const": true },
+            "mutationRole": { "type": "string", "minLength": 1 },
+            "readbackFields": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+          }
+        },
+        "pagination": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "pageSize", "readbackRequired"],
+          "properties": {
+            "mode": { "enum": ["none", "continuation-url", "page-token", "offset", "future"] },
+            "pageSize": { "type": "integer", "minimum": 1, "maximum": 100 },
+            "readbackRequired": { "const": true }
+          }
+        },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "requiredFields", "forbiddenFields"],
+          "properties": {
+            "mode": { "enum": ["parameterized-fields", "parameterized-query", "parameterized-http", "future"] },
+            "requiredFields": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+            "forbiddenFields": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+          }
+        }
       }
     },
     "operations": {

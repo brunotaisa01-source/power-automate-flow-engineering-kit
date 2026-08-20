@@ -5,7 +5,9 @@
 A connector profile is a synthetic, local contract for one Power Automate or
 Power Platform connector family. It does not contain a tenant URL, connection
 reference, credential, or live endpoint. It makes operation semantics testable
-before a tenant is considered.
+before a tenant is considered. Its connector contract also binds the synthetic
+connection kind, native operation catalog, permission/readback role, pagination
+model, and payload policy to the registered adapter.
 
 ## Supported families
 
@@ -14,7 +16,19 @@ Outlook, Graph, HTTP, SQL, and approvals. A `custom` or `future-*` profile may
 be documented only when it preserves the same contract fields and evidence
 boundary.
 
+The validator requires exact equality between the profile and its registered
+adapter for connection kind, native operations, permission readback fields,
+pagination mode/page size/readback, payload mode, required fields, and forbidden
+fields. A profile cannot weaken one of these fields while remaining GREEN.
+
 ## Required semantics
+
+Every profile declares:
+
+- synthetic connection kind and native read/mutation operation names;
+- required permission role and permission readback fields;
+- pagination mode, bounded page size, and pagination readback;
+- parameterized payload mode, required fields, and forbidden fields.
 
 Every operation declares:
 

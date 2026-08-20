@@ -13,7 +13,7 @@
       "transport": {
         "mode": "connector-action",
         "method": "ACTION",
-        "action": "GetSyntheticRecord"
+        "action": "InvokeAppRead"
       },
       "request": {
         "allowlist": [
@@ -84,7 +84,7 @@
       "transport": {
         "mode": "connector-action",
         "method": "ACTION",
-        "action": "UpdateSyntheticRecord"
+        "action": "InvokeAppUpdate"
       },
       "request": {
         "allowlist": [
@@ -165,5 +165,40 @@
   "evidence": {
     "claimClass": "RUNTIME_SYNTHETIC",
     "tenantRuntime": false
+  },
+  "connectorContract": {
+    "connectionKind": "power-apps-app",
+    "nativeOperations": {
+      "read": "InvokeAppRead",
+      "mutation": "InvokeAppUpdate"
+    },
+    "permission": {
+      "required": true,
+      "mutationRole": "app-record-write",
+      "readbackFields": [
+        "principal",
+        "role",
+        "effective"
+      ]
+    },
+    "pagination": {
+      "mode": "page-token",
+      "pageSize": 50,
+      "readbackRequired": true
+    },
+    "payload": {
+      "mode": "parameterized-fields",
+      "requiredFields": [
+        "recordId",
+        "idempotencyKey"
+      ],
+      "forbiddenFields": [
+        "tenantId",
+        "rawUrl",
+        "accessToken",
+        "rawQuery",
+        "queryFragment"
+      ]
+    }
   }
 }

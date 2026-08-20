@@ -409,14 +409,15 @@ The status table is intentionally conservative. It describes the current
 evidence boundary and does not claim that all documented connectors already
 work in a tenant.
 
-## 12. Connector Profile Runtime Semantics (WP18)
+## 12. Connector Profile Runtime Semantics (WP19)
 
 The local kit now validates synthetic connector profiles without opening a network
 connection. Each profile in
 `examples/minimal-public-app/connectors/` binds a connector, synthetic target,
 operation kind, transport method/action, request allowlist, response status
 classes, semantic readback fields, concurrency mode, retry policy, idempotency,
-and mutation closure.
+and mutation closure. The registered adapter also binds connection kind, native
+operation catalog, permission/readback role, pagination mode, and payload policy.
 
 ```text
 profile JSON
@@ -448,8 +449,9 @@ The command is:
 node packages/cli/dist/bin/spflow.js validate connector <profile> --format text
 ```
 
-The WP18 profiles cover SharePoint, Excel, Power Apps, Dataverse, Outlook,
-Graph, HTTP, SQL, and approvals. They prove only local static/compiled CLI and
-synthetic trace behavior. They do not prove connector installation, connection
+The WP19 profiles cover SharePoint, Excel, Power Apps, Dataverse, Outlook,
+Graph, HTTP, SQL, and approvals. The synthetic payload, permission, pagination,
+and response harnesses prove only local static/compiled CLI and synthetic trace
+behavior. They do not prove connector installation, connection
 ownership, tenant permissions, flow import, execution, mutation, or tenant
 semantic effect.

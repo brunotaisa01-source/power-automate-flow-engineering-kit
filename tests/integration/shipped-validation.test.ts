@@ -692,6 +692,23 @@ async function runCli(
   args: readonly string[],
   nodeArgs: readonly string[] = [],
 ): Promise<CliResult> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await runCliOnce(args, nodeArgs);
+    } catch (error) {
+      lastError = error;
+      if (attempt === 0 && error instanceof Error && error.message.startsWith("CLI produced empty stdout")) continue;
+      throw error;
+    }
+  }
+  throw lastError instanceof Error ? lastError : new Error("CLI execution failed.");
+}
+
+async function runCliOnce(
+  args: readonly string[],
+  nodeArgs: readonly string[] = [],
+): Promise<CliResult> {
   return new Promise((resolveResult, reject) => {
     const child = spawn(process.execPath, [...nodeArgs, CLI, ...args], {
       cwd: ROOT,
@@ -709,6 +726,10 @@ async function runCli(
     child.once("error", reject);
     child.once("close", (code) => {
       try {
+        if (stdout.trim().length === 0) {
+          reject(new Error(`CLI produced empty stdout (exit ${code ?? -1}): ${stderr}`));
+          return;
+        }
         resolveResult({
           exitCode: code ?? -1,
           stdout,

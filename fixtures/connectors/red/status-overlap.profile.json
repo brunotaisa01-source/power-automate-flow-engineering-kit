@@ -13,7 +13,7 @@
       "transport": {
         "mode": "connector-action",
         "method": "ACTION",
-        "action": "GetSyntheticRecord"
+        "action": "GetRow"
       },
       "request": {
         "allowlist": [
@@ -84,7 +84,7 @@
       "transport": {
         "mode": "connector-action",
         "method": "ACTION",
-        "action": "UpdateSyntheticRecord"
+        "action": "UpdateRow"
       },
       "request": {
         "allowlist": [
@@ -166,5 +166,40 @@
   "evidence": {
     "claimClass": "RUNTIME_SYNTHETIC",
     "tenantRuntime": false
+  },
+  "connectorContract": {
+    "connectionKind": "excel-workbook-table",
+    "nativeOperations": {
+      "read": "GetRow",
+      "mutation": "UpdateRow"
+    },
+    "permission": {
+      "required": true,
+      "mutationRole": "workbook-table-write",
+      "readbackFields": [
+        "principal",
+        "role",
+        "effective"
+      ]
+    },
+    "pagination": {
+      "mode": "offset",
+      "pageSize": 50,
+      "readbackRequired": true
+    },
+    "payload": {
+      "mode": "parameterized-fields",
+      "requiredFields": [
+        "recordId",
+        "idempotencyKey"
+      ],
+      "forbiddenFields": [
+        "tenantId",
+        "rawUrl",
+        "accessToken",
+        "rawQuery",
+        "queryFragment"
+      ]
+    }
   }
 }

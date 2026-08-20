@@ -163,5 +163,40 @@
   "evidence": {
     "claimClass": "RUNTIME_SYNTHETIC",
     "tenantRuntime": false
+  },
+  "connectorContract": {
+    "connectionKind": "http-endpoint",
+    "nativeOperations": {
+      "read": "GET",
+      "mutation": "PATCH"
+    },
+    "permission": {
+      "required": true,
+      "mutationRole": "http-endpoint-write",
+      "readbackFields": [
+        "principal",
+        "role",
+        "effective"
+      ]
+    },
+    "pagination": {
+      "mode": "continuation-url",
+      "pageSize": 50,
+      "readbackRequired": true
+    },
+    "payload": {
+      "mode": "parameterized-http",
+      "requiredFields": [
+        "recordId",
+        "idempotencyKey"
+      ],
+      "forbiddenFields": [
+        "tenantId",
+        "rawUrl",
+        "accessToken",
+        "rawQuery",
+        "queryFragment"
+      ]
+    }
   }
 }
