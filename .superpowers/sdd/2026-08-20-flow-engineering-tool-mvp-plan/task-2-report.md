@@ -309,3 +309,54 @@ All evidence remains synthetic and local/offline. No provider readback, hosted e
 ### Whole-branch fix round 2 commit
 
 `a4e7a98d342b0d9c5647676a1d369a39577a5bf6` (`fix: sanitize evidence report path boundary`).
+
+## Whole-branch final fix round — I-2 complete path privacy
+
+### Scope and status
+
+DONE for the final allowed I-2 correction. One shared path-bearing sanitizer now covers core report strings/values/IDs and CLI command findings, including prepare/validate flow and report-evidence routes. Task 1 behavior and provider/UAT `NOT_VERIFIED` boundaries remain unchanged. No coordinator ledger files, provider/tenant/Power Automate/Dataverse resources, agents, pushes, merges, or publishes were touched.
+
+### Changed files
+
+- `packages/core/src/evidence-report.ts` — shared exported sanitizer policy for all core-emitted strings, nested values, codes, kinds, IDs, claims, diagnostics, and safe repository-relative paths.
+- `packages/cli/src/parse-args.ts` — consumes the shared policy for generic command-report redaction and user path fields.
+- `packages/cli/src/commands/prepare-flow.ts` — sanitizes definition, connection, preparation-failure, and explicit output paths before findings are constructed.
+- `tests/unit/core/evidence-report.test.ts` — nested/mid-string traversal, opaque/scheme, drive-relative, code/kind/expected/actual/message/remediation coverage and safe-prose controls.
+- `tests/cli/prepare-flow.test.ts` — prepare/validate input and prepare explicit-output JSON/text path regressions for all unsafe forms.
+
+### RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts tests/cli/prepare-flow.test.ts
+```
+
+Result: expected RED with 3 failures across 40 tests. Core diagnostic prose/kind/code/derived-ID values still leaked, and prepare/validate input and output error diagnostics still exposed unsafe paths.
+
+### GREEN and verification
+
+- `npm run build` — exit 0.
+- `node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts tests/cli/prepare-flow.test.ts` — 40 passed, 0 failed.
+- `node --experimental-strip-types --test tests/cli/*.test.ts tests/unit/cli/*.test.ts tests/unit/core/evidence-report.test.ts tests/unit/core/flow-save.test.ts` — 81 passed, 0 failed; Task 1 flow behavior remained green.
+- `npm test` — 424 passed, 0 failed.
+- `npm_config_offline=true npm run check` — exit 0; 424 tests passed, all 19 portable-check gates passed, and npm audit reported 0 vulnerabilities.
+- `git diff --check` — clean.
+- Production privacy scan over core/CLI production files for traversal, absolute, drive, UNC, file/scheme fixture forms — no unsafe fixture values found.
+- Public-data scanner invocation remained the expected exit 8 `CLI_VALIDATOR_NOT_RUN`/`public-data-scanner` deferred gate; it is not treated as a privacy PASS.
+
+### Fix design decisions
+
+- Shared helpers are exported from `@spflow/core/evidence-report` so direct source tests and built CLI imports use one policy without a second incompatible regex module.
+- Core `redactPathBearingText` sanitizes nested/mid-string traversal (`foo/../../`, `x=../../`, `safe\\..\\`), drive-relative values, UNC/drive paths, POSIX absolute paths, file/http/s3/opaque schemes, and derived code/kind/ID/value strings while preserving ordinary prose and safe relative paths.
+- CLI report redaction is key-aware: path-bearing fields use strict relative-path normalization, JSON pointers retain their existing pointer treatment, and all other emitted text uses the shared path-bearing sanitizer.
+- `prepare-flow.ts` now sanitizes input, output, and preparation-failure paths before `CommandReport` construction; report-evidence retains the same shared `sanitizeCliPath` boundary.
+- Existing hostile-input fail-closed behavior, valid JSON-safe evidence, fresh/frozen gates, and provider/UAT `NOT_VERIFIED` claims remain covered.
+
+### Evidence boundary and remaining limitations
+
+All evidence remains local/synthetic/offline. No provider readback, hosted execution, UAT, tenant import, rebinding, enablement, publication, or flow execution was attempted. Final-head GitHub Actions matrix and official history-aware privacy scanner remain external/unavailable gates.
+
+### Final I-2 implementation commit
+
+`e47e1d00e8501ef0973d7e8a42f70a663b9e3d18` (`fix: close whole-branch path privacy boundary`).

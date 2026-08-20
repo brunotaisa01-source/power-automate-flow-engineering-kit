@@ -230,3 +230,16 @@ Regression memory:
 - Final-head GitHub Actions and authorized provider/UAT gates remain external and were not attempted.
 
 Whole-branch fix implementation/handoff commit: `7130ca7e337c27fdd52d26f76031fa3a4425253a` (`fix: reject malformed flow branch containers`).
+
+## Final whole-branch I-2 path privacy fix
+
+The shared Task 2 path-bearing sanitizer now covers the prepare/validate flow CLI boundary documented by this handoff. `prepare-flow.ts` sanitizes user-supplied definition, connection-reference, preparation-failure, and explicit output paths before constructing findings; `parse-args.ts` applies the same policy to generic command-report fields. Safe relative paths remain readable, while traversal, absolute, drive, UNC, file/scheme, and embedded path forms are replaced with stable redacted tokens in JSON and text.
+
+Verification from the final whole-branch fix:
+
+- `node --experimental-strip-types --test tests/cli/*.test.ts tests/unit/cli/*.test.ts tests/unit/core/evidence-report.test.ts tests/unit/core/flow-save.test.ts` — 81 passed, 0 failed.
+- `npm test` — 424 passed, 0 failed.
+- `npm_config_offline=true npm run check` — 424 passed, 19 gates passed, npm audit 0 vulnerabilities.
+- `npm run build` and `git diff --check` — exit 0/clean.
+
+Evidence remains local/synthetic only; provider and UAT remain `NOT_VERIFIED`. No tenant/provider/Power Automate/Dataverse resource was accessed or mutated. Final implementation commit: `e47e1d00e8501ef0973d7e8a42f70a663b9e3d18` (`fix: close whole-branch path privacy boundary`).
