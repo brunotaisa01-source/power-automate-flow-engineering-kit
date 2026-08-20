@@ -190,6 +190,28 @@ node packages/cli/dist/bin/spflow.js learn audit knowledge/self-improvement/regi
 
 An open candidate intentionally returns exit `1` until its executable RED/GREEN/positive-control and independent review gates pass.
 
+## Read-Only Plugin
+
+Install the local synthetic read-only plugin skill from the public repository:
+
+```powershell
+npx --yes skills add https://github.com/brunotaisa01-source/sharepoint-flow-engineering-kit --skill sharepoint-flow-engineering-kit-readonly --global --agent codex --copy --yes
+```
+
+The plugin contract exposes only `getManifest`, registry reads, candidate status,
+synthetic `discover`, and offline `preflight`. It rejects import, rebind, enable,
+trigger, permission-write, mutation, rollback, network, and all other write
+operations. Use the CLI boundary for the same local provider:
+
+```powershell
+node packages/cli/dist/bin/spflow.js plugin readonly getManifest --format json
+node packages/cli/dist/bin/spflow.js plugin readonly discover --connector excel --format json
+node packages/cli/dist/bin/spflow.js plugin readonly preflight --format json
+```
+
+These commands prove only local synthetic behavior; they do not create a tenant
+connection or perform tenant discovery.
+
 ## Repository Map
 
 - `contracts/`: strict project, SharePoint, connector-profile, flow, package, rule, and evidence schemas.

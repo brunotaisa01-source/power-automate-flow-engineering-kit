@@ -68,6 +68,16 @@ describe("CLI argument parsing", () => {
       },
     },
     {
+      args: ["plugin", "readonly", "getManifest", "--format=json"],
+      expected: {
+        kind: "command",
+        route: "readonly-plugin",
+        command: "plugin readonly",
+        format: "json",
+        operation: "getManifest",
+      },
+    },
+    {
       args: ["evidence", "validate", "evidence/local.json"],
       expected: {
         kind: "command",

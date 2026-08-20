@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spflow.dev/schemas/read-only-plugin.schema.json",
+  "title": "SharePoint Flow Engineering Kit Read-Only Plugin Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "pluginId", "mode", "networkMode", "claimClass", "tenantMutation", "operations", "forbiddenOperations", "connectors"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "pluginId": { "const": "spflow-readonly" },
+    "mode": { "const": "read-only" },
+    "networkMode": { "enum": ["offline", "tenant-readonly"] },
+    "claimClass": { "enum": ["LOCAL_STATIC", "COMPILED_CLI", "RUNTIME_SYNTHETIC", "TENANT_READONLY"] },
+    "tenantMutation": { "const": false },
+    "operations": { "type": "array", "minItems": 1, "items": { "type": "string", "enum": ["getManifest", "getRegistryMetadata", "listApprovedLessons", "getApprovedLesson", "listCandidateStatus", "discover", "preflight"] }, "uniqueItems": true },
+    "forbiddenOperations": { "const": ["create", "update", "delete", "approve", "promote", "import", "rebind", "enable", "disable", "trigger", "permission-write", "mutate", "rollback", "network"] },
+    "connectors": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+  }
+}
