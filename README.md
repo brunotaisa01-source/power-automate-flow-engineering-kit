@@ -1,6 +1,6 @@
-# SharePoint Flow Engineering Kit
+# Power Automate Flow Engineering Kit
 
-SharePoint Flow Engineering Kit is a public, synthetic-data toolkit for designing and validating Power Automate and Power Platform applications across connector-backed systems such as SharePoint, Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, and approvals.
+Power Automate Flow Engineering Kit is a public, synthetic-data toolkit for designing and validating Power Automate and Power Platform applications across connector-backed systems such as SharePoint, Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, and approvals.
 
 The reference profile is:
 
@@ -178,11 +178,11 @@ shipped catalog metadata; they are not runtime observations.
 
 ## AI Skill
 
-Install or copy [`skills/sharepoint-flow-engineering-kit/SKILL.md`](skills/sharepoint-flow-engineering-kit/SKILL.md) into an AI skill directory. It teaches a clean-context AI to read the project contract, derive contract-bound resources, generate operation-specific endpoint helpers, use typed command queues, enforce SharePoint and Power Automate boundaries, handle ETags/readbacks/schema states/indexes/permissions, run RED before GREEN, preserve privacy, and report residual evidence gates. Its documentation TDD records a pressure scenario that is RED without the skill and GREEN with it.
+Install or copy [`skills/power-automate-flow-engineering-kit/SKILL.md`](skills/power-automate-flow-engineering-kit/SKILL.md) into an AI skill directory. It teaches a clean-context AI to read the project contract, derive contract-bound resources, generate operation-specific endpoint helpers, use typed command queues, enforce SharePoint and Power Automate boundaries, handle ETags/readbacks/schema states/indexes/permissions, run RED before GREEN, preserve privacy, and report residual evidence gates. Its documentation TDD records a pressure scenario that is RED without the skill and GREEN with it.
 
 The skill is advisory and agent-neutral: it invokes the same `spflow` contracts and CLI. It never authorizes tenant mutation and never uses a write-capable MCP.
 
-The companion [`sharepoint-flow-engineering-kit-self-improvement` skill](skills/sharepoint-flow-engineering-kit-self-improvement/SKILL.md) automatically loads the connector-agnostic lesson registry for Power Automate and Power Platform work, including Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, approvals, and future connectors. It captures new RED/review findings as sanitized candidates; only independently approved lessons become global instructions. Audit it with:
+The companion [`power-automate-flow-engineering-kit-self-improvement` skill](skills/power-automate-flow-engineering-kit-self-improvement/SKILL.md) automatically loads the connector-agnostic lesson registry for Power Automate and Power Platform work, including Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, approvals, and future connectors. It captures new RED/review findings as sanitized candidates; only independently approved lessons become global instructions. Audit it with:
 
 ```powershell
 node packages/cli/dist/bin/spflow.js learn audit knowledge/self-improvement/registry.json --format text
@@ -195,7 +195,7 @@ An open candidate intentionally returns exit `1` until its executable RED/GREEN/
 Install the local synthetic read-only plugin skill from the public repository:
 
 ```powershell
-npx --yes skills add https://github.com/brunotaisa01-source/sharepoint-flow-engineering-kit --skill sharepoint-flow-engineering-kit-readonly --global --agent codex --copy --yes
+npx --yes skills add https://github.com/brunotaisa01-source/power-automate-flow-engineering-kit --skill power-automate-flow-engineering-kit-readonly --global --agent codex --copy --yes
 ```
 
 The plugin contract exposes only `getManifest`, registry reads, candidate status,
@@ -211,6 +211,11 @@ node packages/cli/dist/bin/spflow.js plugin readonly preflight --format json
 
 These commands prove only local synthetic behavior; they do not create a tenant
 connection or perform tenant discovery.
+
+Legacy SharePoint-named skill directories and technical IDs remain as compatibility
+aliases for existing installations. New installations should use the Power Automate
+skill paths above. The `spflow` CLI name and `@spflow/*` package names are also
+intentionally stable.
 
 ## Repository Map
 

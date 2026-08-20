@@ -2,7 +2,7 @@
 
 ## 1. Scope and Truth Boundary
 
-SharePoint Flow Engineering Kit is a public, synthetic-data engineering and
+Power Automate Flow Engineering Kit is a public, synthetic-data engineering and
 validation toolkit for Power Automate and Power Platform applications. The
 product is connector-agnostic at the contract, rule, evidence, and
 self-improvement levels. SharePoint is the current executable reference

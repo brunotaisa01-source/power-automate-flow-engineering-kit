@@ -1,8 +1,8 @@
-# SharePoint Flow Engineering Kit Implementation Plan
+# Power Automate Flow Engineering Kit Implementation Plan
 
 > **For agentic workers:** Execute only the assigned work package. Do not create or coordinate subagents. Use the mandatory RED -> GREEN -> REFACTOR cycle, emit checkpoints, and stop at the package review gate. The coordinator assigns a fresh worker to each accepted package.
 
-**Goal:** Build a public, agent-neutral toolkit that lets an AI or engineer design, validate, package, review, and safely release SharePoint List and Power Automate applications without repeating known failures.
+**Goal:** Build a public, agent-neutral toolkit that lets an AI or engineer design, validate, package, review, and safely release connector-neutral Power Automate and Power Platform applications without repeating known failures. SharePoint Lists and Power Automate remain the current executable reference profile, not the product limit.
 
 **Architecture:** A TypeScript/Node offline core normalizes contracts, definitions, ZIPs, manifests, documentation, and evidence into one `ArtifactGraph`. Stable rule detectors validate synthetic RED/GREEN fixtures and exact final artifacts. Skills and an optional later Codex plugin invoke the same CLI; tenant connectivity is deferred to a separately authorized read-only MCP phase.
 
