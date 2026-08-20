@@ -62,6 +62,18 @@ async function runJson(args: readonly string[]) {
   return { exitCode, report: JSON.parse(stdout) as CommandReport };
 }
 
+async function runText(args: readonly string[]) {
+  let stdout = "";
+  let stderr = "";
+  const exitCode = await executeCli(args, {
+    stdout(value) { stdout += value; },
+    stderr(value) { stderr += value; },
+    env: {},
+  });
+  assert.equal(stderr, "");
+  return { exitCode, stdout };
+}
+
 test("prepare flow returns a JSON report with nested authentication removed", async () => {
   const { definitionPath, connectionsPath } = await writeInputs();
   const result = await runJson([
@@ -76,6 +88,17 @@ test("prepare flow returns a JSON report with nested authentication removed", as
   assert.equal(data.preparedDefinition.actions.Nested.actions.Child.inputs.host.connectionReferenceName, "prp_synthetic_reference");
   assert.equal("authentication" in data.preparedDefinition.actions.Root.inputs, false);
   assert.equal("authentication" in data.preparedDefinition.actions.Nested.actions.Child.inputs, false);
+});
+
+test("prepare flow text output includes the prepared definition", async () => {
+  const { definitionPath, connectionsPath } = await writeInputs();
+  const result = await runText([
+    "prepare", "flow", definitionPath, "--connections", connectionsPath, "--format", "text",
+  ]);
+
+  assert.equal(result.exitCode, 0);
+  assert.match(result.stdout, /Prepared definition:/);
+  assert.match(result.stdout, /prp_synthetic_reference/);
 });
 
 test("validate flow fails closed for a missing alias with a deterministic exit code", async () => {
@@ -93,6 +116,17 @@ test("validate flow fails closed for a missing alias with a deterministic exit c
   assert.equal(result.report.diagnostics[0]?.code, "MISSING_CONNECTION_REFERENCE");
 });
 
+test("unreadable inputs retain the route command and use input remediation", async () => {
+  const { connectionsPath } = await writeInputs();
+  const result = await runJson([
+    "prepare", "flow", "missing-definition.json", "--connections", connectionsPath, "--format", "json",
+  ]);
+
+  assert.equal(result.exitCode, 2);
+  assert.equal(result.report.command, "prepare flow");
+  assert.match(result.report.diagnostics[0]?.remediation ?? "", /readable synthetic JSON input/);
+});
+
 test("prepare flow never overwrites an input and writes only to explicit output", async () => {
   const { directory, definitionPath, connectionsPath } = await writeInputs();
   const original = await readFile(definitionPath, "utf8");
@@ -107,6 +141,17 @@ test("prepare flow never overwrites an input and writes only to explicit output"
   const output = JSON.parse(await readFile(outputPath, "utf8")) as ReturnType<typeof definition>;
   assert.equal(output.actions.Root.inputs.host.connectionReferenceName, "prp_synthetic_reference");
   assert.equal((result.report.data as { outputPath: string }).outputPath, "<redacted-path>");
+});
+
+test("unwritable explicit output retains the route and uses output remediation", async () => {
+  const { directory, definitionPath, connectionsPath } = await writeInputs();
+  const result = await runJson([
+    "prepare", "flow", definitionPath, "--connections", connectionsPath, "--output", directory, "--format", "json",
+  ]);
+
+  assert.equal(result.exitCode, 2);
+  assert.equal(result.report.command, "prepare flow");
+  assert.match(result.report.diagnostics[0]?.remediation ?? "", /explicit output path/);
 });
 
 test("validate flow reports the local synthetic and provider verification boundary", async () => {
@@ -162,4 +207,45 @@ test("mutation counterexample rejects a missing logical connection reference", a
   const result = await runJson(["prepare", "flow", definitionPath, "--connections", connectionsPath, "--format", "json"]);
   assert.equal(result.exitCode, 1);
   assert.equal(result.report.diagnostics[0]?.code, "MISSING_CONNECTION_REFERENCE_LOGICAL_NAME");
+});
+
+test("prepare flow rejects ambiguous connection-reference matches", async () => {
+  const { definitionPath, connectionsPath } = await writeInputs();
+  await writeFile(connectionsPath, JSON.stringify({
+    first_alias: { connectionName: "synthetic-connection", connectionReferenceLogicalName: "prp_first" },
+    second_alias: { connectionName: "synthetic-connection", connectionReferenceLogicalName: "prp_second" },
+  }), "utf8");
+  const result = await runJson(["prepare", "flow", definitionPath, "--connections", connectionsPath, "--format", "json"]);
+
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.report.diagnostics[0]?.code, "MISSING_CONNECTION_REFERENCE");
+});
+
+test("prepare flow recursively handles else and default branches", async () => {
+  const { directory, connectionsPath } = await writeInputs();
+  const definitionPath = join(directory, "branches.json");
+  const branches = {
+    actions: {
+      Condition: {
+        type: "If",
+        actions: {},
+        else: {
+          actions: {
+            ElseAction: { type: "OpenApiConnection", inputs: { host: { connectionName: "synthetic_alias" }, authentication: "else-auth" } },
+          },
+        },
+        default: {
+          actions: {
+            DefaultAction: { type: "OpenApiConnection", inputs: { host: { connectionName: "synthetic_alias" }, authentication: "default-auth" } },
+          },
+        },
+      },
+    },
+  };
+  await writeFile(definitionPath, JSON.stringify(branches), "utf8");
+  const result = await runJson(["prepare", "flow", definitionPath, "--connections", connectionsPath, "--format", "json"]);
+  assert.equal(result.exitCode, 0);
+  const prepared = (result.report.data as { preparedDefinition: typeof branches }).preparedDefinition;
+  assert.equal(prepared.actions.Condition.else.actions.ElseAction.inputs.host.connectionReferenceName, "prp_synthetic_reference");
+  assert.equal(prepared.actions.Condition.default.actions.DefaultAction.inputs.host.connectionReferenceName, "prp_synthetic_reference");
 });

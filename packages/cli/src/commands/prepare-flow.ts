@@ -11,12 +11,20 @@ function inputFailure(command: string, code: string, message: string, artifactPa
   }]);
 }
 
-async function readJson(path: string, label: string): Promise<{ value?: unknown; report?: CommandReport }> {
+function outputFailure(command: string, path: string): CommandReport {
+  return createCommandReport(command, [{
+    exitCode: 2, ruleId: "CLI-OUTPUT", severity: "error", code: "CLI_OUTPUT_UNWRITABLE",
+    message: "The explicit output path could not be written.", artifactPath: path,
+    remediation: "Provide a writable explicit output path for the prepared definition.",
+  }]);
+}
+
+async function readJson(command: string, path: string, label: string): Promise<{ value?: unknown; report?: CommandReport }> {
   let source: string;
   try { source = await readFile(resolve(path), "utf8"); }
-  catch { return { report: inputFailure(label, "CLI_INPUT_UNREADABLE", `The ${label} input could not be read.`, path) }; }
+  catch { return { report: inputFailure(command, "CLI_INPUT_UNREADABLE", `The ${label} input could not be read.`, path) }; }
   try { return { value: JSON.parse(source) as unknown }; }
-  catch { return { report: inputFailure(label, "CLI_JSON_INVALID", `The ${label} input is not valid JSON.`, path) }; }
+  catch { return { report: inputFailure(command, "CLI_JSON_INVALID", `The ${label} input is not valid JSON.`, path) }; }
 }
 
 function preparationFailure(command: string, path: string, error: FlowDefinitionPreparationError): CommandReport {
@@ -32,9 +40,9 @@ function preparationFailure(command: string, path: string, error: FlowDefinition
 async function runPreparation(args: readonly string[], command: "prepare flow" | "validate flow"): Promise<CommandReport> {
   const parsed = parseCliArgs(args);
   if (parsed.kind !== "command" || (parsed.route !== "prepare-flow" && parsed.route !== "validate-flow")) throw new Error(`${command} handler received a different command route.`);
-  const definitionInput = await readJson(parsed.definitionPath, "definition");
+  const definitionInput = await readJson(command, parsed.definitionPath, "definition");
   if (definitionInput.report !== undefined) return definitionInput.report;
-  const connectionsInput = await readJson(parsed.connectionsPath, "connection references");
+  const connectionsInput = await readJson(command, parsed.connectionsPath, "connection references");
   if (connectionsInput.report !== undefined) return connectionsInput.report;
   let prepared: unknown;
   try { prepared = preparePowerAutomateDefinition(definitionInput.value, connectionsInput.value); }
@@ -47,10 +55,21 @@ async function runPreparation(args: readonly string[], command: "prepare flow" |
   }
   if (parsed.outputPath !== undefined) {
     try { await writeFile(resolve(parsed.outputPath), `${JSON.stringify(prepared, null, 2)}\n`, "utf8"); }
-    catch { return inputFailure(command, "CLI_OUTPUT_UNWRITABLE", "The explicit output path could not be written.", parsed.outputPath); }
+    catch { return outputFailure(command, parsed.outputPath); }
     return createCommandReport(command, [], { applicableChecksCompleted: true, data: { outputPath: parsed.outputPath } });
   }
-  return createCommandReport(command, [], { applicableChecksCompleted: true, data: { preparedDefinition: prepared } });
+  const textData = parsed.format === "text"
+    ? [{
+        exitCode: 0 as const,
+        ruleId: "FLOW-PREPARATION",
+        severity: "info" as const,
+        code: "FLOW_PREPARED_DEFINITION",
+        message: `Prepared definition: ${JSON.stringify(prepared)}`,
+        artifactPath: "<stdout>",
+        remediation: "Use --output <path> to save the prepared definition explicitly.",
+      }]
+    : [];
+  return createCommandReport(command, textData, { applicableChecksCompleted: true, data: { preparedDefinition: prepared } });
 }
 
 export const prepareFlowCommand: CommandHandler = { run: (args) => runPreparation(args, "prepare flow") };
