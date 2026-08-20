@@ -147,6 +147,135 @@ credential, or raw payload was added to the public files.
 - `remaining_blockers`: final-head GitHub Actions matrix; live provider auth/rebind/readback/UAT; unavailable official scanner
 - `delegated_subagents`: `0`
 
+## Whole-branch fix round — I-1 and I-5
+
+### Status and scope
+
+`DONE` for the Task 4 findings in the whole-branch review. The implementation
+commit is `cef4bc29a2ac98f568877f523c1acd8f07035979` (`docs: add tracked release evidence and catalog controls`).
+It adds eight tracked sanitized evidence summaries under
+`docs/release/evidence/`, replaces ignored checklist dependencies with tracked
+repository-relative links, and adds independent catalog controls. The
+coordinator ledger was not edited. No agent was spawned or coordinated.
+
+### Whole-branch RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Result before the correction: exit `1`; **11 tests ran, 7 passed, 4 failed**.
+The failures covered missing tracked release evidence links and missing
+documented positive-control/mutation evidence.
+
+### Whole-branch GREEN and controls
+
+Focused command:
+
+```text
+node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Result: exit `0`; **11/11 passed**. The clean-checkout evidence test resolved
+all eight release-checklist links and confirmed each target is tracked by Git.
+
+Independent positive control:
+
+```text
+node --experimental-strip-types --test --test-name-pattern="Task 4 catalog positive-control" tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Result: exit `0`; **1/1 passed**. The control uses a distinct two-scenario
+branch-inspection/payload-boundary topology, not input reversal.
+
+Mutation/RED control:
+
+```text
+node --experimental-strip-types --test --test-name-pattern="Task 4 catalog mutation/RED" tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Result: exit `0`; **1/1 passed** because an emptied `red.failure` is rejected
+with `CATALOG_RED_FAILURE_REQUIRED`. Neither control executes a live connector
+or establishes provider/UAT evidence.
+
+### Whole-branch verification
+
+All results are `LOCAL`/`LOCAL_SYNTHETIC` evidence only:
+
+```text
+npm test
+```
+
+Exit `0`; **418/418 tests passed** across 14 suites.
+
+```text
+npm_config_offline=true npm run check
+```
+
+Exit `0`; **418/418 tests passed**, **19 portable-check gates passed**, and npm
+audit reported **0 vulnerabilities**. The check includes the build.
+
+Supplemental privacy scan over the tracked public Task 4 docs, fixture,
+checklist, evidence bundle, and handoff: **0 private markers**. Documentation
+link check: **16 links checked, 0 missing**. `git diff --check` was clean.
+
+The official history-aware public-data scanner remains unavailable: exit `8`,
+`CLI_VALIDATOR_NOT_RUN`, residual gate `public-data-scanner`, `NOT_RUN`. This
+is not a privacy PASS.
+
+### I-1 traceability correction
+
+The public checklist now links only to the committed summaries:
+
+- `docs/release/evidence/task-1-worker-handoff.md`
+- `docs/release/evidence/task-1-independent-review.md`
+- `docs/release/evidence/task-2-worker-handoff.md`
+- `docs/release/evidence/task-2-independent-review.md`
+- `docs/release/evidence/task-3-worker-handoff.md`
+- `docs/release/evidence/task-3-independent-review.md`
+- `docs/release/evidence/task-4-worker-handoff.md`
+- `docs/release/evidence/task-4-independent-review.md`
+
+The focused test resolves each link relative to the repository, checks that it
+exists, and checks `git ls-files` so the assertion holds in a clean checkout.
+No ignored `.superpowers` path, absolute temporary path, raw handoff, or raw
+local evidence is required by the public checklist.
+
+### I-5 evidence correction
+
+The tracked Task 4 worker/review summaries and public checklist record the
+exact positive-control and mutation/RED commands and results above. The
+positive control is structurally independent; the mutation changes a required
+scenario contract field and fails closed. All provider and UAT claims remain
+`NOT_VERIFIED`.
+
+### Limitations and no-tenant statement
+
+Final-head GitHub Actions remains `NOT_RUN`/`PENDING`. Live provider
+authentication, connection rebind, provider readback, solution import/save,
+flow execution, semantic effects, publication readback, and UAT remain
+`NOT_VERIFIED`. The official scanner is unavailable as described above.
+
+This whole-branch fix round performed no external/provider/tenant/Power
+Automate/Dataverse access or mutation, import, rebind, save, enablement,
+execution, readback, publication, UAT, push, merge, or agent coordination. No
+private or raw local evidence was added.
+
+### Whole-branch completion fields
+
+- `incident_id`: `N/A` — release traceability/control correction, no production incident
+- `status`: `GREEN_LOCAL; RELEASE_BLOCKED_EXTERNAL_GATES`
+- `wave/task`: Flow Engineering Tool MVP / Task 4 whole-branch fix I-1/I-5
+- `red_command/result`: focused Task 4 test; exit 1, 11 total, 7 pass, 4 intended failures
+- `green_command/result`: focused Task 4 test; exit 0, 11/11 pass
+- `files`: 10 implementation files plus this updated handoff
+- `review_status`: ready for final independent whole-branch re-review
+- `evidence_class`: `LOCAL_SYNTHETIC`
+- `remaining_blockers`: final-head GitHub Actions; live provider auth/rebind/readback/UAT; unavailable official scanner
+- `delegated_subagents`: `0`
+
 ## Fix round 2
 
 ### Status and scope
