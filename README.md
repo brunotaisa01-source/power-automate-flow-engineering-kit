@@ -127,6 +127,17 @@ synthetic operation semantics, status handling, concurrency, retry, idempotency,
 mutation closure, and semantic readback; they do not prove tenant connector
 availability or execution.
 
+Run the complete product-level offline acceptance journey:
+
+```powershell
+node --experimental-strip-types --test tests/integration/product-acceptance.test.ts
+```
+
+This test validates the reference contract/rules/artifact path, all nine connector
+flow fixtures, payload/permission/pagination/readback behavior, and the automatic
+self-improvement cycle from candidate RED through digest-bound promotion and
+approved-lesson consumption. It proves only local synthetic runtime behavior.
+
 Validate every shipped local rule against the example (global scope):
 
 ```powershell
