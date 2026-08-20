@@ -21,7 +21,8 @@ mean silent model-weight training, unreviewed rule changes, or tenant mutation.
    `APPROVED` lesson whose scope matches the project.
 3. Run `spflow learn audit <registry-path> --execute --format json` before using a lesson. It verifies the exact registry SHA-256 sidecar, runs each distinct node-test binding, and checks lifecycle/review/path semantics. A malformed registry, missing bound test, unresolved review, candidate, digest mismatch, or privacy finding is a blocking local gate.
 4. Never use a `CANDIDATE`, `BLOCKED`, or `RETIRED` lesson as an instruction.
-5. Record the registry revision in the local checkpoint and final report without
+5. For connector work, validate the synthetic profile with `spflow validate connector <profile> --format json` and apply its operation/method/status/concurrency/retry/idempotency/readback invariants before using a connector lesson.
+6. Record the registry revision in the local checkpoint and final report without
    copying private environment values.
 
 If no approved registry is available, report the self-improvement gate as

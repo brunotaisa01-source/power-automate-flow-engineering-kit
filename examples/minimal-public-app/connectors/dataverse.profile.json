@@ -1,0 +1,169 @@
+{
+  "schemaVersion": "1.0",
+  "profileId": "minimal-dataverse-connector",
+  "connector": "dataverse",
+  "target": {
+    "resource": "{DATAVERSE_RESOURCE}",
+    "synthetic": true
+  },
+  "operations": [
+    {
+      "id": "read-record",
+      "kind": "read",
+      "transport": {
+        "mode": "connector-action",
+        "method": "ACTION",
+        "action": "GetSyntheticRecord"
+      },
+      "request": {
+        "allowlist": [
+          "recordId"
+        ],
+        "required": [
+          "recordId"
+        ],
+        "forbidden": [
+          "tenantId",
+          "rawUrl",
+          "accessToken"
+        ]
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "failureStatuses": [
+          400,
+          404,
+          429,
+          500,
+          503
+        ],
+        "body": "object",
+        "semanticReadback": {
+          "required": false,
+          "fields": [
+            "recordId",
+            "value"
+          ]
+        }
+      },
+      "concurrency": {
+        "mode": "none",
+        "tokenField": null
+      },
+      "retry": {
+        "maxAttempts": 2,
+        "retryableStatuses": [
+          429,
+          503
+        ],
+        "ambiguousMutation": "fail"
+      },
+      "idempotency": {
+        "required": false,
+        "keyFields": [
+          "recordId"
+        ],
+        "duplicatePolicy": "no-op"
+      },
+      "mutationClosure": {
+        "plan": false,
+        "status": false,
+        "audit": false,
+        "readback": false
+      },
+      "preRead": {
+        "required": false,
+        "fields": []
+      }
+    },
+    {
+      "id": "update-record",
+      "kind": "update",
+      "transport": {
+        "mode": "connector-action",
+        "method": "ACTION",
+        "action": "UpdateSyntheticRecord"
+      },
+      "request": {
+        "allowlist": [
+          "recordId",
+          "value",
+          "idempotencyKey",
+          "@odata.etag"
+        ],
+        "required": [
+          "recordId",
+          "value",
+          "idempotencyKey",
+          "@odata.etag"
+        ],
+        "forbidden": [
+          "tenantId",
+          "rawUrl",
+          "accessToken"
+        ]
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          204
+        ],
+        "failureStatuses": [
+          400,
+          409,
+          412,
+          429,
+          500,
+          503
+        ],
+        "body": "object",
+        "semanticReadback": {
+          "required": true,
+          "fields": [
+            "recordId",
+            "value"
+          ]
+        }
+      },
+      "concurrency": {
+        "mode": "version-token",
+        "tokenField": "@odata.etag"
+      },
+      "retry": {
+        "maxAttempts": 2,
+        "retryableStatuses": [
+          429,
+          503
+        ],
+        "ambiguousMutation": "reconcile"
+      },
+      "idempotency": {
+        "required": true,
+        "keyFields": [
+          "idempotencyKey"
+        ],
+        "duplicatePolicy": "no-op"
+      },
+      "mutationClosure": {
+        "plan": true,
+        "status": true,
+        "audit": true,
+        "readback": true
+      },
+      "preRead": {
+        "required": true,
+        "fields": [
+          "recordId",
+          "value",
+          "@odata.etag"
+        ]
+      }
+    }
+  ],
+  "evidence": {
+    "claimClass": "RUNTIME_SYNTHETIC",
+    "tenantRuntime": false
+  }
+}

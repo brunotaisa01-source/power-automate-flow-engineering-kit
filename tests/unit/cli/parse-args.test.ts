@@ -58,6 +58,16 @@ describe("CLI argument parsing", () => {
       },
     },
     {
+      args: ["validate", "connector", "examples/minimal-public-app/connectors/excel.profile.json", "--format=json"],
+      expected: {
+        kind: "command",
+        route: "validate-connector",
+        command: "validate connector",
+        format: "json",
+        path: "examples/minimal-public-app/connectors/excel.profile.json",
+      },
+    },
+    {
       args: ["evidence", "validate", "evidence/local.json"],
       expected: {
         kind: "command",

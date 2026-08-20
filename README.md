@@ -114,6 +114,19 @@ Validate the example project contract:
 node packages/cli/dist/bin/spflow.js validate contract examples/minimal-public-app/project.contract.json --format text
 ```
 
+Validate the connector-neutral synthetic profiles for SharePoint, Excel, Power
+Apps, Dataverse, Outlook, Graph, HTTP, SQL, and approvals:
+
+```powershell
+node packages/cli/dist/bin/spflow.js validate connector examples/minimal-public-app/connectors/excel.profile.json --format text
+```
+
+The same command validates every profile under
+`examples/minimal-public-app/connectors/`. These profiles prove only local
+synthetic operation semantics, status handling, concurrency, retry, idempotency,
+mutation closure, and semantic readback; they do not prove tenant connector
+availability or execution.
+
 Validate every shipped local rule against the example (global scope):
 
 ```powershell
@@ -168,16 +181,16 @@ An open candidate intentionally returns exit `1` until its executable RED/GREEN/
 
 ## Repository Map
 
-- `contracts/`: strict project, SharePoint, flow, package, rule, and evidence schemas.
+- `contracts/`: strict project, SharePoint, connector-profile, flow, package, rule, and evidence schemas.
 - `packages/core/`: contracts, canonical data, artifact graph, diagnostics, and evidence types.
 - `packages/package-adapters/`: safe archive/XML inspection and normalized flow evidence.
 - `packages/rules/`: deterministic package and Power Automate rule detectors.
 - `packages/cli/`: the `spflow` command-line interface and reporters.
 - `examples/minimal-public-app/`: the synthetic contract, frontend, flow definition,
-  package ZIP, and exact manifests used by the README commands.
-- `fixtures/`: synthetic RED, GREEN, positive-control, and mutation fixtures.
+  connector profiles, package ZIP, and exact manifests used by the README commands.
+- `fixtures/`: synthetic RED, GREEN, positive-control, mutation, and connector fixtures.
 - `tests/`: unit, integration, adapter-boundary, and shipped-CLI verification tests.
-- `docs/specs/`: contracts and evidence model.
+- `docs/specs/`: contracts, connector-profile semantics, and evidence model.
 - `docs/architecture/`: product boundary, architecture, threat model, and source-derived patterns.
 - `docs/plans/`: implementation and remediation plans.
 - `docs/reviews/`: review records and acceptance gates.

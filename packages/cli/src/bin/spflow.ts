@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 import { learnAuditCommand, learnCaptureCommand, learnPromoteCommand } from "../commands/learn.ts";
 import { scanPublicDataCommand } from "../commands/scan-public-data.ts";
 import { validateArtifactCommand } from "../commands/validate-artifact.ts";
+import { validateConnectorCommand } from "../commands/validate-connector.ts";
 import { validateContractCommand } from "../commands/validate-contract.ts";
 import { validateEvidenceCommand } from "../commands/validate-evidence.ts";
 import { validateRulesCommand } from "../commands/validate-rules.ts";
@@ -29,6 +30,7 @@ export const HELP_TEXT = [
   "  validate contract <path> [--format text|json]",
   "  validate rules --root <repository> [--required-only] [--format text|json]",
   "  validate artifact <path> --contract <path> [--format text|json]",
+  "  validate connector <profile> [--format text|json]",
   "  evidence validate <path> [--format text|json]",
   "  scan public-data <path> [--history] [--format text|json]",
   "  learn audit <registry-path> [--execute] [--format text|json]",
@@ -40,6 +42,7 @@ export const HELP_TEXT = [
 
 const DEFAULT_HANDLERS: CliHandlers = {
   "validate-contract": validateContractCommand,
+  "validate-connector": validateConnectorCommand,
   "validate-rules": validateRulesCommand,
   "validate-artifact": validateArtifactCommand,
   "validate-evidence": validateEvidenceCommand,

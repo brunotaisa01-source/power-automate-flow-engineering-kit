@@ -395,6 +395,7 @@ a merge and a merge is not a tenant test. The current publication status is:
 | CLI/local validation | `IMPLEMENTED LOCALLY` |
 | SharePoint frontend executable profile | `IMPLEMENTED LOCALLY` |
 | Generic Power Automate contract model | `IMPLEMENTED/DOCUMENTED` |
+| Synthetic connector profiles and trace validator | `IMPLEMENTED LOCALLY` |
 | Excel connector runtime | `NOT_RUN` |
 | Power Apps connector runtime | `NOT_RUN` |
 | Dataverse connector runtime | `NOT_RUN` |
@@ -407,3 +408,48 @@ a merge and a merge is not a tenant test. The current publication status is:
 The status table is intentionally conservative. It describes the current
 evidence boundary and does not claim that all documented connectors already
 work in a tenant.
+
+## 12. Connector Profile Runtime Semantics (WP18)
+
+The local kit now validates synthetic connector profiles without opening a network
+connection. Each profile in
+`examples/minimal-public-app/connectors/` binds a connector, synthetic target,
+operation kind, transport method/action, request allowlist, response status
+classes, semantic readback fields, concurrency mode, retry policy, idempotency,
+and mutation closure.
+
+```text
+profile JSON
+    |
+    v
+AJV schema validation
+    |
+    v
+semantic operation validation
+    |
+    +--> request allowlist/forbidden fields
+    +--> method versus read/mutation class
+    +--> success/failure status separation
+    +--> concurrency token requirements
+    +--> bounded retry and ambiguous mutation handling
+    +--> idempotency keys
+    +--> plan/status/audit/readback mutation closure
+    |
+    v
+synthetic response trace
+    |
+    v
+status-before-body, semantic readback field equality, and result
+```
+
+The command is:
+
+```powershell
+node packages/cli/dist/bin/spflow.js validate connector <profile> --format text
+```
+
+The WP18 profiles cover SharePoint, Excel, Power Apps, Dataverse, Outlook,
+Graph, HTTP, SQL, and approvals. They prove only local static/compiled CLI and
+synthetic trace behavior. They do not prove connector installation, connection
+ownership, tenant permissions, flow import, execution, mutation, or tenant
+semantic effect.

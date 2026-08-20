@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spflow.dev/schemas/connector-profile.schema.json",
+  "title": "Synthetic Power Automate Connector Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "profileId", "connector", "target", "operations", "evidence"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "profileId": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+    "connector": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["resource", "synthetic"],
+      "properties": {
+        "resource": { "type": "string", "minLength": 1 },
+        "synthetic": { "const": true }
+      }
+    },
+    "operations": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/operation" }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claimClass", "tenantRuntime"],
+      "properties": {
+        "claimClass": { "enum": ["LOCAL_STATIC", "COMPILED_CLI", "RUNTIME_SYNTHETIC"] },
+        "tenantRuntime": { "const": false }
+      }
+    }
+  },
+  "$defs": {
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "transport", "request", "preRead", "response", "concurrency", "retry", "idempotency", "mutationClosure"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "kind": { "enum": ["read", "create", "update", "delete", "command"] },
+        "transport": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "method"],
+          "properties": {
+            "mode": { "enum": ["http", "connector-action"] },
+            "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "ACTION"] },
+            "action": { "type": "string", "minLength": 1 }
+          }
+        },
+        "request": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["allowlist", "required", "forbidden"],
+          "properties": {
+            "allowlist": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+            "required": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+            "forbidden": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+          }
+        },
+        "preRead": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "fields"],
+          "properties": {
+            "required": { "type": "boolean" },
+            "fields": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+          }
+        },
+        "response": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["successStatuses", "failureStatuses", "body", "semanticReadback"],
+          "properties": {
+            "successStatuses": { "type": "array", "minItems": 1, "items": { "type": "integer", "minimum": 100, "maximum": 599 }, "uniqueItems": true },
+            "failureStatuses": { "type": "array", "items": { "type": "integer", "minimum": 100, "maximum": 599 }, "uniqueItems": true },
+            "body": { "enum": ["none", "object", "array"] },
+            "semanticReadback": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["required", "fields"],
+              "properties": {
+                "required": { "type": "boolean" },
+                "fields": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+              }
+            }
+          }
+        },
+        "concurrency": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "tokenField"],
+          "properties": {
+            "mode": { "enum": ["none", "etag", "row-version", "version-token", "optimistic"] },
+            "tokenField": { "type": ["string", "null"] }
+          }
+        },
+        "retry": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["maxAttempts", "retryableStatuses", "ambiguousMutation"],
+          "properties": {
+            "maxAttempts": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "retryableStatuses": { "type": "array", "items": { "type": "integer", "minimum": 100, "maximum": 599 }, "uniqueItems": true },
+            "ambiguousMutation": { "enum": ["reconcile", "fail"] }
+          }
+        },
+        "idempotency": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "keyFields", "duplicatePolicy"],
+          "properties": {
+            "required": { "type": "boolean" },
+            "keyFields": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true },
+            "duplicatePolicy": { "enum": ["reject", "no-op", "reconcile"] }
+          }
+        },
+        "mutationClosure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["plan", "status", "audit", "readback"],
+          "properties": {
+            "plan": { "type": "boolean" },
+            "status": { "type": "boolean" },
+            "audit": { "type": "boolean" },
+            "readback": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  }
+}

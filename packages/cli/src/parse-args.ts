@@ -10,6 +10,7 @@ export type CommandRoute =
   | "validate-rules"
   | "validate-artifact"
   | "validate-evidence"
+  | "validate-connector"
   | "scan-public-data"
   | "learn-audit"
   | "learn-capture"
@@ -71,6 +72,7 @@ export type ParsedCliArgs =
       contractPath: string;
     })
   | (ParsedBase & { route: "validate-evidence"; path: string })
+  | (ParsedBase & { route: "validate-connector"; path: string })
   | (ParsedBase & {
       route: "scan-public-data";
       path: string;
@@ -329,6 +331,11 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
       format: parseFormat(parsed.values.format),
       path: parsed.positionals[0] ?? "",
     };
+  }
+  if (first === "validate" && second === "connector") {
+    const parsed = parseOptions(args.slice(2), { format: { type: "string" } }, "validate connector");
+    if (parsed.positionals.length !== 1) throw new CliUsageError("validate connector requires exactly one profile path.");
+    return { kind: "command", route: "validate-connector", command: "validate connector", format: parseFormat(parsed.values.format), path: parsed.positionals[0] ?? "" };
   }
   if (first === "scan" && second === "public-data") {
     const parsed = parseOptions(
