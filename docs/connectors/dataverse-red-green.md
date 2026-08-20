@@ -7,6 +7,27 @@ tenant export. The machine-readable cases live in
 reference skill is
 `skills/power-automate-flow-engineering-kit-dataverse/SKILL.md`.
 
+## Evidence and portability
+
+Run the pack on macOS, Linux, or Windows PowerShell with Node 22.x and npm 10.x:
+
+```text
+npm ci
+npm run build
+npm test
+npm run check
+```
+
+`RED means` a deterministic synthetic case shows the invariant that must be
+rejected. `GREEN means` the corrected local shape passes while its mutation or
+counterexample remains fail-closed. These are `LOCAL_SYNTHETIC` checks only.
+
+Provider status is `NOT_VERIFIED` until an authenticated read-only provider
+observation supplies authoritative readback. UAT status is `NOT_VERIFIED` until
+the named acceptance environment or user confirms the behavior. The read-only
+provider contract supplies sanitized snapshot validation; it does not import,
+rebind, enable, publish, run, write, or delete Dataverse resources.
+
 ## What the cases teach
 
 ### DV-AUTH-001 — platform-injected authentication
@@ -91,6 +112,15 @@ The first four steps prove local synthetic behavior only. They do not prove
 connection rebind, solution save, publish, flow execution, Dataverse rows,
 approval delivery, email delivery, or UAT. Those facts must remain explicitly
 `NOT_VERIFIED` until fresh provider evidence is independently reviewed.
+
+## Live limitations
+
+This context pack cannot authenticate to a tenant or establish live provider
+auth, connection rebind, solution import/save, flow execution, Dataverse row
+effects, approval/email delivery, semantic readback, publication readback, or
+UAT. Do not report a local GREEN or a read-only contract PASS as provider or UAT
+evidence. Use the public [MVP release checklist](../release/mvp-release-checklist.md)
+to track those external gates.
 
 ## Public-data rule
 

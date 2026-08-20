@@ -111,6 +111,49 @@ checks, read-only plugin checks, and the high-severity dependency audit through
 Node argument arrays instead of shell-specific loops. The same command runs in
 the repository's Linux, macOS, and Windows GitHub Actions matrix.
 
+### Portable setup and evidence language
+
+The same commands work from macOS, Linux, and Windows PowerShell. Install Node
+22.x and npm 10.x, select the version from `.nvmrc` with nvm, fnm, or another
+version manager when available, then run:
+
+```text
+npm ci
+npm run build
+npm test
+npm run check
+```
+
+`RED means` a deterministic synthetic case exposes a missing or unsafe
+invariant. `GREEN means` the smallest correction satisfies that invariant and
+the counterexample still fails closed. RED/GREEN is local evidence: it does
+not authorize a tenant save, connection rebind, flow run, or UAT result.
+
+The evidence classes are deliberately non-transitive. `LOCAL_SYNTHETIC` covers
+repository fixtures, static checks, and offline CLI results. `PROVIDER` requires
+an authenticated provider observation with authoritative readback. `UAT`
+requires acceptance by the named test environment or user. Until those
+external observations exist, provider and UAT status remain `NOT_VERIFIED`.
+
+### Read-only provider contract
+
+The read-only provider contract in
+[`contracts/provider-readonly.schema.json`](contracts/provider-readonly.schema.json)
+and `@spflow/core/provider-readonly` validates sanitized environment, solution,
+flow, and connection-reference snapshots. Its operation allowlist is limited
+to read-environment, read-solution, read-flow, and read-connection-reference;
+the contract has no import, rebind, enable, publish, run, write, or delete
+operation and makes no network call. A valid local snapshot is still only
+`LOCAL_SYNTHETIC`; it cannot mint a provider or UAT PASS.
+
+### Live limitations
+
+The MVP has no tenant credentials or connected backend. Live provider auth,
+connection rebind, solution import/save, enablement, flow execution, Dataverse
+row effects, semantic readback, publication readback, and UAT remain outside
+the local release claim. See the [MVP release checklist](docs/release/mvp-release-checklist.md)
+for the exact pending gates and current evidence classification.
+
 ## Portable Power Automate Save Boundary
 
 When a raw Power Automate definition is going to an XRM/Flow API save path,

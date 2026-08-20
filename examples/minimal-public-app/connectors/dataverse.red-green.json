@@ -4,6 +4,7 @@
   "connector": "dataverse",
   "evidenceClass": "LOCAL_SYNTHETIC",
   "providerGate": "NOT_VERIFIED",
+  "uatGate": "NOT_VERIFIED",
   "description": "Sanitized local RED/GREEN training cases for Dataverse-backed Power Automate flows.",
   "scenarios": [
     {
@@ -12,7 +13,8 @@
       "invariant": "Outgoing OpenApiConnection inputs do not carry action-level authentication.",
       "red": { "failure": "inputs.authentication is present in a connector action." },
       "green": { "correction": "Remove only inputs.authentication before save; preserve payload and trigger." },
-      "providerGate": "NOT_VERIFIED"
+      "providerGate": "NOT_VERIFIED",
+      "uatGate": "NOT_VERIFIED"
     },
     {
       "id": "DV-REF-001",
@@ -20,7 +22,8 @@
       "invariant": "The host alias and logical connection-reference name come from one declared map.",
       "red": { "failure": "A host uses a logical name as its alias or a reference lacks a physical connection binding." },
       "green": { "correction": "Keep host.connectionName as the declared alias and set host.connectionReferenceName from the exact logical reference." },
-      "providerGate": "NOT_VERIFIED"
+      "providerGate": "NOT_VERIFIED",
+      "uatGate": "NOT_VERIFIED"
     },
     {
       "id": "DV-SCHEMA-001",
@@ -28,7 +31,8 @@
       "invariant": "Create, update, and readback payloads use the current native logical names and types.",
       "red": { "failure": "A legacy, misspelled, display-name, or unsupported field is sent to CreateRecord or UpdateRecord." },
       "green": { "correction": "Read the native schema, allowlist fields, and compare the response to the contract." },
-      "providerGate": "NOT_VERIFIED"
+      "providerGate": "NOT_VERIFIED",
+      "uatGate": "NOT_VERIFIED"
     },
     {
       "id": "DV-LOOKUP-001",
@@ -36,7 +40,8 @@
       "invariant": "Relationship writes use the exact navigation property and OData bind shape.",
       "red": { "failure": "A raw GUID or incorrectly cased navigation property is used instead of an exact @odata.bind." },
       "green": { "correction": "Use the native navigation property with /synthetic_records(<id>) and verify the related row by readback." },
-      "providerGate": "NOT_VERIFIED"
+      "providerGate": "NOT_VERIFIED",
+      "uatGate": "NOT_VERIFIED"
     },
     {
       "id": "DV-SYNTHETIC-001",
@@ -44,7 +49,8 @@
       "invariant": "Synthetic runs cannot create approvals, send email, or mutate real business state.",
       "red": { "failure": "A synthetic marker reaches an Approval or Outlook action." },
       "green": { "correction": "Guard side effects on a readback-bound synthetic marker while keeping the real branch explicit." },
-      "providerGate": "NOT_VERIFIED"
+      "providerGate": "NOT_VERIFIED",
+      "uatGate": "NOT_VERIFIED"
     },
     {
       "id": "DV-DOA-001",
@@ -52,7 +58,8 @@
       "invariant": "The flow rereads the request, active rule, current step, actor, and level before deciding.",
       "red": { "failure": "A client-supplied approver or future level can decide the request." },
       "green": { "correction": "Derive the assigned actor and current level from Dataverse state and fail closed on mismatch." },
-      "providerGate": "NOT_VERIFIED"
+      "providerGate": "NOT_VERIFIED",
+      "uatGate": "NOT_VERIFIED"
     },
     {
       "id": "DV-IDEMPOTENCY-001",
@@ -60,7 +67,8 @@
       "invariant": "Terminal outcomes, audit rows, and notifications are keyed and read back before a second write.",
       "red": { "failure": "A repeated decision creates a second terminal outcome or notification." },
       "green": { "correction": "Reserve a deterministic key, handle zero/one/many matches, and perform semantic readback." },
-      "providerGate": "NOT_VERIFIED"
+      "providerGate": "NOT_VERIFIED",
+      "uatGate": "NOT_VERIFIED"
     },
     {
       "id": "DV-PAYMENT-001",
@@ -68,7 +76,8 @@
       "invariant": "Payment creation requires approved status plus matching requisition, amount, owner, and unique key.",
       "red": { "failure": "A payment row is created for an unapproved, mismatched, or duplicated request." },
       "green": { "correction": "Reread authoritative values, gate the write, and verify the tracker and notification log." },
-      "providerGate": "NOT_VERIFIED"
+      "providerGate": "NOT_VERIFIED",
+      "uatGate": "NOT_VERIFIED"
     },
     {
       "id": "DV-ATTACHMENT-001",
@@ -76,7 +85,8 @@
       "invariant": "The request becomes Submitted only after required lines and attachment handling succeed.",
       "red": { "failure": "The header reaches Submitted while a required line or attachment operation is incomplete." },
       "green": { "correction": "Keep the request Draft until all required writes and readbacks succeed; fail closed otherwise." },
-      "providerGate": "NOT_VERIFIED"
+      "providerGate": "NOT_VERIFIED",
+      "uatGate": "NOT_VERIFIED"
     }
   ]
 }
