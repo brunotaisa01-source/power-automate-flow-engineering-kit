@@ -72,3 +72,52 @@ All fixtures and report inputs are synthetic. A local `PASS` means only that the
 ## Commit hash
 
 Implementation commit: `e35c3286161bd4f347ebbc56dafb4772c60d0546` (`feat: add local evidence reporting`).
+
+## Fix round 1
+
+### Scope and status
+
+DONE for the requested review findings only. The fix preserves the Task 1 flow routes and the `LOCAL_SYNTHETIC`, provider `NOT_VERIFIED`, and UAT `NOT_VERIFIED` boundaries. No workers, reviewers, provider/tenant calls, mutations, pushes, merges, or publishes were used.
+
+### Review findings addressed
+
+- Present-but-incomplete or malformed evidence now produces stable `NOT_RUN` local claims and a non-successful CLI result. Missing/unknown status, missing required prepared-definition fields, invalid artifact arrays, `{}` entries, and null/non-object artifact entries cannot produce local `PASS` or throw an internal-error path.
+- Claim ordering uses the claim ID plus a canonical redacted record tie-breaker. Diagnostic ordering uses the existing primary fields plus a canonical redacted record tie-breaker, so reversing same-ID claims or same-primary-key diagnostics produces byte-equivalent reports.
+- Gate arrays and gate records are freshly created and deeply frozen per report, preventing mutation from affecting the current or later reports.
+
+### Fix RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts
+```
+
+Result: expected RED with 4 failures. The incomplete CLI case returned exit 7 instead of 8; the core malformed-entry case threw on `null`; tied claims/diagnostics produced unequal reports; and returned gates shared mutable module state.
+
+### Fix GREEN and verification
+
+- `npm run build` — exit 0.
+- `node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts` — 14 passed, 0 failed.
+- `node --experimental-strip-types --test tests/cli/*.test.ts tests/unit/cli/*.test.ts tests/unit/core/evidence-report.test.ts tests/unit/core/flow-save.test.ts` — 65 passed, 0 failed; Task 1 flow tests remained green.
+- `npm test` — 283 passed, 0 failed.
+- `npm run check` — exit 0; 381 tests passed, all 19 portable-check gates passed, and npm audit reported 0 vulnerabilities.
+- `git diff --check` — clean before commit.
+- Targeted review regression command using `--test-name-pattern='fails closed when present evidence|canonicalizes tied|returns fresh deeply frozen gates'` — 4 passed, 0 failed.
+
+### Fix design decisions
+
+- `createLocalEvidenceReport` now accepts `unknown` at runtime and validates the JSON shape before normalizing it; typed callers remain source-compatible.
+- Valid prepared-definition evidence requires a diagnostics array and an explicit valid `result` or `status`. The diagnostics-only adapter form remains valid only when it contains at least one complete diagnostic.
+- Valid artifact entries require non-empty `kind`, path, and explicit valid `result` or `status`; artifact diagnostics remain optional for compatibility, but malformed supplied diagnostics are `NOT_RUN`.
+- Incomplete evidence contributes a `NOT_RUN` claim or stable input diagnostic, and the aggregate result remains `NOT_RUN` unless an actual local failure is present. The CLI maps that result to exit code 8, while preserving the existing stable input errors for unreadable/non-object JSON.
+- Canonical tie-breaks use the redacted normalized record, including status, severity, remediation, and nested expected/actual values.
+- `createGates()` returns a new frozen array containing newly frozen gate objects for every report.
+
+### Fix evidence boundary and concerns
+
+The fix remains local/offline and synthetic. It does not add tenant/provider reads or writes and never promotes a local result to provider or UAT PASS. Provider and UAT remain `NOT_VERIFIED`. Cross-platform CI and live provider/UAT verification remain outside this worker’s scope.
+
+### Fix commit
+
+`1ac68788536bef839ee764a16ebf80b927c15f50` (`fix: close local evidence report gaps`).
