@@ -8,6 +8,7 @@ export type OutputFormat = "json" | "text";
 export type CommandRoute =
   | "prepare-flow"
   | "validate-flow"
+  | "report-evidence"
   | "validate-contract"
   | "validate-rules"
   | "validate-artifact"
@@ -70,6 +71,7 @@ export type ParsedCliArgs =
   | { kind: "help"; format: OutputFormat }
   | (ParsedBase & { route: "prepare-flow"; definitionPath: string; connectionsPath: string; outputPath?: string })
   | (ParsedBase & { route: "validate-flow"; definitionPath: string; connectionsPath: string })
+  | (ParsedBase & { route: "report-evidence"; path: string })
   | (ParsedBase & { route: "validate-contract"; path: string })
   | (ParsedBase & { route: "validate-rules"; root: string; requiredOnly: boolean })
   | (ParsedBase & {
@@ -300,6 +302,19 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
       kind: "command",
       route: "validate-contract",
       command: "validate contract",
+      format: parseFormat(parsed.values.format),
+      path: parsed.positionals[0] ?? "",
+    };
+  }
+  if (first === "report" && second === "evidence") {
+    const parsed = parseOptions(args.slice(2), { format: { type: "string" } }, "report evidence");
+    if (parsed.positionals.length !== 1) {
+      throw new CliUsageError("report evidence requires exactly one local evidence path.");
+    }
+    return {
+      kind: "command",
+      route: "report-evidence",
+      command: "report evidence",
       format: parseFormat(parsed.values.format),
       path: parsed.positionals[0] ?? "",
     };
