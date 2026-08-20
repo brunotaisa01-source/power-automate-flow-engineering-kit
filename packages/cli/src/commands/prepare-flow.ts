@@ -2,11 +2,11 @@ import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
 import { FlowDefinitionPreparationError, preparePowerAutomateDefinition } from "@spflow/core/flow-save";
-import { createCommandReport, parseCliArgs, type CommandHandler, type CommandReport, type ReportFinding } from "../parse-args.ts";
+import { createCommandReport, parseCliArgs, sanitizeCliPath, type CommandHandler, type CommandReport, type ReportFinding } from "../parse-args.ts";
 
 function inputFailure(command: string, code: string, message: string, artifactPath: string): CommandReport {
   return createCommandReport(command, [{
-    exitCode: 2, ruleId: "CLI-INPUT", severity: "error", code, message, artifactPath,
+    exitCode: 2, ruleId: "CLI-INPUT", severity: "error", code, message, artifactPath: sanitizeCliPath(artifactPath),
     remediation: "Provide readable synthetic JSON input files and run the command again.",
   }]);
 }
@@ -14,7 +14,7 @@ function inputFailure(command: string, code: string, message: string, artifactPa
 function outputFailure(command: string, path: string): CommandReport {
   return createCommandReport(command, [{
     exitCode: 2, ruleId: "CLI-OUTPUT", severity: "error", code: "CLI_OUTPUT_UNWRITABLE",
-    message: "The explicit output path could not be written.", artifactPath: path,
+    message: "The explicit output path could not be written.", artifactPath: sanitizeCliPath(path),
     remediation: "Provide a writable explicit output path for the prepared definition.",
   }]);
 }
@@ -30,7 +30,7 @@ async function readJson(command: string, path: string, label: string): Promise<{
 function preparationFailure(command: string, path: string, error: FlowDefinitionPreparationError): CommandReport {
   const finding: ReportFinding = {
     exitCode: 1, ruleId: `FLOW-PREPARATION-${error.code}`, severity: "error", code: error.code,
-    message: error.message, artifactPath: path,
+    message: error.message, artifactPath: sanitizeCliPath(path),
     ...(error.path === undefined ? {} : { jsonPointer: error.path }),
     remediation: "Correct the local definition or explicit connection-reference map; no connection is selected automatically.",
   };

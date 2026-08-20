@@ -1,6 +1,64 @@
 export type LocalEvidenceStatus = "PASS" | "FAIL" | "NOT_RUN";
 export type LocalEvidenceSeverity = "error" | "warning" | "info";
 
+export const REDACTED_PATH = "<redacted-path>";
+export const REDACTED_URL = "<redacted-url>";
+
+export function redactText(input: string): string {
+  return input
+    .replace(/\b[A-Za-z]:[\\/][^\s"']+/g, REDACTED_PATH)
+    .replace(/\\\\[^\\\s]+\\[^\s"']+/g, REDACTED_PATH)
+    .replace(/(^|[\s(])\/(?:home|Users|tmp|var|private)\/[^\s"']+/g, `$1${REDACTED_PATH}`)
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi, "<redacted-id>")
+    .replace(/\bhttps?:\/\/(?![^\s/]*\.example\.test\b)[^\s"']+/g, REDACTED_URL)
+    .replace(/\b(?!user@example\.test\b)[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "<redacted-email>")
+    .replace(/\bBearer\s+[^\s"']+/gi, "Bearer <redacted-secret>");
+}
+
+function replaceSchemePath(input: string): string {
+  return input.replace(/\b[a-z][a-z0-9+.-]*:[^\s"']+/gi, (candidate) => {
+    if (/^https?:\/\/[^\s/]*\.example\.test\b/i.test(candidate)) {
+      return candidate;
+    }
+    if (
+      candidate.includes("/")
+      || candidate.includes("\\")
+      || /^(?:file|https?|s3|opaque):/i.test(candidate)
+    ) {
+      return REDACTED_URL;
+    }
+    return candidate;
+  });
+}
+
+export function redactPathBearingText(input: string): string {
+  return replaceSchemePath(redactText(input))
+    .replace(/(^|[\s("'`])[^\s"']*(?:\.\.[\\/])[^\s"']*/g, `$1${REDACTED_PATH}`)
+    .replace(/(^|[\s("'`])[A-Za-z]:[^\s"']+/g, `$1${REDACTED_PATH}`)
+    .replace(/(^|[\s("'`])\/[^\s"']+/g, `$1${REDACTED_PATH}`);
+}
+
+function safeRelativePath(value: string): boolean {
+  if (
+    value.length === 0
+    || value.startsWith("/")
+    || value.startsWith("\\")
+    || value.includes("\\")
+    || value.includes(":")
+    || /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    return false;
+  }
+  return value.split("/").every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
+}
+
+export function sanitizeRepositoryRelativePath(value: unknown, missingFallback: string): string {
+  if (typeof value !== "string" || value.length === 0) {
+    return missingFallback;
+  }
+  return safeRelativePath(value) ? value : REDACTED_PATH;
+}
+
 export interface LocalEvidenceDiagnosticInput {
   readonly code: string;
   readonly severity?: LocalEvidenceSeverity;
@@ -105,24 +163,6 @@ function compareClaims(left: LocalEvidenceClaim, right: LocalEvidenceClaim): num
     || compareText(canonicalKey(left), canonicalKey(right));
 }
 
-function redactText(input: string): string {
-  return input
-    .replace(/\b[A-Za-z]:[\\/][^\s"']+/g, "<redacted-path>")
-    .replace(/\\\\[^\\\s]+\\[^\s"']+/g, "<redacted-path>")
-    .replace(/(^|[\s(])\/(?:home|Users|tmp|var|private)\/[^\s"']+/g, "$1<redacted-path>")
-    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi, "<redacted-id>")
-    .replace(/\bhttps?:\/\/(?![^\s/]*\.example\.test\b)[^\s"']+/g, "<redacted-url>")
-    .replace(/\b(?!user@example\.test\b)[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, "<redacted-email>")
-    .replace(/\bBearer\s+[^\s"']+/gi, "Bearer <redacted-secret>");
-}
-
-function redactPathBearingText(input: string): string {
-  return redactText(input)
-    .replace(/\b(?!https?:\/\/[^\s/]*\.example\.test\b)[a-z][a-z0-9+.-]*:(?:\/\/|[\\/])[^\s"']+/gi, "<redacted-url>")
-    .replace(/(^|[\s("'`])(?:\.\.?[\\/])+(?:[^\s"']+)/g, "$1<redacted-path>")
-    .replace(/(^|[\s("'`])\/[^\s"']+/g, "$1<redacted-path>");
-}
-
 function redactValue(value: unknown): unknown {
   if (typeof value === "string") {
     return redactPathBearingText(value);
@@ -177,25 +217,8 @@ function isJsonSafeValue(value: unknown, ancestors = new Set<object>()): boolean
   }
 }
 
-function safeRelativePath(value: string): boolean {
-  if (
-    value.length === 0
-    || value.startsWith("/")
-    || value.startsWith("\\")
-    || value.includes("\\")
-    || value.includes(":")
-    || /[\u0000-\u001f\u007f]/.test(value)
-  ) {
-    return false;
-  }
-  return value.split("/").every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
-}
-
 function normalizedPath(value: unknown, fallback: string): string {
-  if (typeof value !== "string" || value.length === 0) {
-    return fallback;
-  }
-  return safeRelativePath(value) ? value : "<redacted-path>";
+  return sanitizeRepositoryRelativePath(value, fallback);
 }
 
 function normalizedStatus(value: unknown): LocalEvidenceStatus | undefined {
@@ -289,11 +312,11 @@ function normalizedDiagnostics(
     }
     const path = normalizedPath(diagnostic.path ?? diagnostic.artifactPath, fallbackPath);
     const normalized: LocalEvidenceDiagnostic = {
-      code: redactText(diagnostic.code),
+      code: redactPathBearingText(diagnostic.code),
       severity: diagnostic.severity ?? "info",
       message: redactPathBearingText(diagnostic.message),
       artifactPath: path,
-      ...(diagnostic.jsonPointer === undefined ? {} : { jsonPointer: redactText(diagnostic.jsonPointer) }),
+      ...(diagnostic.jsonPointer === undefined ? {} : { jsonPointer: redactPathBearingText(diagnostic.jsonPointer) }),
       ...(diagnostic.expected === undefined ? {} : { expected: redactValue(diagnostic.expected) }),
       ...(diagnostic.actual === undefined ? {} : { actual: redactValue(diagnostic.actual) }),
       ...(diagnostic.remediation === undefined ? {} : { remediation: redactPathBearingText(diagnostic.remediation) }),

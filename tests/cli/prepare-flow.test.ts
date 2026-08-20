@@ -127,6 +127,65 @@ test("unreadable inputs retain the route command and use input remediation", asy
   assert.match(result.report.diagnostics[0]?.remediation ?? "", /readable synthetic JSON input/);
 });
 
+test("prepare and validate flow sanitize unsafe input paths in JSON and text errors", async () => {
+  const { connectionsPath } = await writeInputs();
+  const unsafePaths = [
+    "../../tenant/private.json",
+    "/opt/private/tenant.json",
+    "file:///Users/private/tenant.json",
+    "file:../../tenant/private.json",
+    "foo/../../tenant/private.json",
+    "safe\\..\\secret",
+    "s3://bucket/private.json",
+  ];
+
+  for (const route of ["prepare", "validate"] as const) {
+    for (const unsafePath of unsafePaths) {
+      for (const format of ["json", "text"] as const) {
+        const result = format === "json"
+          ? await runJson([route, "flow", unsafePath, "--connections", connectionsPath, "--format", format])
+          : await runText([route, "flow", unsafePath, "--connections", connectionsPath, "--format", format]);
+        const output = format === "json"
+          ? JSON.stringify(result.report)
+          : result.stdout;
+
+        assert.equal(result.exitCode, 2, `${route} ${format} ${unsafePath}`);
+        assert.doesNotMatch(output, new RegExp(unsafePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+        assert.match(output, /<redacted-path>|<redacted-url>/);
+      }
+    }
+  }
+});
+
+test("prepare flow sanitizes unsafe explicit output paths in JSON and text errors", async () => {
+  const { definitionPath, connectionsPath } = await writeInputs();
+  const unsafePaths = [
+    "../../tenant/private.json",
+    "/opt/private/tenant.json",
+    "file:///Users/private/tenant.json",
+    "file:../../tenant/private.json",
+    "foo/../../tenant/private.json",
+    "safe\\..\\secret",
+    "s3://bucket/private.json",
+  ];
+
+  for (const unsafePath of unsafePaths) {
+    const outputPath = `${unsafePath}/prepared.json`;
+    for (const format of ["json", "text"] as const) {
+      const result = format === "json"
+        ? await runJson(["prepare", "flow", definitionPath, "--connections", connectionsPath, "--output", outputPath, "--format", format])
+        : await runText(["prepare", "flow", definitionPath, "--connections", connectionsPath, "--output", outputPath, "--format", format]);
+      const output = format === "json"
+        ? JSON.stringify(result.report)
+        : result.stdout;
+
+      assert.equal(result.exitCode, 2, `${format} ${unsafePath}`);
+      assert.doesNotMatch(output, new RegExp(unsafePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      assert.match(output, /<redacted-path>|<redacted-url>/);
+    }
+  }
+});
+
 test("prepare flow never overwrites an input and writes only to explicit output", async () => {
   const { directory, definitionPath, connectionsPath } = await writeInputs();
   const original = await readFile(definitionPath, "utf8");

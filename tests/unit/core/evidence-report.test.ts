@@ -211,6 +211,14 @@ describe("local evidence report builder", () => {
       "file:///Users/private/tenant.json",
       "C:\\Users\\private\\x",
       "\\\\server\\share\\x",
+      "foo/../../tenant/private.json",
+      "foo/../tenant/private.json",
+      "x=../../tenant/private.json",
+      "file:../../tenant/private.json",
+      "C:relative\\secret",
+      "safe\\..\\secret",
+      "s3://bucket/private.json",
+      "opaque:../../tenant/private.json",
     ];
 
     for (const unsafePath of unsafePaths) {
@@ -287,9 +295,11 @@ describe("local evidence report builder", () => {
           path: "flows/safe.json",
           result: "PASS",
           diagnostics: [{
-            code: "UNSAFE-PROSE",
+            code: unsafePath,
             message: `Found ${unsafePath}.`,
             remediation: `Remove ${unsafePath}.`,
+            expected: { path: unsafePath },
+            actual: [unsafePath],
           }],
         },
         localArtifacts: [{

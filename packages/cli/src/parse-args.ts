@@ -2,6 +2,11 @@ import {
   parseArgs,
   type ParseArgsOptionsConfig,
 } from "node:util";
+import {
+  REDACTED_PATH,
+  redactPathBearingText,
+  sanitizeRepositoryRelativePath,
+} from "@spflow/core/evidence-report";
 
 export type ExitCode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type OutputFormat = "json" | "text";
@@ -190,18 +195,30 @@ function replaceSensitiveText(input: string, sensitiveValues: readonly string[])
     .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi, "<redacted-id>");
 }
 
-function redactValue(value: unknown, sensitiveValues: readonly string[]): unknown {
+function redactValue(
+  value: unknown,
+  sensitiveValues: readonly string[],
+  key?: string,
+): unknown {
   if (typeof value === "string") {
-    return replaceSensitiveText(value, sensitiveValues);
+    const redacted = replaceSensitiveText(value, sensitiveValues);
+    if (key === "artifactPath" || key === "path" || key === "outputPath"
+      || key === "definitionPath" || key === "connectionsPath") {
+      return sanitizeRepositoryRelativePath(redacted, REDACTED_PATH);
+    }
+    if (key === "jsonPointer") {
+      return redacted;
+    }
+    return redactPathBearingText(redacted);
   }
   if (Array.isArray(value)) {
-    return value.map((item) => redactValue(item, sensitiveValues));
+    return value.map((item) => redactValue(item, sensitiveValues, key));
   }
   if (value !== null && typeof value === "object") {
     return Object.fromEntries(
       Object.entries(value).map(([key, item]) => [
-        replaceSensitiveText(key, sensitiveValues),
-        redactValue(item, sensitiveValues),
+        redactPathBearingText(replaceSensitiveText(key, sensitiveValues)),
+        redactValue(item, sensitiveValues, key),
       ]),
     );
   }
@@ -215,22 +232,8 @@ export function redactCommandReport(
   return redactValue(report, sensitiveValues) as CommandReport;
 }
 
-function safeRelativeCliPath(value: string): boolean {
-  if (
-    value.length === 0
-    || value.startsWith("/")
-    || value.startsWith("\\")
-    || value.includes("\\")
-    || value.includes(":")
-    || /[\u0000-\u001f\u007f]/.test(value)
-  ) {
-    return false;
-  }
-  return value.split("/").every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
-}
-
 export function sanitizeCliPath(value: string): string {
-  return safeRelativeCliPath(value) ? value : "<redacted-path>";
+  return sanitizeRepositoryRelativePath(value, REDACTED_PATH);
 }
 
 function parseFormat(value: string | undefined): OutputFormat {
