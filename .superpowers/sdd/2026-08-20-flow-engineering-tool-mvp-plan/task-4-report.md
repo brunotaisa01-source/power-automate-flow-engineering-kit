@@ -147,6 +147,94 @@ credential, or raw payload was added to the public files.
 - `remaining_blockers`: final-head GitHub Actions matrix; live provider auth/rebind/readback/UAT; unavailable official scanner
 - `delegated_subagents`: `0`
 
+## Fix round 2
+
+### Status and scope
+
+`DONE` for the final documentation gap reported in
+`.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-4-rereview.md`.
+The implementation commit is
+`c76e3231f533b6099462c9d8274d95bd62bf0f93` (`docs: map Task 1-3 APIs in release checklist`).
+It changes only the release checklist and its focused documentation test. The
+coordinator ledger was not edited. No agent was spawned or coordinated.
+
+### Fix-round RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Result before the fix: exit `1`; **8 tests ran, 7 passed, 1 failed** because
+the checklist-specific API mapping assertion could not find the Task 1 API.
+
+### Fix-round GREEN
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Result: exit `0`; **8/8 passed**. The checklist now repeats the exact Task 1–3
+API names, package exports, and local/provider/UAT evidence boundaries:
+
+- `preparePowerAutomateDefinition` from `@spflow/core/flow-save` — local
+  package preparation/validation only.
+- `createLocalEvidenceReport(input): LocalEvidenceReport` from
+  `@spflow/core/evidence-report` — `LOCAL`/`LOCAL_SYNTHETIC` only; provider/UAT
+  remain `NOT_VERIFIED`.
+- `validateReadonlyProviderSnapshot(snapshot)` from
+  `@spflow/core/provider-readonly` — pure offline/read-only metadata contract,
+  not live provider auth/rebind/readback/UAT.
+
+### Verification evidence
+
+All results are `LOCAL`/`LOCAL_SYNTHETIC` evidence only:
+
+```text
+npm test
+```
+
+Exit `0`; **294/294 tests passed** across 14 suites.
+
+```text
+npm_config_offline=true npm run check
+```
+
+Exit `0`; **410/410 tests passed**, **19 portable-check gates passed**, and npm
+audit reported **0 vulnerabilities**. The check includes the build.
+
+Supplemental privacy scan: **0 markers** across the public Task 4 docs,
+fixture, release checklist, and handoff. Documentation links: **16 checked,
+0 missing**. `git diff --check` was clean.
+
+The final-head GitHub Actions matrix and all live provider/UAT gates remain
+unchanged from fix round 1: `NOT_RUN`/`PENDING` or `NOT_VERIFIED`. The official
+history-aware public-data scanner remains unavailable and is classified
+`NOT_RUN` with exit `8`, never PASS.
+
+### No-tenant statement
+
+Fix round 2 performed no external/provider/tenant/Power Automate/Dataverse
+access or mutation, no import, rebind, save, enablement, execution, readback,
+publication, UAT, push, merge, or agent coordination. No raw local evidence or
+private values were added.
+
+### Fix-round completion fields
+
+- `incident_id`: `N/A` — final documentation correction, no production incident
+- `status`: `GREEN_LOCAL; RELEASE_BLOCKED_EXTERNAL_GATES`
+- `wave/task`: Flow Engineering Tool MVP / Task 4 fix round 2
+- `red_command/result`: focused Dataverse skill test; exit 1, 8 total, 7 pass, 1 intended failure
+- `green_command/result`: focused Dataverse skill test; exit 0, 8/8 pass
+- `files`: 2 implementation files plus this updated handoff
+- `review_status`: fix round ready for final independent coordinator re-review
+- `evidence_class`: `LOCAL_SYNTHETIC`
+- `remaining_blockers`: final-head GitHub Actions matrix; live provider auth/rebind/readback/UAT; unavailable official scanner
+- `delegated_subagents`: `0`
+
 ## Fix round 1
 
 ### Status and scope
