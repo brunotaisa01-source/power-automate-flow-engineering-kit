@@ -20,13 +20,14 @@ function walkFiles(root) {
   return files.sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
 }
 
-function command(label, executable, args, cwd) {
-  return { label, executable, args, cwd, shell: false };
+function command(label, executable, args, cwd, shell = false) {
+  return { label, executable, args, cwd, shell };
 }
 
-export function buildCheckCommands(root) {
+export function buildCheckCommands(root, platform = process.platform) {
   const node = process.execPath;
-  const npm = npmExecutable();
+  const npm = platform === "win32" ? "npm.cmd" : npmExecutable();
+  const npmShell = platform === "win32";
   const cli = join(root, "packages", "cli", "dist", "bin", "spflow.js");
   const example = join(root, "examples", "minimal-public-app");
   const connectorProfiles = walkFiles(join(example, "connectors"))
@@ -35,7 +36,7 @@ export function buildCheckCommands(root) {
     .filter((file) => file.endsWith(".test.ts") || file.endsWith(".test.mjs"));
 
   return [
-    command("build", npm, ["run", "build"], root),
+    command("build", npm, ["run", "build"], root, npmShell),
     command("test", node, ["--experimental-strip-types", "--test", ...testFiles], root),
     command(
       "validate contract",
@@ -79,7 +80,7 @@ export function buildCheckCommands(root) {
     command("plugin readonly manifest", node, [cli, "plugin", "readonly", "getManifest", "--format", "json"], root),
     command("plugin readonly discover", node, [cli, "plugin", "readonly", "discover", "--connector", "excel", "--format", "json"], root),
     command("plugin readonly preflight", node, [cli, "plugin", "readonly", "preflight", "--format", "json"], root),
-    command("npm audit", npm, ["audit", "--audit-level=high"], root),
+    command("npm audit", npm, ["audit", "--audit-level=high"], root, npmShell),
   ];
 }
 

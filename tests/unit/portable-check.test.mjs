@@ -16,3 +16,13 @@ test("portable check exposes platform-neutral argument arrays for every required
   assert.ok(commands.every((command) => command.shell === false));
   assert.ok(commands.every((command) => !command.args.some((arg) => /&&|\|/.test(arg))));
 });
+
+test("portable check uses the Windows command shell only for npm.cmd", () => {
+  const commands = buildCheckCommands(process.cwd(), "win32");
+  const npmCommands = commands.filter((command) => command.executable === "npm.cmd");
+  const nodeCommands = commands.filter((command) => command.executable === process.execPath);
+
+  assert.ok(npmCommands.length > 0);
+  assert.ok(npmCommands.every((command) => command.shell === true));
+  assert.ok(nodeCommands.every((command) => command.shell === false));
+});
