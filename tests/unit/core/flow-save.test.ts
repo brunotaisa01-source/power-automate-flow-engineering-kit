@@ -80,3 +80,41 @@ test("fails closed when an OpenApiConnection alias has no declared logical refer
       && error.code === "MISSING_CONNECTION_REFERENCE",
   );
 });
+
+test("fails closed when present branch containers are malformed", () => {
+  const malformedBranches = [
+    {
+      name: "else without actions",
+      mutate(source: ReturnType<typeof sourceDefinition>) {
+        source.actions.Condition.else = {};
+      },
+      path: "/actions/Condition/else/actions",
+    },
+    {
+      name: "default with non-object actions",
+      mutate(source: ReturnType<typeof sourceDefinition>) {
+        source.actions.Condition.default = { actions: "synthetic-invalid-actions" };
+      },
+      path: "/actions/Condition/default/actions",
+    },
+    {
+      name: "case with non-object entry",
+      mutate(source: ReturnType<typeof sourceDefinition>) {
+        source.actions.Condition.cases = { BrokenCase: "synthetic-invalid-case" };
+      },
+      path: "/actions/Condition/cases/BrokenCase",
+    },
+  ] as const;
+
+  for (const fixture of malformedBranches) {
+    const source = sourceDefinition();
+    fixture.mutate(source);
+    assert.throws(
+      () => preparePowerAutomateDefinition(source, connectionReferences),
+      (error: unknown) => error instanceof FlowDefinitionPreparationError
+        && error.code === "INVALID_DEFINITION"
+        && error.path === fixture.path,
+      fixture.name,
+    );
+  }
+});

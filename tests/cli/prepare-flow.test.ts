@@ -249,3 +249,41 @@ test("prepare flow recursively handles else and default branches", async () => {
   assert.equal(prepared.actions.Condition.else.actions.ElseAction.inputs.host.connectionReferenceName, "prp_synthetic_reference");
   assert.equal(prepared.actions.Condition.default.actions.DefaultAction.inputs.host.connectionReferenceName, "prp_synthetic_reference");
 });
+
+test("prepare and validate flow reject malformed present branch containers", async () => {
+  const { directory, connectionsPath } = await writeInputs();
+  const malformedBranches = [
+    {
+      name: "else without actions",
+      branch: { else: {} },
+      path: "/actions/Root/else/actions",
+    },
+    {
+      name: "default with string actions",
+      branch: { default: { actions: "synthetic-invalid-actions" } },
+      path: "/actions/Root/default/actions",
+    },
+    {
+      name: "string-valued case entry",
+      branch: { cases: { BrokenCase: "synthetic-invalid-case" } },
+      path: "/actions/Root/cases/BrokenCase",
+    },
+  ] as const;
+
+  for (const route of ["prepare", "validate"] as const) {
+    for (const fixture of malformedBranches) {
+      const definitionPath = join(directory, `${route}-${fixture.name.replaceAll(" ", "-")}.json`);
+      const malformed = { actions: { Root: { type: "If", ...fixture.branch } } };
+      await writeFile(definitionPath, JSON.stringify(malformed), "utf8");
+      const result = await runJson([route, "flow", definitionPath, "--connections", connectionsPath, "--format", "json"]);
+
+      assert.equal(result.exitCode, 1, `${route} ${fixture.name}`);
+      assert.equal(result.report.command, `${route} flow`, `${route} ${fixture.name}`);
+      assert.equal(result.report.result, "FAIL", `${route} ${fixture.name}`);
+      assert.equal(result.report.diagnostics[0]?.code, "INVALID_DEFINITION", `${route} ${fixture.name}`);
+      assert.equal(result.report.diagnostics[0]?.jsonPointer, fixture.path, `${route} ${fixture.name}`);
+      assert.equal(result.report.data, undefined, `${route} ${fixture.name}`);
+      assert.doesNotMatch(result.report.diagnostics[0]?.artifactPath ?? "", /spflow-task-1-|[/\\](?:private|tmp)[/\\]/, `${route} ${fixture.name}`);
+    }
+  }
+});

@@ -43,6 +43,10 @@ function nonEmptyString(value: unknown): string | undefined {
   return typeof value === "string" && value.length > 0 ? value : undefined;
 }
 
+function hasOwn(record: JsonRecord, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(record, key);
+}
+
 function connectionReferenceEntries(connectionReferences: unknown): Array<[string, JsonRecord]> {
   if (!isRecord(connectionReferences)) {
     throw new FlowDefinitionPreparationError(
@@ -145,20 +149,54 @@ function visitActions(
     }
 
     visitActions(actionValue.actions, references, `${actionPath}/actions`);
-    if (isRecord(actionValue.else)) {
-      visitActions(actionValue.else.actions, references, `${actionPath}/else/actions`);
+    if (hasOwn(actionValue, "else")) {
+      visitRequiredBranch(actionValue.else, references, `${actionPath}/else`);
     }
-    if (isRecord(actionValue.default)) {
-      visitActions(actionValue.default.actions, references, `${actionPath}/default/actions`);
+    if (hasOwn(actionValue, "default")) {
+      visitRequiredBranch(actionValue.default, references, `${actionPath}/default`);
     }
-    if (isRecord(actionValue.cases)) {
+    if (hasOwn(actionValue, "cases")) {
+      if (!isRecord(actionValue.cases)) {
+        throw new FlowDefinitionPreparationError(
+          "INVALID_DEFINITION",
+          `Power Automate case container '${actionPath}/cases' must be an object.`,
+          `${actionPath}/cases`,
+        );
+      }
       for (const [caseName, caseValue] of Object.entries(actionValue.cases)) {
-        if (isRecord(caseValue)) {
-          visitActions(caseValue.actions, references, `${actionPath}/cases/${caseName}/actions`);
+        if (!isRecord(caseValue)) {
+          throw new FlowDefinitionPreparationError(
+            "INVALID_DEFINITION",
+            `Power Automate case '${actionPath}/cases/${caseName}' must be an object.`,
+            `${actionPath}/cases/${caseName}`,
+          );
         }
+        visitRequiredBranch(caseValue, references, `${actionPath}/cases/${caseName}`);
       }
     }
   }
+}
+
+function visitRequiredBranch(
+  branch: unknown,
+  references: readonly [string, JsonRecord][],
+  branchPath: string,
+): void {
+  if (!isRecord(branch)) {
+    throw new FlowDefinitionPreparationError(
+      "INVALID_DEFINITION",
+      `Power Automate branch '${branchPath}' must be an object.`,
+      branchPath,
+    );
+  }
+  if (!hasOwn(branch, "actions")) {
+    throw new FlowDefinitionPreparationError(
+      "INVALID_DEFINITION",
+      `Power Automate branch '${branchPath}' is missing actions.`,
+      `${branchPath}/actions`,
+    );
+  }
+  visitActions(branch.actions, references, `${branchPath}/actions`);
 }
 
 /**
