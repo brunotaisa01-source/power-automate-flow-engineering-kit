@@ -1,0 +1,194 @@
+{
+  "$id": "provider-readonly.schema.json",
+  "title": "Offline read-only provider snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "claimClass",
+    "identityCorrelation",
+    "adapter",
+    "environment",
+    "solution",
+    "flows",
+    "connectionReferences",
+    "capabilities",
+    "evidence"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "claimClass": { "enum": ["LOCAL_SYNTHETIC", "PROVIDER_READBACK"] },
+    "identityCorrelation": { "$ref": "#/$defs/identifier" },
+    "adapter": { "$ref": "#/$defs/adapter" },
+    "environment": { "$ref": "#/$defs/environment" },
+    "solution": { "$ref": "#/$defs/solution" },
+    "flows": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/flow" }
+    },
+    "connectionReferences": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/connectionReference" }
+    },
+    "capabilities": { "$ref": "#/$defs/capabilities" },
+    "evidence": { "$ref": "#/$defs/evidence" }
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9 ._-]*$"
+    },
+    "correlated": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "mode", "networkMode", "tenantMutation"],
+      "properties": {
+        "id": { "const": "spflow.provider-readonly" },
+        "mode": { "const": "read-only" },
+        "networkMode": { "const": "offline" },
+        "tenantMutation": { "const": false }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "identityCorrelation"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "displayName": { "$ref": "#/$defs/displayName" },
+        "identityCorrelation": { "$ref": "#/$defs/correlated" }
+      }
+    },
+    "solution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "uniqueName", "displayName", "version", "identityCorrelation", "state"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "uniqueName": { "$ref": "#/$defs/identifier" },
+        "displayName": { "$ref": "#/$defs/displayName" },
+        "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+        "identityCorrelation": { "$ref": "#/$defs/correlated" },
+        "state": { "const": "present" }
+      }
+    },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "state", "identityCorrelation", "connectionReferenceIds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "displayName": { "$ref": "#/$defs/displayName" },
+        "state": { "enum": ["present", "disabled"] },
+        "identityCorrelation": { "$ref": "#/$defs/correlated" },
+        "connectionReferenceIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        }
+      }
+    },
+    "connectionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "displayName", "connector", "state", "identityCorrelation", "matchCount", "flowIds"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "displayName": { "$ref": "#/$defs/displayName" },
+        "connector": { "$ref": "#/$defs/identifier" },
+        "state": { "const": "resolved" },
+        "identityCorrelation": { "$ref": "#/$defs/correlated" },
+        "matchCount": { "const": 1 },
+        "flowIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/identifier" }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "networkMode", "tenantMutation", "operations", "forbiddenOperations"],
+      "properties": {
+        "mode": { "const": "read-only" },
+        "networkMode": { "const": "offline" },
+        "tenantMutation": { "const": false },
+        "operations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^(read|get|list|inspect|discover)[A-Za-z0-9-]*$" }
+        },
+        "forbiddenOperations": {
+          "type": "array",
+          "minItems": 7,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+        }
+      }
+    },
+    "readback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["authority", "status", "identityCorrelation", "observedFields"],
+      "properties": {
+        "authority": { "enum": ["provider", "uat"] },
+        "status": { "const": "PASS" },
+        "identityCorrelation": { "$ref": "#/$defs/correlated" },
+        "observedFields": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["environment", "solution", "flows", "connectionReferences", "flow", "trigger", "outcome", "provider"]
+          }
+        }
+      }
+    },
+    "localEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claimClass", "status"],
+      "properties": {
+        "claimClass": { "const": "LOCAL_SYNTHETIC" },
+        "status": { "enum": ["PASS", "FAIL", "NOT_RUN"] }
+      }
+    },
+    "externalEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claimClass", "status"],
+      "properties": {
+        "claimClass": { "enum": ["PROVIDER", "UAT"] },
+        "status": { "enum": ["PASS", "FAIL", "NOT_VERIFIED"] },
+        "authoritativeReadback": { "$ref": "#/$defs/readback" }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["local", "provider", "uat"],
+      "properties": {
+        "local": { "$ref": "#/$defs/localEvidence" },
+        "provider": { "$ref": "#/$defs/externalEvidence" },
+        "uat": { "$ref": "#/$defs/externalEvidence" }
+      }
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "schemaVersion": "1.0",
+  "claimClass": "LOCAL_SYNTHETIC",
+  "identityCorrelation": "synthetic-correlation-001",
+  "adapter": {
+    "id": "spflow.provider-readonly",
+    "mode": "read-only",
+    "networkMode": "offline",
+    "tenantMutation": false
+  },
+  "environment": {
+    "id": "synthetic-environment-001",
+    "displayName": "Synthetic Environment",
+    "identityCorrelation": "synthetic-correlation-001"
+  },
+  "solution": {
+    "id": "synthetic-solution-001",
+    "uniqueName": "synthetic_solution",
+    "displayName": "Synthetic Solution",
+    "version": "1.0.0",
+    "identityCorrelation": "synthetic-correlation-001",
+    "state": "present"
+  },
+  "flows": [
+    {
+      "id": "synthetic-flow-001",
+      "displayName": "Synthetic Read Flow",
+      "state": "present",
+      "identityCorrelation": "synthetic-correlation-001",
+      "connectionReferenceIds": ["synthetic-connection-reference-001"]
+    }
+  ],
+  "connectionReferences": [
+    {
+      "id": "synthetic-connection-reference-001",
+      "displayName": "Synthetic Dataverse Connection",
+      "connector": "dataverse",
+      "state": "resolved",
+      "identityCorrelation": "synthetic-correlation-001",
+      "matchCount": 1,
+      "flowIds": ["synthetic-flow-001"]
+    }
+  ],
+  "capabilities": {
+    "mode": "read-only",
+    "networkMode": "offline",
+    "tenantMutation": false,
+    "operations": [
+      "read-environment",
+      "read-solution",
+      "read-flow",
+      "read-connection-reference"
+    ],
+    "forbiddenOperations": [
+      "import",
+      "rebind",
+      "publish",
+      "enable",
+      "trigger",
+      "update",
+      "delete"
+    ]
+  },
+  "evidence": {
+    "local": {
+      "claimClass": "LOCAL_SYNTHETIC",
+      "status": "PASS"
+    },
+    "provider": {
+      "claimClass": "PROVIDER",
+      "status": "NOT_VERIFIED"
+    },
+    "uat": {
+      "claimClass": "UAT",
+      "status": "NOT_VERIFIED"
+    }
+  }
+}

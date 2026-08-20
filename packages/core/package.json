@@ -12,6 +12,7 @@
     "./connector-runtime-harness": "./dist/connector-runtime-harness.js",
     "./flow-save": "./dist/flow-save.js",
     "./evidence-report": "./dist/evidence-report.js",
+    "./provider-readonly": "./dist/provider-readonly.js",
     "./readonly-plugin": "./dist/readonly-plugin.js",
     "./self-improvement": "./dist/self-improvement.js",
     "./types/*": "./dist/types/*.js"
