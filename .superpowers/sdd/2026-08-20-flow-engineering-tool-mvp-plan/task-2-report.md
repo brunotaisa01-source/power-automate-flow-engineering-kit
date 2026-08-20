@@ -260,3 +260,52 @@ All evidence remains synthetic and local/offline. Provider and UAT remain `NOT_V
 ### Whole-branch fix commit
 
 `330afbeb39c2e9cd999638f0969ce7df5bd4c3db` (`fix: harden evidence paths and hostile inputs`).
+
+## Whole-branch fix round 2 — I-2 public report boundary
+
+### Scope and status
+
+DONE for the remaining whole-branch I-2 finding only. Unsafe path forms are now sanitized across core report prose, remediation, artifact-kind-derived claim IDs, claim/diagnostic paths, and CLI unreadable-input diagnostics. Task 1, provider/UAT boundaries, and hostile-input fail-closed behavior remain unchanged. No coordinator ledger files were edited; no agents, provider, tenant, Power Automate, Dataverse, push, merge, or publish action was used.
+
+### Changed files
+
+- `packages/core/src/evidence-report.ts` — path-bearing text sanitizer for traversal, POSIX absolute, drive, UNC, file/scheme paths; artifact-kind and nested string sanitization.
+- `packages/cli/src/parse-args.ts` — reusable strict CLI relative-path sanitizer.
+- `packages/cli/src/commands/report-evidence.ts` — sanitize user paths before input diagnostics are constructed.
+- `tests/unit/core/evidence-report.test.ts` — unsafe diagnostic prose/kind-ID regressions and ordinary-prose/safe-kind control.
+- `tests/cli/report-evidence.test.ts` — all five unsafe missing-input paths across JSON and text output.
+
+### RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts
+```
+
+Result: expected RED with 2 failures. Core report prose and artifact-kind claim IDs still emitted unsafe paths, and CLI unreadable-input diagnostics preserved the supplied unsafe path.
+
+### GREEN and verification
+
+- `npm run build` — exit 0.
+- `node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts` — 26 passed, 0 failed.
+- `node --experimental-strip-types --test tests/cli/*.test.ts tests/unit/cli/*.test.ts tests/unit/core/evidence-report.test.ts tests/unit/core/flow-save.test.ts` — 79 passed, 0 failed; Task 1 flow behavior remained green.
+- `npm test` — 299 passed, 0 failed.
+- `npm_config_offline=true npm run check` — exit 0; explicit inventory reported 421 tests passed, 0 failed, all 19 portable-check gates passed, and npm audit reported 0 vulnerabilities.
+- `git diff --check` — clean.
+- Production privacy scan over `packages/core/src/evidence-report.ts`, `packages/cli/src/commands/report-evidence.ts`, and `packages/cli/src/parse-args.ts` for the five unsafe fixture forms — no unsafe fixture values found.
+
+### Fix design decisions
+
+- Core `redactPathBearingText` removes traversal, arbitrary POSIX absolute, Windows drive/UNC, file URI, and other scheme-bearing path forms from messages, remediation, nested values/keys, and artifact-kind-derived IDs while preserving ordinary prose and reserved `example.test` URLs.
+- Artifact `kind` values now pass through the same path-bearing sanitizer before claim IDs are built; explicit path fields continue to use strict repository-relative normalization.
+- CLI `sanitizeCliPath` applies the same strict relative-path policy to `report evidence` input errors before `CommandReport` construction, so JSON and text diagnostics never expose unsafe user paths. Safe relative paths remain visible and supported.
+- Provider and UAT remain hard-coded `NOT_VERIFIED`; no local report is promoted to provider PASS.
+
+### Evidence boundary and remaining limitations
+
+All evidence remains synthetic and local/offline. No provider readback, hosted execution, UAT, tenant import, rebinding, enablement, publication, or flow execution was attempted. Cross-platform CI and the separate whole-branch I-6 npm inventory/documentation issue remain outside this Task 2 fix scope.
+
+### Whole-branch fix round 2 commit
+
+`a4e7a98d342b0d9c5647676a1d369a39577a5bf6` (`fix: sanitize evidence report path boundary`).
