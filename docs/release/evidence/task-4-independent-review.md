@@ -20,3 +20,6 @@ Whole-branch correction candidate controls:
 - Mutation/RED command: `node --experimental-strip-types --test --test-name-pattern="Task 4 catalog mutation/RED" tests/skills/dataverse-flow-engineering-kit-skill.test.ts` — 1/1 passed; empty `red.failure` rejected with `CATALOG_RED_FAILURE_REQUIRED`.
 - Full local suite: 418/418 passed.
 - Offline portable check: 418/418 tests, 19 gates, 0 audit vulnerabilities.
+
+The subsequent I-6 runner correction makes the exact root `npm test` command
+use the same complete inventory as portable-check: **422/422** in both routes.

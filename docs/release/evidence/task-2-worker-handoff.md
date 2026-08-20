@@ -17,3 +17,9 @@ Recorded local evidence:
 - Malformed, cyclic, unsupported, private, and ordering cases fail closed.
 
 Provider readback, hosted runtime readback, and UAT remain `NOT_VERIFIED`.
+
+Current whole-branch test-runner parity evidence: `npm test` delegates to the
+maintained shell-neutral runner and passed **422/422**; offline
+`npm run check` passed **422/422** with 19 gates and 0 audit vulnerabilities.
+The historical Task 2 checkpoint counts above remain unchanged and are not
+recast as Task 2 implementation counts.

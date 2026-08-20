@@ -1,23 +1,10 @@
-import { readdirSync } from "node:fs";
 import { join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import { discoverTestFiles, walkFiles } from "./test-all.mjs";
 
 function npmExecutable() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
-}
-
-function walkFiles(root) {
-  const files = [];
-  for (const entry of readdirSync(root, { withFileTypes: true })) {
-    const absolute = join(root, entry.name);
-    if (entry.isDirectory()) {
-      files.push(...walkFiles(absolute));
-    } else {
-      files.push(absolute);
-    }
-  }
-  return files.sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
 }
 
 function command(label, executable, args, cwd, shell = false) {
@@ -32,8 +19,7 @@ export function buildCheckCommands(root, platform = process.platform) {
   const example = join(root, "examples", "minimal-public-app");
   const connectorProfiles = walkFiles(join(example, "connectors"))
     .filter((file) => file.endsWith(".profile.json"));
-  const testFiles = walkFiles(join(root, "tests"))
-    .filter((file) => file.endsWith(".test.ts") || file.endsWith(".test.mjs"));
+  const testFiles = discoverTestFiles(root);
 
   return [
     command("build", npm, ["run", "build"], root, npmShell),

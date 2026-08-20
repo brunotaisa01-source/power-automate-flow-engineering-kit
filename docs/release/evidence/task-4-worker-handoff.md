@@ -27,3 +27,8 @@ The Task 4 worker scope has no tenant/provider access, import, rebind,
 execution, mutation, publication, or UAT action. Current release blockers
 remain the final-head GitHub Actions matrix, live provider auth/rebind/readback,
 UAT, and the unavailable official history-aware scanner.
+
+Current whole-branch I-6 parity evidence: `npm test` uses
+`scripts/test-all.mjs` and passed **422/422**, matching offline
+`npm run check` at **422/422** across 19 gates. The runner includes nested
+`.test.ts` and `.test.mjs` files on all supported shells.

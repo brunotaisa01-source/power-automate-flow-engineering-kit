@@ -61,6 +61,10 @@ and private-marker rejection. The official history-aware public-data scanner
 is an independent gate: if its engine is unavailable, record its exit `8` and
 `NOT_RUN`; never convert that result to PASS.
 
+`npm test` delegates to `scripts/test-all.mjs`, which shares the same recursive,
+shell-neutral test inventory as `npm run check` and includes both `.test.ts` and
+`.test.mjs` files in deterministic POSIX order.
+
 ## Current local evidence
 
 The following committed, sanitized summaries are the release traceability
@@ -109,7 +113,7 @@ fails closed. Neither control executes a live connector or establishes
 provider/UAT evidence.
 
 Current whole-branch correction candidate evidence: focused Task 4 suite 11/11,
-full `npm test` 418/418, and offline `npm run check` 418/418 with 19 gates and
+full `npm test` 422/422, and offline `npm run check` 422/422 with 19 gates and
 0 audit vulnerabilities. These are local results, not hosted/provider/UAT
 results.
 

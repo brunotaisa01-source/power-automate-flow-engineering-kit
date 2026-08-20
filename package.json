@@ -12,7 +12,7 @@
   ],
   "scripts": {
     "build": "tsc -b && npm run build --workspace @spflow/package-adapters && npm run build --workspace @spflow/rules && npm run build --workspace @spflow/cli",
-    "test": "node --experimental-strip-types --test tests/**/*.test.ts",
+    "test": "node scripts/test-all.mjs",
     "check": "node scripts/portable-check.mjs"
   },
   "devDependencies": {
