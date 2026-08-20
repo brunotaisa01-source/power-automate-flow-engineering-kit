@@ -146,3 +146,124 @@ credential, or raw payload was added to the public files.
 - `evidence_class`: `LOCAL_SYNTHETIC`
 - `remaining_blockers`: final-head GitHub Actions matrix; live provider auth/rebind/readback/UAT; unavailable official scanner
 - `delegated_subagents`: `0`
+
+## Fix round 1
+
+### Status and scope
+
+`DONE` for every finding in
+`.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-4-review.md`.
+The fix implementation commit is
+`be8df4fdbddcddffc36f2615964b3437117756bb` (`docs: close Task 4 review findings`).
+This fix round changed only the five allowed implementation files from that
+commit. The coordinator ledger was not edited. The worker remains retired after
+this updated handoff; no agent was spawned or coordinated.
+
+### Fix-round RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Result before the fix: exit `1`; **8 tests ran, 5 passed, 3 failed** for the
+intended review gaps: missing immutable release traceability and handoff
+citations, missing exact Task 2/3 API references, and missing documented
+catalog-harness requirements.
+
+### Fix-round GREEN
+
+Focused command:
+
+```text
+node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Result: exit `0`; **8/8 passed**.
+
+The deterministic catalog harness was also run directly:
+
+```text
+node --experimental-strip-types --test --test-name-pattern="deterministic offline Dataverse catalog consistency" tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Result: exit `0`; **1/1 passed**. It requires all 9 scenarios to have
+non-empty `red.failure` and `green.correction` fields and produces the same
+canonical result for original and reversed input order. It does not execute a
+live connector or establish provider/UAT evidence.
+
+### Fix-round verification
+
+All results are `LOCAL`/`LOCAL_SYNTHETIC` evidence only:
+
+```text
+npm test
+```
+
+Exit `0`; **294/294 tests passed** across 14 suites.
+
+```text
+npm_config_offline=true npm run check
+```
+
+Exit `0`; **410/410 tests passed**, **19 portable-check gates passed**, and npm
+audit reported **0 vulnerabilities**. The check includes the build.
+
+```text
+node packages/cli/dist/bin/spflow.js scan public-data . --history --format json
+```
+
+Exit `8`; `CLI_VALIDATOR_NOT_RUN`, residual gate `public-data-scanner`,
+`NOT_RUN`. The official scanner engine is unavailable; this is not a PASS.
+
+Supplemental privacy scan over the public Task 4 docs, fixture, release
+checklist, and handoff found **0 private markers**. Documentation consistency
+checked **16 relative links with 0 missing targets**. `git diff --check` and
+the staged diff check were clean.
+
+### Review corrections
+
+- The release checklist now records immutable review head `eaf31f8`, original
+  implementation commit `2c269c2`, the existing successful prior CI run for
+  head `b5e9c6e1a4e19bad676f180b1a48638f652ef268`, and explicitly marks the
+  final-head matrix `NOT_RUN`/`PENDING` for `eaf31f8` and any later coordinator
+  head without inventing a final-head URL or result.
+- The checklist separates exact worker-handoff paths from independent review
+  report paths for Tasks 1–4.
+- README now names the exact offline exports:
+  `preparePowerAutomateDefinition` (`@spflow/core/flow-save`),
+  `createLocalEvidenceReport(input): LocalEvidenceReport`
+  (`@spflow/core/evidence-report`), and
+  `validateReadonlyProviderSnapshot(snapshot)` (`@spflow/core/provider-readonly`),
+  with the `LOCAL_SYNTHETIC`/provider/UAT `NOT_VERIFIED` boundary.
+- The Dataverse JSON is explicitly a sanitized scenario catalog. The focused
+  test is a deterministic offline catalog-consistency harness requiring RED
+  failure and GREEN correction text for every scenario; it makes no live
+  connector claim.
+
+### Remaining limitations and no-tenant statement
+
+Final-head GitHub Actions matrix execution remains `NOT_RUN`/`PENDING` for any
+later coordinator head. Live provider authentication, connection rebind,
+provider readback, solution import/save, flow execution, semantic effects,
+publication readback, and UAT remain `NOT_VERIFIED`. The official history-aware
+public-data scanner remains unavailable with exit `8`.
+
+This fix round performed no tenant/provider/Power Automate/Dataverse import,
+rebind, save, enablement, execution, mutation, email/approval send, readback,
+publication, UAT, push, merge, or agent coordination. No raw local Dataverse
+evidence or private values were added.
+
+### Fix-round completion fields
+
+- `incident_id`: `N/A` — review/documentation correction, no production incident
+- `status`: `GREEN_LOCAL; RELEASE_BLOCKED_EXTERNAL_GATES`
+- `wave/task`: Flow Engineering Tool MVP / Task 4 fix round 1
+- `red_command/result`: focused Dataverse skill test; exit 1, 8 total, 5 pass, 3 intended failures
+- `green_command/result`: focused Dataverse skill test; exit 0, 8/8 pass
+- `files`: 5 implementation files plus this updated handoff
+- `review_status`: fix round ready for independent coordinator re-review
+- `evidence_class`: `LOCAL_SYNTHETIC`
+- `remaining_blockers`: final-head GitHub Actions matrix; live provider auth/rebind/readback/UAT; unavailable official scanner
+- `delegated_subagents`: `0`
