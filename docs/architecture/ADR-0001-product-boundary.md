@@ -3,7 +3,7 @@
 - Status: Proposed for architecture review
 - Date: 2026-08-12
 - Decision owners: Project maintainer and independent architecture reviewer
-- Scope: Public SharePoint Flow Engineering Kit
+- Scope: Public Power Automate Flow Engineering Kit
 
 ## Context
 
@@ -13,7 +13,7 @@ The public product must be useful to any AI or engineer without access to a priv
 
 ## Decision
 
-Build an agent-neutral **SharePoint Flow Engineering Kit** with the following phased boundary:
+Build an agent-neutral **Power Automate Flow Engineering Kit** with the following phased boundary:
 
 1. **Core:** normative contracts, JSON schemas, a deterministic TypeScript CLI named `spflow`, package adapters, synthetic fixtures, templates, tests, CI, and model-neutral skills.
 2. **Optional Codex plugin:** packaging for the validated skills and CLI. It may be added only after the core global verification and independent review gates pass.

@@ -9,12 +9,18 @@ or tenant-specific application with this data flow:
 frontend -> SharePoint Lists -> Power Automate -> SharePoint -> frontend
 ```
 
+This SharePoint flow is the current executable reference profile only. The skill
+and product scope are connector-neutral across Power Automate and Power Platform,
+including Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, approvals, and
+future connectors. Connector-specific runtime claims remain local/synthetic until
+separately authorized and evidenced.
+
 The product is the `spflow` CLI, project contracts, deterministic rules,
 synthetic fixtures, evidence records, and documentation. It is not a tenant
 administration API. Public commands and skills are read-only with respect to
 tenants, lists, flows, permissions, and production.
 
-Load the companion [Self-Improvement skill](../sharepoint-flow-engineering-kit-self-improvement/SKILL.md) automatically. It reads the versioned global lesson registry, captures new RED/review findings as sanitized candidates, and prevents unreviewed lessons from becoming instructions.
+Load the companion [Self-Improvement skill](../power-automate-flow-engineering-kit-self-improvement/SKILL.md) automatically. It reads the versioned global lesson registry, captures new RED/review findings as sanitized candidates, and prevents unreviewed lessons from becoming instructions.
 
 ## Non-negotiable boundaries
 

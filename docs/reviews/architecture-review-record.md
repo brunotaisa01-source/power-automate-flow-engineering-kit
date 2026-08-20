@@ -4,7 +4,7 @@
 
 `APPROVED_FOR_IMPLEMENTATION`
 
-This decision approves the local implementation of the SharePoint Flow Engineering Kit described by the architecture and specification set in this directory.
+This decision approves the local implementation of the Power Automate Flow Engineering Kit described by the architecture and specification set in this directory.
 
 It does not authorize:
 

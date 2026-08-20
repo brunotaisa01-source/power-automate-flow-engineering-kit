@@ -2,7 +2,7 @@
 
 ## 1. Purpose
 
-The SharePoint Flow Engineering Kit is an offline-first engineering and validation system for building browser applications backed by SharePoint Lists and Power Automate. It defines how an app reads state, submits commands, applies authorized transitions, packages flows, proves local behavior, and advances through tenant release gates.
+The Power Automate Flow Engineering Kit is an offline-first, connector-neutral engineering and validation system for building browser applications and Power Automate/Power Platform flows across SharePoint, Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, approvals, and future connectors. SharePoint Lists and Power Automate form the current executable reference profile; they are not the product limit. The system defines how an app reads state, submits commands, applies authorized transitions, packages flows, proves local behavior, and advances through tenant release gates.
 
 The repository is not a tenant administration tool and does not contain environment credentials, exported operational packages, or live tenant data.
 

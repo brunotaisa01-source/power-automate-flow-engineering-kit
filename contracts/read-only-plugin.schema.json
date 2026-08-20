@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://spflow.dev/schemas/read-only-plugin.schema.json",
-  "title": "SharePoint Flow Engineering Kit Read-Only Plugin Manifest",
+  "title": "Power Automate Flow Engineering Kit Read-Only Plugin Manifest",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "pluginId", "mode", "networkMode", "claimClass", "tenantMutation", "operations", "forbiddenOperations", "connectors"],
