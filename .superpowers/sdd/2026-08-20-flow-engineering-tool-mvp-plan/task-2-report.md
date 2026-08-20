@@ -166,3 +166,49 @@ All evidence remains synthetic and local/offline. Provider and UAT gates remain 
 ### Fix commit
 
 `2bba2c0d27d4b5579e45b69ed04a6509d1a0f533` (`fix: validate evidence diagnostic shapes`).
+
+## Fix round 3 / final allowed Task 2 fix
+
+### Scope and status
+
+DONE for the final re-review P1. The exported core boundary now rejects unsupported or cyclic `expected`/`actual` diagnostic values without throwing or minting local PASS, while valid JSON-safe objects and arrays remain supported. Task 1 and the provider/UAT `NOT_VERIFIED` boundary are unchanged. No workers, reviewers, tenant/provider resources, Power Automate resources, push, merge, or publish actions were used.
+
+### Changed files
+
+- `packages/core/src/evidence-report.ts` — recursive JSON-safe value validation for diagnostic `expected`/`actual` before redaction/canonicalization.
+- `tests/unit/core/evidence-report.test.ts` — core RED tests for BigInt, Symbol, cyclic values, and GREEN coverage for valid JSON-safe objects/arrays.
+- `tests/cli/report-evidence.test.ts` — CLI GREEN control proving valid JSON-safe objects/arrays survive the file/report path.
+
+### Fix RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts
+```
+
+Result: expected RED, 20 tests total with 19 passed and 1 failed. The new unsupported/cyclic-value regression still observed a local `PASS` for the first unsupported value; the pre-fix implementation could also throw for BigInt/cyclic values or silently omit Symbol values during serialization.
+
+### Fix GREEN and verification
+
+- `npm run build` — exit 0.
+- `node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts` — 20 passed, 0 failed.
+- `node --experimental-strip-types --test tests/cli/*.test.ts tests/unit/cli/*.test.ts tests/unit/core/evidence-report.test.ts tests/unit/core/flow-save.test.ts` — 71 passed, 0 failed; Task 1 flow behavior remained green.
+- `npm test` — 285 passed, 0 failed for the package script.
+- `npm run check` — exit 0; its explicit inventory reported 387 tests passed, all 19 portable-check gates passed, and npm audit reported 0 vulnerabilities.
+- `git diff --check` — clean before commit.
+
+### Fix design decisions
+
+- `isJsonSafeValue` accepts JSON-safe null, strings, booleans, finite numbers, plain objects, and arrays; rejects BigInt, Symbol, functions, undefined, non-finite numbers, non-plain prototypes, accessors, and ancestor cycles.
+- `isDiagnosticInput` validates `expected` and `actual` recursively before `redactValue` or `canonicalKey` can traverse or stringify them. Invalid values use the existing stable `LOCAL_DIAGNOSTIC_ENTRY_INVALID` path, force the affected claim to `NOT_RUN`, and keep the aggregate local result non-successful/`NOT_RUN`.
+- Valid nested objects and arrays remain copied and preserved in core output and through the CLI JSON report path.
+- The CLI remains file-only; malformed programmatic core inputs are handled at the exported `createLocalEvidenceReport(input: unknown)` boundary, while readable malformed evidence continues to map to CLI exit 8 with nested `result=NOT_RUN`.
+
+### Evidence boundary and remaining limitations
+
+All evidence remains synthetic and local/offline. Provider and UAT remain `NOT_VERIFIED`; no provider readback, hosted execution, UAT, tenant import, rebinding, enablement, publication, or flow execution was attempted. GitHub Actions macOS/Ubuntu/Windows results remain outside this worker’s scope.
+
+### Fix commit
+
+`4226b83ea5d6aea24a04d931718c30eb0c814d4a` (`fix: validate evidence expected and actual values`).
