@@ -22,7 +22,7 @@ profile implementation.
 - permanent RED fixture and adversarial tests for status overlap, idempotency
   binding, concurrency binding, retry classification, body shape, failed status,
   and semantic readback mismatch;
-- build PASS and full suite `339/339` across `31` suites;
+- build PASS and full suite `339/339` across `23` suites;
 - `git diff --check` PASS and `npm audit` with `0` vulnerabilities;
 - README, architecture, WP18 plan, and connector specification boundaries.
 
