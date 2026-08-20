@@ -6,6 +6,8 @@ import {
 export type ExitCode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type OutputFormat = "json" | "text";
 export type CommandRoute =
+  | "prepare-flow"
+  | "validate-flow"
   | "validate-contract"
   | "validate-rules"
   | "validate-artifact"
@@ -66,6 +68,8 @@ interface ParsedBase {
 
 export type ParsedCliArgs =
   | { kind: "help"; format: OutputFormat }
+  | (ParsedBase & { route: "prepare-flow"; definitionPath: string; connectionsPath: string; outputPath?: string })
+  | (ParsedBase & { route: "validate-flow"; definitionPath: string; connectionsPath: string })
   | (ParsedBase & { route: "validate-contract"; path: string })
   | (ParsedBase & { route: "validate-rules"; root: string; requiredOnly: boolean })
   | (ParsedBase & {
@@ -267,6 +271,26 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
 
   const first = args[0];
   const second = args[1];
+  if (first === "prepare" && second === "flow") {
+    const parsed = parseOptions(args.slice(2), { connections: { type: "string" }, output: { type: "string" }, format: { type: "string" } }, "prepare flow");
+    if (parsed.positionals.length !== 1) throw new CliUsageError("prepare flow requires exactly one definition path.");
+    const outputPath = typeof parsed.values.output === "string" ? parsed.values.output : undefined;
+    return {
+      kind: "command", route: "prepare-flow", command: "prepare flow", format: parseFormat(parsed.values.format),
+      definitionPath: parsed.positionals[0] ?? "",
+      connectionsPath: requiredOption(parsed.values.connections, "prepare flow requires --connections <path>."),
+      ...(outputPath === undefined ? {} : { outputPath }),
+    };
+  }
+  if (first === "validate" && second === "flow") {
+    const parsed = parseOptions(args.slice(2), { connections: { type: "string" }, format: { type: "string" } }, "validate flow");
+    if (parsed.positionals.length !== 1) throw new CliUsageError("validate flow requires exactly one definition path.");
+    return {
+      kind: "command", route: "validate-flow", command: "validate flow", format: parseFormat(parsed.values.format),
+      definitionPath: parsed.positionals[0] ?? "",
+      connectionsPath: requiredOption(parsed.values.connections, "validate flow requires --connections <path>."),
+    };
+  }
   if (first === "validate" && second === "contract") {
     const parsed = parseOptions(args.slice(2), { format: { type: "string" } }, "validate contract");
     if (parsed.positionals.length !== 1) {

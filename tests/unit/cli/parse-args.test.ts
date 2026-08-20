@@ -68,6 +68,29 @@ describe("CLI argument parsing", () => {
       },
     },
     {
+      args: ["prepare", "flow", "definition.json", "--connections", "connections.json", "--output", "prepared.json", "--format=json"],
+      expected: {
+        kind: "command",
+        route: "prepare-flow",
+        command: "prepare flow",
+        format: "json",
+        definitionPath: "definition.json",
+        connectionsPath: "connections.json",
+        outputPath: "prepared.json",
+      },
+    },
+    {
+      args: ["validate", "flow", "definition.json", "--connections", "connections.json"],
+      expected: {
+        kind: "command",
+        route: "validate-flow",
+        command: "validate flow",
+        format: "text",
+        definitionPath: "definition.json",
+        connectionsPath: "connections.json",
+      },
+    },
+    {
       args: ["plugin", "readonly", "getManifest", "--format=json"],
       expected: {
         kind: "command",

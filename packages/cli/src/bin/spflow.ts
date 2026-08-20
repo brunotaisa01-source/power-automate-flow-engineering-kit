@@ -3,6 +3,7 @@
 import { pathToFileURL } from "node:url";
 
 import { learnAuditCommand, learnCaptureCommand, learnPromoteCommand } from "../commands/learn.ts";
+import { prepareFlowCommand, validateFlowCommand } from "../commands/prepare-flow.ts";
 import { readonlyPluginCommand } from "../commands/readonly-plugin.ts";
 import { scanPublicDataCommand } from "../commands/scan-public-data.ts";
 import { validateArtifactCommand } from "../commands/validate-artifact.ts";
@@ -28,6 +29,8 @@ export const HELP_TEXT = [
   "Usage: spflow <command> [options]",
   "",
   "Commands:",
+  "  prepare flow <definition> --connections <path> [--output <path>] [--format text|json]",
+  "  validate flow <definition> --connections <path> [--format text|json]",
   "  validate contract <path> [--format text|json]",
   "  validate rules --root <repository> [--required-only] [--format text|json]",
   "  validate artifact <path> --contract <path> [--format text|json]",
@@ -43,6 +46,8 @@ export const HELP_TEXT = [
 ].join("\n");
 
 const DEFAULT_HANDLERS: CliHandlers = {
+  "prepare-flow": prepareFlowCommand,
+  "validate-flow": validateFlowCommand,
   "validate-contract": validateContractCommand,
   "validate-connector": validateConnectorCommand,
   "readonly-plugin": readonlyPluginCommand,
