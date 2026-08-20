@@ -126,25 +126,7 @@ const SCHEMA_PATH = resolve(
   import.meta.dirname,
   "../../../contracts/provider-readonly.schema.json",
 );
-const MUTATION_WORDS = new Set([
-  "create",
-  "delete",
-  "disable",
-  "enable",
-  "execute",
-  "import",
-  "mutate",
-  "patch",
-  "post",
-  "publish",
-  "put",
-  "rebind",
-  "remove",
-  "run",
-  "trigger",
-  "update",
-  "write",
-]);
+const READONLY_PROVIDER_OPERATION_SET = new Set<string>(READONLY_PROVIDER_OPERATIONS);
 const REQUIRED_FORBIDDEN_OPERATIONS = new Set<string>(FORBIDDEN_PROVIDER_OPERATIONS);
 const SECRET_KEY_MARKERS = [
   "access_token",
@@ -310,11 +292,7 @@ function schemaDiagnostics(
 }
 
 function mutationVerb(value: unknown): boolean {
-  if (typeof value !== "string") {
-    return false;
-  }
-  const words = value.toLowerCase().split(/[^a-z]+/u).filter((word) => word.length > 0);
-  return words.some((word) => MUTATION_WORDS.has(word));
+  return typeof value !== "string" || !READONLY_PROVIDER_OPERATION_SET.has(value);
 }
 
 function semanticDiagnostics(snapshot: JsonRecord): ReadonlyProviderDiagnostic[] {
@@ -480,6 +458,7 @@ function semanticDiagnostics(snapshot: JsonRecord): ReadonlyProviderDiagnostic[]
   }
 
   const flowIds = new Set<string>();
+  const flowsById = new Map<string, { readonly index: number; readonly value: JsonRecord }>();
   if (Array.isArray(snapshot.flows)) {
     for (const [index, flow] of snapshot.flows.entries()) {
       if (!isRecord(flow) || typeof flow.id !== "string") {
@@ -489,9 +468,13 @@ function semanticDiagnostics(snapshot: JsonRecord): ReadonlyProviderDiagnostic[]
         add(diagnostics, "READONLY_PROVIDER_SCHEMA_INVALID", `/flows/${index}/id`, "Flow IDs must be unique.");
       }
       flowIds.add(flow.id);
+      if (!flowsById.has(flow.id)) {
+        flowsById.set(flow.id, { index, value: flow });
+      }
     }
   }
   const referenceIds = new Set<string>();
+  const referencesById = new Map<string, { readonly index: number; readonly value: JsonRecord }>();
   if (Array.isArray(references)) {
     for (const [index, reference] of references.entries()) {
       if (!isRecord(reference) || typeof reference.id !== "string") {
@@ -501,6 +484,9 @@ function semanticDiagnostics(snapshot: JsonRecord): ReadonlyProviderDiagnostic[]
         add(diagnostics, "READONLY_PROVIDER_SCHEMA_INVALID", `/connectionReferences/${index}/id`, "Connection reference IDs must be unique.");
       }
       referenceIds.add(reference.id);
+      if (!referencesById.has(reference.id)) {
+        referencesById.set(reference.id, { index, value: reference });
+      }
     }
   }
   if (Array.isArray(snapshot.flows)) {
@@ -538,6 +524,49 @@ function semanticDiagnostics(snapshot: JsonRecord): ReadonlyProviderDiagnostic[]
     }
   }
 
+  if (Array.isArray(snapshot.flows)) {
+    for (const [flowIndex, flow] of snapshot.flows.entries()) {
+      if (!isRecord(flow) || typeof flow.id !== "string" || !Array.isArray(flow.connectionReferenceIds)) {
+        continue;
+      }
+      for (const [referenceIndex, referenceId] of flow.connectionReferenceIds.entries()) {
+        if (typeof referenceId !== "string") {
+          continue;
+        }
+        const reference = referencesById.get(referenceId);
+        if (reference !== undefined && Array.isArray(reference.value.flowIds) && !reference.value.flowIds.includes(flow.id)) {
+          add(
+            diagnostics,
+            "READONLY_PROVIDER_CONNECTION_REFERENCE_ASSOCIATION",
+            `/flows/${flowIndex}/connectionReferenceIds/${referenceIndex}`,
+            "Flow and connection-reference memberships must agree in both directions.",
+          );
+        }
+      }
+    }
+  }
+  if (Array.isArray(references)) {
+    for (const [referenceIndex, reference] of references.entries()) {
+      if (!isRecord(reference) || typeof reference.id !== "string" || !Array.isArray(reference.flowIds)) {
+        continue;
+      }
+      for (const [flowIndex, flowId] of reference.flowIds.entries()) {
+        if (typeof flowId !== "string") {
+          continue;
+        }
+        const flow = flowsById.get(flowId);
+        if (flow !== undefined && Array.isArray(flow.value.connectionReferenceIds) && !flow.value.connectionReferenceIds.includes(reference.id)) {
+          add(
+            diagnostics,
+            "READONLY_PROVIDER_CONNECTION_REFERENCE_ASSOCIATION",
+            `/connectionReferences/${referenceIndex}/flowIds/${flowIndex}`,
+            "Flow and connection-reference memberships must agree in both directions.",
+          );
+        }
+      }
+    }
+  }
+
   return diagnostics;
 }
 
@@ -545,27 +574,36 @@ export function validateReadonlyProviderSnapshot(
   snapshot: unknown,
 ): ReadonlyProviderValidationResult {
   const diagnostics: ReadonlyProviderDiagnostic[] = [];
-  if (!isJsonSafe(snapshot) || !isRecord(snapshot)) {
+  try {
+    if (!isJsonSafe(snapshot) || !isRecord(snapshot)) {
+      add(
+        diagnostics,
+        "READONLY_PROVIDER_SCHEMA_INVALID",
+        "/",
+        "Provider read-only snapshots must be plain, finite, JSON-safe objects.",
+      );
+    } else {
+      const validator = loadSchemaValidator();
+      if (validator === undefined) {
+        add(
+          diagnostics,
+          "READONLY_PROVIDER_SCHEMA_UNAVAILABLE",
+          SCHEMA_PATH,
+          "Provider read-only snapshot schema could not be loaded or compiled.",
+        );
+      } else {
+        diagnostics.push(...schemaDiagnostics(validator, snapshot));
+        diagnostics.push(...semanticDiagnostics(snapshot));
+      }
+      scanForSecretLikeValues(snapshot, "", diagnostics);
+    }
+  } catch {
     add(
       diagnostics,
       "READONLY_PROVIDER_SCHEMA_INVALID",
       "/",
-      "Provider read-only snapshots must be plain, finite, JSON-safe objects.",
+      "Provider read-only snapshot could not be safely inspected.",
     );
-  } else {
-    const validator = loadSchemaValidator();
-    if (validator === undefined) {
-      add(
-        diagnostics,
-        "READONLY_PROVIDER_SCHEMA_UNAVAILABLE",
-        SCHEMA_PATH,
-        "Provider read-only snapshot schema could not be loaded or compiled.",
-      );
-    } else {
-      diagnostics.push(...schemaDiagnostics(validator, snapshot));
-      diagnostics.push(...semanticDiagnostics(snapshot));
-    }
-    scanForSecretLikeValues(snapshot, "", diagnostics);
   }
 
   const uniqueDiagnostics = new Map<string, ReadonlyProviderDiagnostic>();

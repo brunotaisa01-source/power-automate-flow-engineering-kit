@@ -111,6 +111,23 @@ describe("readonly provider snapshot validator", () => {
     assert.ok(result.diagnostics.some(({ code }) => code === "READONLY_PROVIDER_MUTATION_CAPABILITY"));
   });
 
+  test("rejects compound or camel-case mutation operation names", () => {
+    for (const operation of ["readwrite", "getorcreate", "listanddelete"]) {
+      const snapshot = syntheticSnapshot() as Record<string, unknown>;
+      (snapshot.capabilities as Record<string, unknown>).operations = [operation];
+
+      const result = validateReadonlyProviderSnapshot(snapshot);
+
+      assert.equal(result.valid, false, operation);
+      assert.ok(
+        result.diagnostics.some(({ code }) => code === "READONLY_PROVIDER_MUTATION_CAPABILITY"),
+        operation,
+      );
+    }
+
+    assert.equal(validateReadonlyProviderSnapshot(syntheticSnapshot()).valid, true);
+  });
+
   test("rejects missing or mismatched identity correlation", () => {
     const missing = syntheticSnapshot() as Record<string, unknown>;
     delete (missing.environment as Record<string, unknown>).identityCorrelation;
@@ -212,6 +229,62 @@ describe("readonly provider snapshot validator", () => {
         assert.equal(result.valid, false);
       });
     }
+  });
+
+  test("returns invalid instead of throwing when property access fails after JSON safety", () => {
+    const base = syntheticSnapshot() as Record<string, unknown>;
+    const schemaHostile = new Proxy(base, {
+      get(target, property, receiver) {
+        if (property === "schemaVersion") {
+          throw new Error("synthetic schema property failure");
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const semanticHostile = new Proxy(base, {
+      get(target, property, receiver) {
+        if (property === "capabilities") {
+          throw new Error("synthetic semantic property failure");
+        }
+        return Reflect.get(target, property, receiver);
+      },
+    });
+
+    for (const candidate of [schemaHostile, semanticHostile]) {
+      assert.doesNotThrow(() => {
+        const result = validateReadonlyProviderSnapshot(candidate);
+        assert.equal(result.valid, false);
+        assert.ok(result.diagnostics.some(({ code }) => code === "READONLY_PROVIDER_SCHEMA_INVALID"));
+      });
+    }
+  });
+
+  test("rejects mismatched reciprocal flow and connection-reference memberships", () => {
+    const snapshot = syntheticSnapshot() as Record<string, unknown>;
+    const flows = snapshot.flows as Array<Record<string, unknown>>;
+    const references = snapshot.connectionReferences as Array<Record<string, unknown>>;
+    flows.push({
+      id: "synthetic-flow-002",
+      displayName: "Synthetic Second Read Flow",
+      state: "present",
+      identityCorrelation: "synthetic-correlation-001",
+      connectionReferenceIds: ["synthetic-connection-reference-002"],
+    });
+    references.push({
+      id: "synthetic-connection-reference-002",
+      displayName: "Synthetic Second Connection",
+      connector: "sharepoint",
+      state: "resolved",
+      identityCorrelation: "synthetic-correlation-001",
+      matchCount: 1,
+      flowIds: ["synthetic-flow-002"],
+    });
+    (references[0] as Record<string, unknown>).flowIds = ["synthetic-flow-002"];
+
+    const result = validateReadonlyProviderSnapshot(snapshot);
+
+    assert.equal(result.valid, false);
+    assert.ok(result.diagnostics.some(({ code }) => code === "READONLY_PROVIDER_CONNECTION_REFERENCE_ASSOCIATION"));
   });
 
   test("accepts a structurally different positive-control topology", () => {

@@ -133,7 +133,14 @@
           "type": "array",
           "minItems": 1,
           "uniqueItems": true,
-          "items": { "type": "string", "pattern": "^(read|get|list|inspect|discover)[A-Za-z0-9-]*$" }
+          "items": {
+            "enum": [
+              "read-environment",
+              "read-solution",
+              "read-flow",
+              "read-connection-reference"
+            ]
+          }
         },
         "forbiddenOperations": {
           "type": "array",
