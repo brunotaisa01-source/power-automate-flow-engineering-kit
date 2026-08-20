@@ -229,4 +229,4 @@ Regression memory:
 - The branch-container contract follows the existing Power Automate JSON representation: action containers are object maps, not arrays. Present arrays are rejected as malformed action containers.
 - Final-head GitHub Actions and authorized provider/UAT gates remain external and were not attempted.
 
-Whole-branch fix commit: to be appended after commit creation.
+Whole-branch fix implementation/handoff commit: `7130ca7` (`fix: reject malformed flow branch containers`).
