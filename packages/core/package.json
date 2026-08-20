@@ -10,6 +10,7 @@
     "./schema-loader": "./dist/schema-loader.js",
     "./connector-profile": "./dist/connector-profile.js",
     "./connector-runtime-harness": "./dist/connector-runtime-harness.js",
+    "./readonly-plugin": "./dist/readonly-plugin.js",
     "./self-improvement": "./dist/self-improvement.js",
     "./types/*": "./dist/types/*.js"
   },

@@ -8,6 +8,7 @@ import { describe, test } from "node:test";
 import { join, resolve } from "node:path";
 
 import { auditLearningRegistry, captureLearningCandidate, consumeApprovedLessons, promoteLearningCandidate } from "../../packages/core/src/self-improvement.ts";
+import { FORBIDDEN_PLUGIN_OPERATIONS, runReadonlyPlugin } from "../../packages/core/src/readonly-plugin.ts";
 
 import { evaluateSyntheticConnectorTrace, validateConnectorProfileFile } from "../../packages/core/src/connector-profile.ts";
 import { evaluateSyntheticPayload, evaluateSyntheticPermissionReadback, evaluateSyntheticPaginationTrace } from "../../packages/core/src/connector-runtime-harness.ts";
@@ -140,6 +141,18 @@ describe("product-level offline acceptance", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+
+  test("read-only plugin manifest, discovery, preflight, and forbidden operations pass", async () => {
+    const manifest = await runReadonlyPlugin(ROOT, { operation: "getManifest" }) as Record<string, unknown>;
+    assert.equal(manifest.pluginId, "spflow-readonly");
+    assert.equal(manifest.networkMode, "offline");
+    assert.equal(manifest.tenantMutation, false);
+    const discovery = await runReadonlyPlugin(ROOT, { operation: "discover", connector: "excel" }) as Record<string, unknown>;
+    assert.equal((discovery.flows as unknown[]).length, 1);
+    const preflight = await runReadonlyPlugin(ROOT, { operation: "preflight" }) as Record<string, unknown>;
+    assert.equal(preflight.flowCount, 9);
+    for (const operation of FORBIDDEN_PLUGIN_OPERATIONS) await assert.rejects(runReadonlyPlugin(ROOT, { operation }), /READONLY_PLUGIN_FORBIDDEN_OPERATION/);
   });
 
   test("every connector journey fails closed on forbidden payload and failed write", async () => {

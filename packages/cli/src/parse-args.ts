@@ -11,6 +11,7 @@ export type CommandRoute =
   | "validate-artifact"
   | "validate-evidence"
   | "validate-connector"
+  | "readonly-plugin"
   | "scan-public-data"
   | "learn-audit"
   | "learn-capture"
@@ -42,6 +43,7 @@ export interface CommandReport {
     info: number;
     notRun: number;
   };
+  data?: unknown;
 }
 
 export interface ReportFinding extends CommandDiagnostic {
@@ -73,6 +75,7 @@ export type ParsedCliArgs =
     })
   | (ParsedBase & { route: "validate-evidence"; path: string })
   | (ParsedBase & { route: "validate-connector"; path: string })
+  | (ParsedBase & { route: "readonly-plugin"; operation: string; connector?: string })
   | (ParsedBase & {
       route: "scan-public-data";
       path: string;
@@ -117,7 +120,7 @@ export function selectExitCode(exitCodes: readonly ExitCode[]): ExitCode {
 export function createCommandReport(
   command: string,
   findings: readonly ReportFinding[],
-  options: { applicableChecksCompleted?: boolean } = {},
+  options: { applicableChecksCompleted?: boolean; data?: unknown } = {},
 ): CommandReport {
   const exitCode = selectExitCode(findings.map((finding) => finding.exitCode));
   const diagnostics = findings.map(({ exitCode: _exitCode, notRun: _notRun, ...diagnostic }) =>
@@ -143,6 +146,7 @@ export function createCommandReport(
     exitCode,
     diagnostics,
     summary,
+    ...(options.data === undefined ? {} : { data: options.data }),
   };
 }
 
@@ -336,6 +340,14 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
     const parsed = parseOptions(args.slice(2), { format: { type: "string" } }, "validate connector");
     if (parsed.positionals.length !== 1) throw new CliUsageError("validate connector requires exactly one profile path.");
     return { kind: "command", route: "validate-connector", command: "validate connector", format: parseFormat(parsed.values.format), path: parsed.positionals[0] ?? "" };
+  }
+  if (first === "plugin" && second === "readonly") {
+    const parsed = parseOptions(args.slice(2), { connector: { type: "string" }, format: { type: "string" } }, "plugin readonly");
+    if (parsed.positionals.length !== 1) throw new CliUsageError("plugin readonly requires exactly one operation.");
+    const connector = typeof parsed.values.connector === "string" ? parsed.values.connector : undefined;
+    return connector === undefined
+      ? { kind: "command", route: "readonly-plugin", command: "plugin readonly", format: parseFormat(parsed.values.format), operation: parsed.positionals[0] ?? "" }
+      : { kind: "command", route: "readonly-plugin", command: "plugin readonly", format: parseFormat(parsed.values.format), operation: parsed.positionals[0] ?? "", connector };
   }
   if (first === "scan" && second === "public-data") {
     const parsed = parseOptions(

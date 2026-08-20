@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "pluginId": "spflow-readonly",
+  "mode": "read-only",
+  "networkMode": "offline",
+  "claimClass": "RUNTIME_SYNTHETIC",
+  "tenantMutation": false,
+  "operations": [
+    "getManifest",
+    "getRegistryMetadata",
+    "listApprovedLessons",
+    "getApprovedLesson",
+    "listCandidateStatus",
+    "discover",
+    "preflight"
+  ],
+  "forbiddenOperations": [
+    "create", "update", "delete", "approve", "promote",
+    "import", "rebind", "enable", "disable", "trigger",
+    "permission-write", "mutate", "rollback", "network"
+  ],
+  "connectors": [
+    "sharepoint", "excel", "power-apps", "dataverse",
+    "outlook", "graph", "http", "sql", "approvals", "future"
+  ]
+}
