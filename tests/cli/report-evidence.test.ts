@@ -118,6 +118,20 @@ test("report evidence returns deterministic NOT_RUN for present but incomplete e
   assert.doesNotMatch(JSON.stringify(result.report.data), /"result"\s*:\s*"PASS"/);
 });
 
+test("report evidence handles malformed optional diagnostic fields without an internal error", async () => {
+  const input = evidenceInput();
+  input.preparedDefinition.diagnostics[0]!.jsonPointer = null;
+  input.preparedDefinition.diagnostics[0]!.remediation = 123;
+  const path = await writeEvidence(input);
+  const result = await runJson(["report", "evidence", path, "--format", "json"]);
+
+  assert.equal(result.exitCode, 8);
+  assert.equal(result.report.result, "FAIL");
+  assert.notEqual(result.report.diagnostics[0]?.code, "CLI_INTERNAL_ERROR");
+  assert.ok(result.report.diagnostics.some(({ code }) => code === "LOCAL_DIAGNOSTIC_ENTRY_INVALID"));
+  assert.equal((result.report.data as { result: string }).result, "NOT_RUN");
+});
+
 test("report evidence fails closed for an unreadable local evidence path", async () => {
   const result = await runJson([
     "report", "evidence", "/private/tmp/missing-synthetic-evidence.json", "--format", "json",

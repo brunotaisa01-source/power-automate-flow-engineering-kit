@@ -155,10 +155,13 @@ function isDiagnosticInput(value: unknown): value is LocalEvidenceDiagnosticInpu
     || typeof value.message !== "string") {
     return false;
   }
-  return value.severity === undefined
+  const validSeverity = value.severity === undefined
     || value.severity === "error"
     || value.severity === "warning"
     || value.severity === "info";
+  return validSeverity && ["path", "artifactPath", "jsonPointer", "remediation"].every((key) =>
+    value[key] === undefined || typeof value[key] === "string"
+  );
 }
 
 interface NormalizedDiagnostics {
@@ -346,7 +349,8 @@ export function createLocalEvidenceReport(input: unknown): LocalEvidenceReport {
     const normalizedResult = normalizedStatus(explicit);
     const statusConflict = hasResult && hasStatus
       && normalizedStatus(preparedRecord.result) !== normalizedStatus(preparedRecord.status);
-    const incomplete = !hasDiagnostics || normalized.invalid || !hasResult && !hasStatus
+    const incomplete = !hasDiagnostics || !Array.isArray(preparedRecord.diagnostics)
+      || normalized.invalid || !hasResult && !hasStatus
       || normalizedResult === undefined || statusConflict;
     const diagnostics = [...normalized.diagnostics];
     if (incomplete) {

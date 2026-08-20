@@ -133,6 +133,52 @@ describe("local evidence report builder", () => {
     assert.equal(report.uatGate, "NOT_VERIFIED");
   });
 
+  test("fails closed for malformed optional diagnostic fields", () => {
+    const report = createLocalEvidenceReport({
+      preparedDefinition: {
+        result: "PASS",
+        diagnostics: [{
+          code: "MALFORMED-OPTIONAL",
+          message: "Synthetic malformed optional fields.",
+          jsonPointer: null,
+          remediation: 123,
+        }],
+      },
+      localArtifacts: reportInput().localArtifacts,
+    });
+
+    assert.equal(report.result, "NOT_RUN");
+    assert.ok(report.diagnostics.some(({ code }) => code === "LOCAL_DIAGNOSTIC_ENTRY_INVALID"));
+    assert.ok(report.claims.some(({ status }) => status === "NOT_RUN"));
+    assert.equal(report.providerGate, "NOT_VERIFIED");
+    assert.equal(report.uatGate, "NOT_VERIFIED");
+  });
+
+  test("requires an actual diagnostics array for object-form prepared evidence", () => {
+    const undefinedDiagnostics = createLocalEvidenceReport({
+      preparedDefinition: {
+        result: "PASS",
+        diagnostics: undefined,
+      },
+      localArtifacts: reportInput().localArtifacts,
+    });
+    const malformedDiagnostics = createLocalEvidenceReport({
+      preparedDefinition: {
+        result: "PASS",
+        diagnostics: null,
+      },
+      localArtifacts: reportInput().localArtifacts,
+    });
+
+    for (const report of [undefinedDiagnostics, malformedDiagnostics]) {
+      assert.equal(report.result, "NOT_RUN");
+      assert.ok(report.diagnostics.some(({ code }) => code === "LOCAL_DEFINITION_EVIDENCE_INCOMPLETE"));
+      assert.ok(report.claims.some(({ status }) => status === "NOT_RUN"));
+      assert.equal(report.providerGate, "NOT_VERIFIED");
+      assert.equal(report.uatGate, "NOT_VERIFIED");
+    }
+  });
+
   test("canonicalizes tied claim IDs and tied diagnostic keys", () => {
     const input: LocalEvidenceReportInput = {
       preparedDefinition: {
