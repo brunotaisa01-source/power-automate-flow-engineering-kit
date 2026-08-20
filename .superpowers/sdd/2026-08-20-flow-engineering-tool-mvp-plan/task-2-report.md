@@ -212,3 +212,51 @@ All evidence remains synthetic and local/offline. Provider and UAT remain `NOT_V
 ### Fix commit
 
 `4226b83ea5d6aea24a04d931718c30eb0c814d4a` (`fix: validate evidence expected and actual values`).
+
+## Whole-branch fix round — I-2 and I-3
+
+### Scope and status
+
+DONE for the evidence-report findings only. This is the final whole-branch Task 2 fix round. No coordinator ledger files were edited. No workers or reviewers were spawned or coordinated, and no provider, tenant, Power Automate, Dataverse, push, merge, or publish action was performed.
+
+### Changed files
+
+- `packages/core/src/evidence-report.ts` — strict safe repository-relative path normalization and a fail-closed wrapper around the exported core builder.
+- `tests/unit/core/evidence-report.test.ts` — unsafe prepared/artifact path coverage, valid relative-path control, and hostile proxy/getter coverage.
+
+### I-2 path sanitization RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts
+```
+
+Result: expected RED with 2 failing tests. Unsafe path values were emitted in prepared-definition and local-artifact claims/diagnostics, and a throwing `preparedDefinition` proxy getter escaped the core API.
+
+### I-3 hostile-input RED
+
+The same focused command reproduced the throwing proxy/getter failure. The regression fixture supplies a proxy whose `preparedDefinition` getter throws after the top-level object checks.
+
+### GREEN and verification
+
+- `npm run build` — exit 0.
+- `node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts` — 23 passed, 0 failed.
+- `node --experimental-strip-types --test tests/cli/*.test.ts tests/unit/cli/*.test.ts tests/unit/core/evidence-report.test.ts tests/unit/core/flow-save.test.ts` — 74 passed, 0 failed; Task 1 flow behavior remained green.
+- `npm test` — 294 passed, 0 failed.
+- `npm run check` — exit 0; explicit inventory reported 413 tests passed, 0 failed, all 19 portable-check gates passed, and npm audit reported 0 vulnerabilities.
+- `git diff --check` — clean before commit.
+
+### Fix design decisions
+
+- `normalizedPath` now accepts only non-empty POSIX repository-relative paths with no leading slash/backslash, backslash, colon/scheme marker, control characters, empty segments, or `.`/`..` traversal segments. Unsafe prepared-definition and local-artifact paths, and their diagnostic artifact paths, become the stable `<redacted-path>` placeholder; valid paths such as `flows/synthetic.json` and `artifacts/synthetic.json` remain unchanged.
+- `buildLocalEvidenceReport` is wrapped by exported `createLocalEvidenceReport(input: unknown)`. Any getter, proxy, accessor, or other hostile inspection failure returns a deterministic `LOCAL_EVIDENCE_INPUT_INVALID` report with result `NOT_RUN`, no claims, provider/UAT `NOT_VERIFIED`, and fresh frozen gates.
+- Existing JSON-safe value validation, canonical ordering, and fresh/deep-frozen gate semantics remain intact.
+
+### Evidence boundary and remaining limitations
+
+All evidence remains synthetic and local/offline. Provider and UAT remain `NOT_VERIFIED`; no provider readback, hosted execution, UAT, tenant import, rebinding, enablement, publication, or flow execution was attempted. GitHub Actions macOS/Ubuntu/Windows results remain outside this worker’s scope. The package `npm test` shell inventory and the explicit portable-check inventory report different totals; both completed with zero failures.
+
+### Whole-branch fix commit
+
+`330afbeb39c2e9cd999638f0969ce7df5bd4c3db` (`fix: harden evidence paths and hostile inputs`).
