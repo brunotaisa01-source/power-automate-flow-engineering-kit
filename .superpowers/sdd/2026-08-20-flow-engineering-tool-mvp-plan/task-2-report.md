@@ -121,3 +121,48 @@ The fix remains local/offline and synthetic. It does not add tenant/provider rea
 ### Fix commit
 
 `1ac68788536bef839ee764a16ebf80b927c15f50` (`fix: close local evidence report gaps`).
+
+## Fix round 2
+
+### Scope and status
+
+DONE for the fresh re-review P1. Runtime validation now covers optional diagnostic string fields and requires an actual diagnostics array for object-form prepared evidence. Task 1 behavior, provider/UAT `NOT_VERIFIED` boundaries, and local/offline-only scope are preserved. No Power Automate or tenant resources were touched; no workers, reviewers, coordination, push, merge, or publish actions were used.
+
+### Changed files
+
+- `packages/core/src/evidence-report.ts` — validate optional diagnostic string fields (`path`, `artifactPath`, `jsonPointer`, `remediation`) before redaction; require `Array.isArray(preparedRecord.diagnostics)` for object-form prepared evidence.
+- `tests/unit/core/evidence-report.test.ts` — direct-core null/numeric optional-field regressions and undefined/non-array prepared diagnostics regressions.
+- `tests/cli/report-evidence.test.ts` — CLI malformed optional-field regression proving no `CLI_INTERNAL_ERROR` and deterministic exit 8/`NOT_RUN`.
+
+### Fix RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts
+```
+
+Result: expected RED with 3 failures. `jsonPointer: null` threw a core `TypeError` and returned CLI exit 7; the malformed optional-field test could not reach stable reporting; and object-form `diagnostics: undefined` incorrectly produced local `PASS`.
+
+### Fix GREEN and verification
+
+- `npm run build` — exit 0.
+- `node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts` — 17 passed, 0 failed.
+- `node --experimental-strip-types --test tests/cli/*.test.ts tests/unit/cli/*.test.ts tests/unit/core/evidence-report.test.ts tests/unit/core/flow-save.test.ts` — 68 passed, 0 failed; Task 1 flow behavior remained green.
+- `npm test` — 384 passed, 0 failed.
+- `npm run check` — exit 0; 384 tests passed, all 19 portable-check gates passed, and npm audit reported 0 vulnerabilities.
+- `git diff --check` — clean before commit.
+
+### Fix design decisions
+
+- `isDiagnosticInput` now rejects non-string values for every optional string diagnostic field before any redaction call, including `jsonPointer: null` and `remediation: 123`; malformed entries become stable `LOCAL_DIAGNOSTIC_ENTRY_INVALID`/`NOT_RUN` evidence rather than an internal error.
+- Object-form prepared evidence now requires `diagnostics` to be an actual array. Direct programmatic `undefined`, `null`, or other non-array values cannot produce local `PASS`.
+- The CLI continues to use exit 8 with nested evidence `result=NOT_RUN` for malformed-but-readable evidence, while unreadable/non-object JSON retains stable input errors.
+
+### Evidence boundary and remaining limitations
+
+All evidence remains synthetic and local/offline. Provider and UAT gates remain `NOT_VERIFIED`; no provider readback, hosted execution, UAT, tenant import, rebinding, enablement, publication, or run was attempted. Cross-platform CI remains outside this worker’s scope.
+
+### Fix commit
+
+`2bba2c0d27d4b5579e45b69ed04a6509d1a0f533` (`fix: validate evidence diagnostic shapes`).
