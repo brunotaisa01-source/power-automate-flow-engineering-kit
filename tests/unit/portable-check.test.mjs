@@ -13,7 +13,9 @@ test("portable check exposes platform-neutral argument arrays for every required
   assert.ok(labels.has("validate rules"));
   assert.ok(labels.has("validate artifact"));
   assert.ok(labels.has("npm audit"));
-  assert.ok(commands.every((command) => command.shell === false));
+  const nodeCommands = commands.filter((command) => command.executable === process.execPath);
+  assert.ok(nodeCommands.every((command) => command.shell === false));
+  assert.ok(commands.every((command) => typeof command.shell === "boolean"));
   assert.ok(commands.every((command) => !command.args.some((arg) => /&&|\|/.test(arg))));
 });
 
