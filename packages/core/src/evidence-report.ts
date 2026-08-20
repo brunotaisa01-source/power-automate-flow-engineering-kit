@@ -88,11 +88,21 @@ function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
 }
 
+function canonicalKey(value: unknown): string {
+  return JSON.stringify(redactValue(value)) ?? "";
+}
+
 function compareDiagnostics(left: LocalEvidenceDiagnostic, right: LocalEvidenceDiagnostic): number {
   return compareText(left.code, right.code)
     || compareText(left.artifactPath, right.artifactPath)
     || compareText(left.jsonPointer ?? "", right.jsonPointer ?? "")
-    || compareText(left.message, right.message);
+    || compareText(left.message, right.message)
+    || compareText(canonicalKey(left), canonicalKey(right));
+}
+
+function compareClaims(left: LocalEvidenceClaim, right: LocalEvidenceClaim): number {
+  return compareText(left.id, right.id)
+    || compareText(canonicalKey(left), canonicalKey(right));
 }
 
 function redactText(input: string): string {
@@ -131,11 +141,61 @@ function normalizedStatus(value: unknown): LocalEvidenceStatus | undefined {
   return value === "PASS" || value === "FAIL" || value === "NOT_RUN" ? value : undefined;
 }
 
+function shapeDiagnostic(
+  code: string,
+  message: string,
+  artifactPath: string,
+  remediation: string,
+): LocalEvidenceDiagnostic {
+  return { code, severity: "warning", message, artifactPath, remediation };
+}
+
+function isDiagnosticInput(value: unknown): value is LocalEvidenceDiagnosticInput {
+  if (!isRecord(value) || typeof value.code !== "string" || value.code.length === 0
+    || typeof value.message !== "string") {
+    return false;
+  }
+  return value.severity === undefined
+    || value.severity === "error"
+    || value.severity === "warning"
+    || value.severity === "info";
+}
+
+interface NormalizedDiagnostics {
+  readonly diagnostics: LocalEvidenceDiagnostic[];
+  readonly invalid: boolean;
+}
+
 function normalizedDiagnostics(
-  diagnostics: readonly LocalEvidenceDiagnosticInput[] | undefined,
+  diagnostics: unknown,
   fallbackPath: string,
-): LocalEvidenceDiagnostic[] {
-  return (diagnostics ?? []).map((diagnostic) => {
+): NormalizedDiagnostics {
+  if (diagnostics === undefined) {
+    return { diagnostics: [], invalid: false };
+  }
+  if (!Array.isArray(diagnostics)) {
+    return {
+      diagnostics: [shapeDiagnostic(
+        "LOCAL_DIAGNOSTICS_INPUT_INVALID",
+        "Evidence diagnostics must be an array.",
+        fallbackPath,
+        "Provide a JSON array of local diagnostics.",
+      )],
+      invalid: true,
+    };
+  }
+
+  let invalid = false;
+  const normalized = diagnostics.map((diagnostic, index) => {
+    if (!isDiagnosticInput(diagnostic)) {
+      invalid = true;
+      return shapeDiagnostic(
+        "LOCAL_DIAGNOSTIC_ENTRY_INVALID",
+        "An evidence diagnostic entry is not a complete diagnostic object.",
+        `${fallbackPath}/diagnostics/${index}`,
+        "Provide diagnostic entries with non-empty code and message fields.",
+      );
+    }
     const path = normalizedPath(diagnostic.path ?? diagnostic.artifactPath, fallbackPath);
     const normalized: LocalEvidenceDiagnostic = {
       code: redactText(diagnostic.code),
@@ -149,16 +209,26 @@ function normalizedDiagnostics(
     };
     return normalized;
   }).sort(compareDiagnostics);
+  return { diagnostics: normalized, invalid };
 }
 
 function statusFor(
   explicit: unknown,
+  hasExplicit: boolean,
   diagnostics: readonly LocalEvidenceDiagnostic[],
+  invalidShape: boolean,
+  allowImplicitPass: boolean,
 ): LocalEvidenceStatus {
+  if (invalidShape) {
+    return "NOT_RUN";
+  }
   if (diagnostics.some(({ severity }) => severity === "error")) {
     return "FAIL";
   }
-  return normalizedStatus(explicit) ?? "PASS";
+  if (!hasExplicit) {
+    return allowImplicitPass ? "PASS" : "NOT_RUN";
+  }
+  return normalizedStatus(explicit) ?? "NOT_RUN";
 }
 
 function preparedEvidence(input: LocalEvidenceReportInput): PreparedDefinitionEvidenceInput | undefined {
@@ -168,46 +238,56 @@ function preparedEvidence(input: LocalEvidenceReportInput): PreparedDefinitionEv
   return input.preparedDefinitionDiagnostics;
 }
 
-function asPreparedRecord(
-  input: PreparedDefinitionEvidenceInput,
-): { readonly path?: unknown; readonly result?: unknown; readonly status?: unknown; readonly diagnostics?: readonly LocalEvidenceDiagnosticInput[] } {
-  if (Array.isArray(input)) {
-    return { diagnostics: input };
-  }
-  return input as PreparedDefinitionEvidence;
-}
-
-function reportResult(claims: readonly LocalEvidenceClaim[]): LocalEvidenceStatus {
+function reportResult(
+  claims: readonly LocalEvidenceClaim[],
+  incompleteEvidence: boolean,
+): LocalEvidenceStatus {
   if (claims.some(({ status }) => status === "FAIL")) {
     return "FAIL";
   }
-  if (claims.length === 0 || claims.some(({ status }) => status === "NOT_RUN")) {
+  if (incompleteEvidence || claims.length === 0 || claims.some(({ status }) => status === "NOT_RUN")) {
     return "NOT_RUN";
   }
   return "PASS";
 }
 
-const GATES: readonly LocalEvidenceGate[] = [
-  {
-    id: "provider",
-    claimClass: "PROVIDER",
-    status: "NOT_VERIFIED",
-    message: "No provider readback was requested or performed by this local report.",
-  },
-  {
-    id: "uat",
-    claimClass: "UAT",
-    status: "NOT_VERIFIED",
-    message: "No hosted or user-acceptance test was requested or performed by this local report.",
-  },
-];
+function createGates(): readonly LocalEvidenceGate[] {
+  return Object.freeze([
+    Object.freeze({
+      id: "provider" as const,
+      claimClass: "PROVIDER" as const,
+      status: "NOT_VERIFIED" as const,
+      message: "No provider readback was requested or performed by this local report.",
+    }),
+    Object.freeze({
+      id: "uat" as const,
+      claimClass: "UAT" as const,
+      status: "NOT_VERIFIED" as const,
+      message: "No hosted or user-acceptance test was requested or performed by this local report.",
+    }),
+  ]);
+}
 
-export function createLocalEvidenceReport(input: LocalEvidenceReportInput): LocalEvidenceReport {
+export function createLocalEvidenceReport(input: unknown): LocalEvidenceReport {
   const claims: LocalEvidenceClaim[] = [];
   const missingDiagnostics: LocalEvidenceDiagnostic[] = [];
-  const prepared = preparedEvidence(input);
+  let incompleteEvidence = false;
+
+  if (!isRecord(input)) {
+    incompleteEvidence = true;
+    missingDiagnostics.push(shapeDiagnostic(
+      "LOCAL_EVIDENCE_INPUT_INVALID",
+      "Local evidence input must be a JSON object.",
+      "<input>",
+      "Provide a JSON object containing prepared definition diagnostics and local artifact results.",
+    ));
+  }
+
+  const evidenceInput = isRecord(input) ? input as LocalEvidenceReportInput : undefined;
+  const prepared = evidenceInput === undefined ? undefined : preparedEvidence(evidenceInput);
 
   if (prepared === undefined) {
+    incompleteEvidence = true;
     missingDiagnostics.push({
       code: "LOCAL_DEFINITION_EVIDENCE_MISSING",
       severity: "warning",
@@ -215,22 +295,87 @@ export function createLocalEvidenceReport(input: LocalEvidenceReportInput): Loca
       artifactPath: "<definition>",
       remediation: "Provide prepared definition diagnostics from a local offline preparation run.",
     });
-  } else {
-    const preparedRecord = asPreparedRecord(prepared);
-    const artifactPath = normalizedPath(preparedRecord.path, "<definition>");
-    const diagnostics = normalizedDiagnostics(preparedRecord.diagnostics, artifactPath);
+  } else if (Array.isArray(prepared)) {
+    const artifactPath = "<definition>";
+    const normalized = normalizedDiagnostics(prepared, artifactPath);
+    const incomplete = prepared.length === 0 || normalized.invalid;
+    const diagnostics = [...normalized.diagnostics];
+    if (incomplete) {
+      incompleteEvidence = true;
+      diagnostics.push(shapeDiagnostic(
+        "LOCAL_DEFINITION_EVIDENCE_INCOMPLETE",
+        "Prepared definition diagnostics must contain at least one complete diagnostic entry.",
+        artifactPath,
+        "Provide non-empty prepared definition diagnostics from a local offline preparation run.",
+      ));
+    }
+    diagnostics.sort(compareDiagnostics);
     claims.push({
       id: `definition:${artifactPath}`,
       claimClass: "LOCAL_SYNTHETIC",
       subject: "prepared-definition",
       artifactPath,
-      status: statusFor(preparedRecord.result ?? preparedRecord.status, diagnostics),
+      status: statusFor(undefined, false, diagnostics, incomplete, !incomplete),
+      diagnostics,
+    });
+  } else if (!isRecord(prepared)) {
+    incompleteEvidence = true;
+    const artifactPath = "<definition>";
+    const diagnostics = [shapeDiagnostic(
+      "LOCAL_DEFINITION_ENTRY_INVALID",
+      "Prepared definition evidence must be an object or a non-empty diagnostics array.",
+      artifactPath,
+      "Provide a complete prepared definition evidence object.",
+    )];
+    claims.push({
+      id: `definition:${artifactPath}`,
+      claimClass: "LOCAL_SYNTHETIC",
+      subject: "prepared-definition",
+      artifactPath,
+      status: "NOT_RUN",
+      diagnostics,
+    });
+  } else {
+    const preparedRecord = prepared;
+    const artifactPath = normalizedPath(preparedRecord.path, "<definition>");
+    const normalized = normalizedDiagnostics(preparedRecord.diagnostics, artifactPath);
+    const hasDiagnostics = Object.hasOwn(preparedRecord, "diagnostics");
+    const hasResult = Object.hasOwn(preparedRecord, "result");
+    const hasStatus = Object.hasOwn(preparedRecord, "status");
+    const explicit = hasResult ? preparedRecord.result : preparedRecord.status;
+    const normalizedResult = normalizedStatus(explicit);
+    const statusConflict = hasResult && hasStatus
+      && normalizedStatus(preparedRecord.result) !== normalizedStatus(preparedRecord.status);
+    const incomplete = !hasDiagnostics || normalized.invalid || !hasResult && !hasStatus
+      || normalizedResult === undefined || statusConflict;
+    const diagnostics = [...normalized.diagnostics];
+    if (incomplete) {
+      incompleteEvidence = true;
+      diagnostics.push(shapeDiagnostic(
+        "LOCAL_DEFINITION_EVIDENCE_INCOMPLETE",
+        "Prepared definition evidence requires a diagnostics array and a valid result or status.",
+        artifactPath,
+        "Provide complete prepared definition evidence with diagnostics and PASS, FAIL, or NOT_RUN status.",
+      ));
+    }
+    diagnostics.sort(compareDiagnostics);
+    claims.push({
+      id: `definition:${artifactPath}`,
+      claimClass: "LOCAL_SYNTHETIC",
+      subject: "prepared-definition",
+      artifactPath,
+      status: statusFor(explicit, hasResult || hasStatus, diagnostics, incomplete, false),
       diagnostics,
     });
   }
 
-  const artifacts = input.localArtifacts ?? input.localArtifactResults;
-  if (artifacts === undefined || artifacts.length === 0) {
+  const artifacts: unknown = evidenceInput === undefined
+    ? undefined
+    : evidenceInput.localArtifacts !== undefined
+      ? evidenceInput.localArtifacts
+      : evidenceInput.localArtifactResults;
+  if (artifacts === undefined || Array.isArray(artifacts) && artifacts.length === 0) {
+    incompleteEvidence = true;
     missingDiagnostics.push({
       code: "LOCAL_ARTIFACT_EVIDENCE_MISSING",
       severity: "warning",
@@ -238,36 +383,94 @@ export function createLocalEvidenceReport(input: LocalEvidenceReportInput): Loca
       artifactPath: "<artifacts>",
       remediation: "Provide local ZIP, flow, or inspection results before relying on local artifact claims.",
     });
+  } else if (!Array.isArray(artifacts)) {
+    incompleteEvidence = true;
+    const artifactPath = "<artifacts>";
+    const diagnostics = [shapeDiagnostic(
+      "LOCAL_ARTIFACT_EVIDENCE_INCOMPLETE",
+      "Local artifact results must be an array of complete artifact entries.",
+      artifactPath,
+      "Provide a JSON array of local artifact results.",
+    )];
+    claims.push({
+      id: "artifact:invalid-input",
+      claimClass: "LOCAL_SYNTHETIC",
+      subject: "local-artifact",
+      artifactPath,
+      status: "NOT_RUN",
+      diagnostics,
+    });
   } else {
-    for (const artifact of artifacts) {
+    for (const [index, artifact] of artifacts.entries()) {
+      const invalidArtifactPath = `<artifact:${index}>`;
+      if (!isRecord(artifact)) {
+        incompleteEvidence = true;
+        claims.push({
+          id: `artifact:invalid:${index}`,
+          claimClass: "LOCAL_SYNTHETIC",
+          subject: "local-artifact",
+          artifactPath: invalidArtifactPath,
+          status: "NOT_RUN",
+          diagnostics: [shapeDiagnostic(
+            "LOCAL_ARTIFACT_ENTRY_INVALID",
+            "A local artifact result entry must be an object.",
+            invalidArtifactPath,
+            "Remove null or non-object entries and provide complete local artifact results.",
+          )],
+        });
+        continue;
+      }
+
       const kind = typeof artifact.kind === "string" && artifact.kind.length > 0
         ? redactText(artifact.kind)
         : "local-artifact";
-      const artifactPath = normalizedPath(artifact.path ?? artifact.artifactPath, "<artifact>");
-      const diagnostics = normalizedDiagnostics(artifact.diagnostics, artifactPath);
+      const suppliedPath = artifact.path ?? artifact.artifactPath;
+      const artifactPath = normalizedPath(suppliedPath, invalidArtifactPath);
+      const normalized = normalizedDiagnostics(artifact.diagnostics, artifactPath);
+      const hasKind = typeof artifact.kind === "string" && artifact.kind.length > 0;
+      const hasPath = typeof suppliedPath === "string" && suppliedPath.length > 0;
+      const hasResult = Object.hasOwn(artifact, "result");
+      const hasStatus = Object.hasOwn(artifact, "status");
+      const explicit = hasResult ? artifact.result : artifact.status;
+      const normalizedResult = normalizedStatus(explicit);
+      const statusConflict = hasResult && hasStatus
+        && normalizedStatus(artifact.result) !== normalizedStatus(artifact.status);
+      const incomplete = !hasKind || !hasPath || normalized.invalid || !hasResult && !hasStatus
+        || normalizedResult === undefined || statusConflict;
+      const diagnostics = [...normalized.diagnostics];
+      if (incomplete) {
+        incompleteEvidence = true;
+        diagnostics.push(shapeDiagnostic(
+          "LOCAL_ARTIFACT_EVIDENCE_INCOMPLETE",
+          "A local artifact result requires kind, path, diagnostics, and a valid result or status.",
+          artifactPath,
+          "Provide complete local artifact results with PASS, FAIL, or NOT_RUN status.",
+        ));
+      }
+      diagnostics.sort(compareDiagnostics);
       claims.push({
         id: `artifact:${kind}:${artifactPath}`,
         claimClass: "LOCAL_SYNTHETIC",
         subject: "local-artifact",
         artifactPath,
-        status: statusFor(artifact.result ?? artifact.status, diagnostics),
+        status: statusFor(explicit, hasResult || hasStatus, diagnostics, incomplete, false),
         diagnostics,
       });
     }
   }
 
-  claims.sort((left, right) => compareText(left.id, right.id));
+  claims.sort(compareClaims);
   const diagnostics = [...missingDiagnostics, ...claims.flatMap(({ diagnostics: claimDiagnostics }) => claimDiagnostics)]
     .sort(compareDiagnostics);
 
   return {
     schemaVersion: "1.0",
-    result: reportResult(claims),
+    result: reportResult(claims, incompleteEvidence),
     claimClass: "LOCAL_SYNTHETIC",
     providerGate: "NOT_VERIFIED",
     uatGate: "NOT_VERIFIED",
     claims,
-    gates: GATES,
+    gates: createGates(),
     diagnostics,
   };
 }

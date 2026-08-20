@@ -103,6 +103,21 @@ test("report evidence text output exposes the boundary labels without provider P
   assert.doesNotMatch(result.stdout, /provider.*PASS/i);
 });
 
+test("report evidence returns deterministic NOT_RUN for present but incomplete evidence", async () => {
+  const path = await writeEvidence({
+    preparedDefinition: {},
+    localArtifacts: [{}, null],
+  });
+  const result = await runJson(["report", "evidence", path, "--format", "json"]);
+
+  assert.equal(result.exitCode, 8);
+  assert.equal(result.report.result, "FAIL");
+  assert.ok(result.report.diagnostics.some(({ code }) => code === "LOCAL_DEFINITION_EVIDENCE_INCOMPLETE"));
+  assert.ok(result.report.diagnostics.some(({ code }) => code === "LOCAL_ARTIFACT_ENTRY_INVALID"));
+  assert.equal((result.report.data as { result: string }).result, "NOT_RUN");
+  assert.doesNotMatch(JSON.stringify(result.report.data), /"result"\s*:\s*"PASS"/);
+});
+
 test("report evidence fails closed for an unreadable local evidence path", async () => {
   const result = await runJson([
     "report", "evidence", "/private/tmp/missing-synthetic-evidence.json", "--format", "json",

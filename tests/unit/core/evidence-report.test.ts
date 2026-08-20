@@ -115,6 +115,104 @@ describe("local evidence report builder", () => {
     assert.equal(report.uatGate, "NOT_VERIFIED");
   });
 
+  test("fails closed when present evidence entries are incomplete or malformed", () => {
+    const report = createLocalEvidenceReport({
+      preparedDefinition: {},
+      localArtifacts: [
+        {},
+        null as never,
+      ],
+    });
+
+    assert.equal(report.result, "NOT_RUN");
+    assert.ok(report.claims.every(({ status }) => status === "NOT_RUN"));
+    assert.ok(report.diagnostics.some(({ code }) => code === "LOCAL_DEFINITION_EVIDENCE_INCOMPLETE"));
+    assert.ok(report.diagnostics.some(({ code }) => code === "LOCAL_ARTIFACT_ENTRY_INVALID"));
+    assert.ok(report.diagnostics.some(({ code }) => code === "LOCAL_ARTIFACT_EVIDENCE_INCOMPLETE"));
+    assert.equal(report.providerGate, "NOT_VERIFIED");
+    assert.equal(report.uatGate, "NOT_VERIFIED");
+  });
+
+  test("canonicalizes tied claim IDs and tied diagnostic keys", () => {
+    const input: LocalEvidenceReportInput = {
+      preparedDefinition: {
+        path: "flows/tied.json",
+        result: "PASS",
+        diagnostics: [
+          {
+            code: "TIED-DIAGNOSTIC",
+            severity: "warning",
+            message: "same primary diagnostic key",
+            path: "/same",
+            expected: { value: "second" },
+          },
+          {
+            code: "TIED-DIAGNOSTIC",
+            severity: "info",
+            message: "same primary diagnostic key",
+            path: "/same",
+            expected: { value: "first" },
+          },
+        ],
+      },
+      localArtifacts: [
+        {
+          kind: "flow",
+          path: "flows/tied.json",
+          result: "PASS",
+          diagnostics: [{
+            code: "TIED-CLAIM",
+            severity: "info",
+            message: "same artifact claim key",
+            path: "/same",
+            actual: { value: "second" },
+          }],
+        },
+        {
+          kind: "flow",
+          path: "flows/tied.json",
+          result: "FAIL",
+          diagnostics: [{
+            code: "TIED-CLAIM",
+            severity: "info",
+            message: "same artifact claim key",
+            path: "/same",
+            actual: { value: "first" },
+          }],
+        },
+      ],
+    };
+    const reversed: LocalEvidenceReportInput = {
+      preparedDefinition: {
+        ...input.preparedDefinition,
+        diagnostics: [...(input.preparedDefinition?.diagnostics ?? [])].reverse(),
+      },
+      localArtifacts: [...(input.localArtifacts ?? [])].reverse().map((artifact) => ({
+        ...artifact,
+        diagnostics: [...(artifact.diagnostics ?? [])].reverse(),
+      })),
+    };
+
+    assert.deepEqual(
+      createLocalEvidenceReport(input),
+      createLocalEvidenceReport(reversed),
+    );
+  });
+
+  test("returns fresh deeply frozen gates for every report", () => {
+    const first = createLocalEvidenceReport(reportInput());
+    const second = createLocalEvidenceReport(reportInput());
+
+    assert.notEqual(first.gates, second.gates);
+    assert.notEqual(first.gates[0], second.gates[0]);
+    assert.equal(Object.isFrozen(first.gates), true);
+    assert.equal(Object.isFrozen(first.gates[0]), true);
+    assert.equal(second.gates[0]?.message, "No provider readback was requested or performed by this local report.");
+    assert.throws(() => {
+      (first.gates as Array<{ message: string }>)[0]!.message = "mutated";
+    }, TypeError);
+  });
+
   test("fails a local claim when its artifact result is mutated to FAIL", () => {
     const input = reportInput();
     const mutated: LocalEvidenceReportInput = {

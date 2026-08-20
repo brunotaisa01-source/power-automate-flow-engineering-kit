@@ -3,7 +3,6 @@ import { resolve } from "node:path";
 
 import {
   createLocalEvidenceReport,
-  type LocalEvidenceReportInput,
 } from "@spflow/core/evidence-report";
 import {
   createCommandReport,
@@ -132,7 +131,7 @@ export const reportEvidenceCommand: CommandHandler = {
       return inputFailure("CLI_JSON_SHAPE", "The local evidence input must be a JSON object.", parsed.path);
     }
 
-    const evidence = createLocalEvidenceReport(input as LocalEvidenceReportInput);
+    const evidence = createLocalEvidenceReport(input);
     return createCommandReport("report evidence", reportFindings(evidence), { data: evidence });
   },
 };
