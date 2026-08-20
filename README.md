@@ -94,6 +94,7 @@ Requirements:
 
 - Node.js `22.x`
 - npm `10.x`
+- Use `.nvmrc` with nvm, fnm, or another Node version manager when available.
 
 Install and verify:
 
@@ -101,7 +102,35 @@ Install and verify:
 npm ci
 npm run build
 npm test
+npm run check
 ```
+
+`npm run check` is the portable acceptance command. It invokes the build, the
+complete test inventory, all nine connector profiles, contract/rule/artifact
+checks, read-only plugin checks, and the high-severity dependency audit through
+Node argument arrays instead of shell-specific loops. The same command runs in
+the repository's Linux, macOS, and Windows GitHub Actions matrix.
+
+## Portable Power Automate Save Boundary
+
+When a raw Power Automate definition is going to an XRM/Flow API save path,
+prepare it locally with the exported `@spflow/core/flow-save` helper:
+
+```ts
+import { preparePowerAutomateDefinition } from "@spflow/core/flow-save";
+
+const saveDefinition = preparePowerAutomateDefinition(
+  rawDefinition,
+  connectionReferences,
+);
+```
+
+The helper is deterministic and offline. It removes only action-level
+`inputs.authentication`, derives `host.connectionReferenceName` from the
+declared connection-reference map, preserves the connector alias and payload,
+and fails closed when a logical reference is missing or ambiguous. It does not
+authenticate, call a tenant, publish, enable, or run a flow. This keeps the
+same save-boundary behavior on any laptop with Node 22/npm 10.
 
 The public example is a complete, synthetic project. It contains a
 contract-bound frontend, a zero-action flow envelope for package inspection,
