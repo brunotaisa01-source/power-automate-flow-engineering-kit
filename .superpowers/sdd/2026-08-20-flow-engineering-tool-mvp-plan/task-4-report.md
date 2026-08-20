@@ -276,6 +276,86 @@ private or raw local evidence was added.
 - `remaining_blockers`: final-head GitHub Actions; live provider auth/rebind/readback/UAT; unavailable official scanner
 - `delegated_subagents`: `0`
 
+## Whole-branch fix round — I-6 npm test parity
+
+### Status and scope
+
+`DONE` for I-6 from the whole-branch re-review. The implementation commit is
+`8bddd615f55b228a30901e8771c912f16184c7ca` (`fix: make npm test cross-platform and complete`).
+It adds `scripts/test-all.mjs`, wires `package.json` `test` to that runner,
+reuses the same inventory from `scripts/portable-check.mjs`, and adds portable
+inventory regression tests. The tracked Task 2/Task 4 evidence and release
+checklist now use the actual 422-test count. The coordinator ledger was not
+edited and no agent was spawned or coordinated.
+
+### I-6 RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/unit/portable-check.test.mjs
+```
+
+Result before the fix: exit `1`; 3 tests ran, 2 passed, and 1 failed because
+the package `test` script still used the shell glob
+`tests/**/*.test.ts` and no maintained `scripts/test-all.mjs` runner existed.
+
+### I-6 GREEN and parity evidence
+
+Inventory regression command:
+
+```text
+node --experimental-strip-types --test tests/unit/portable-check.test.mjs
+```
+
+Result: exit `0`; **3/3 passed**. The test verifies the package script, both
+`.test.ts` and `.test.mjs` discovery, nested `tests/unit/portable-check.test.mjs`
+coverage, deterministic argument order, and exact portable-check parity.
+
+Exact root test command:
+
+```text
+npm test
+```
+
+Result: exit `0`; **422/422 tests passed**. It now executes
+`node scripts/test-all.mjs`, which uses a Node argument array and `shell: false`.
+
+Portable acceptance command:
+
+```text
+npm_config_offline=true npm run check
+```
+
+Result: exit `0`; **422/422 tests passed**, **19 portable gates passed**, and
+npm audit reported **0 vulnerabilities**. The portable-check `test` command
+uses the same discovered inventory as the root `npm test` runner.
+
+### I-6 limitations and no-tenant statement
+
+The runner is local and shell-neutral; it does not change provider, tenant,
+Power Automate, Dataverse, CI-hosted, publication, or UAT evidence. Final-head
+GitHub Actions remains `NOT_RUN`/`PENDING`, live provider/rebind/readback/UAT
+remain `NOT_VERIFIED`, and the official history-aware scanner remains
+unavailable with exit `8`/`NOT_RUN`.
+
+This fix performed no external/provider/tenant access or mutation, no import,
+rebind, save, enablement, execution, readback, publication, UAT, push, merge,
+or agent coordination.
+
+### I-6 completion fields
+
+- `incident_id`: `N/A` — test-runner portability correction, no production incident
+- `status`: `GREEN_LOCAL; RELEASE_BLOCKED_EXTERNAL_GATES`
+- `wave/task`: Flow Engineering Tool MVP / whole-branch I-6
+- `red_command/result`: portable-check regression test; exit 1, 3 total, 2 pass, 1 intended failure
+- `green_command/result`: portable-check regression test; exit 0, 3/3 pass
+- `files`: 8 implementation/evidence files plus this handoff
+- `review_status`: ready for final independent whole-branch re-review
+- `evidence_class`: `LOCAL_SYNTHETIC`
+- `remaining_blockers`: final-head GitHub Actions; live provider auth/rebind/readback/UAT; unavailable official scanner
+- `delegated_subagents`: `0`
+
 ## Fix round 2
 
 ### Status and scope
