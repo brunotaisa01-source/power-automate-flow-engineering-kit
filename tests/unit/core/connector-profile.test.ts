@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { describe, test } from "node:test";
 
-import { evaluateSyntheticConnectorTrace, validateConnectorProfileFile } from "../../../packages/core/src/connector-profile.ts";
+import { evaluateSyntheticConnectorTrace, getSyntheticConnectorAdapter, validateConnectorProfileFile } from "../../../packages/core/src/connector-profile.ts";
 
 const ROOT = process.cwd();
 const PROFILE_DIR = resolve(ROOT, "examples/minimal-public-app/connectors");
@@ -23,6 +23,10 @@ describe("connector-neutral synthetic profiles", () => {
     for (const name of Object.keys(expectedConcurrency)) {
       const result = await validateConnectorProfileFile(join(PROFILE_DIR, name + ".profile.json"));
       assert.equal(result.valid, true);
+      const adapter = getSyntheticConnectorAdapter(name);
+      assert.ok(adapter);
+      assert.equal(adapter.transportMode, name === "http" ? "http" : "connector-action");
+      assert.equal(adapter.mutationConcurrency, expectedConcurrency[name]);
       const operations = result.profile?.operations as Array<Record<string, unknown>>;
       const read = operations.find((operation) => operation.id === "read-record")!;
       const update = operations.find((operation) => operation.id === "update-record")!;

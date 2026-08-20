@@ -8,6 +8,28 @@ export const SUPPORTED_CONNECTORS = [
   "graph", "http", "sql", "approvals",
 ] as const;
 
+export interface SyntheticConnectorAdapter {
+  readonly connector: string;
+  readonly transportMode: "http" | "connector-action";
+  readonly mutationConcurrency: "etag" | "row-version" | "version-token" | "optimistic";
+}
+
+export const SYNTHETIC_CONNECTOR_ADAPTERS: readonly SyntheticConnectorAdapter[] = [
+  { connector: "sharepoint", transportMode: "connector-action", mutationConcurrency: "etag" },
+  { connector: "excel", transportMode: "connector-action", mutationConcurrency: "row-version" },
+  { connector: "power-apps", transportMode: "connector-action", mutationConcurrency: "optimistic" },
+  { connector: "dataverse", transportMode: "connector-action", mutationConcurrency: "version-token" },
+  { connector: "outlook", transportMode: "connector-action", mutationConcurrency: "optimistic" },
+  { connector: "graph", transportMode: "connector-action", mutationConcurrency: "optimistic" },
+  { connector: "http", transportMode: "http", mutationConcurrency: "optimistic" },
+  { connector: "sql", transportMode: "connector-action", mutationConcurrency: "optimistic" },
+  { connector: "approvals", transportMode: "connector-action", mutationConcurrency: "optimistic" },
+];
+
+export function getSyntheticConnectorAdapter(connector: string): SyntheticConnectorAdapter | undefined {
+  return SYNTHETIC_CONNECTOR_ADAPTERS.find((adapter) => adapter.connector === connector);
+}
+
 export interface ConnectorDiagnostic {
   readonly code: string;
   readonly path: string;
@@ -70,6 +92,9 @@ function semanticDiagnostics(profile: Record<string, unknown>): ConnectorDiagnos
     const idempotency = record(operation.idempotency);
     const closure = record(operation.mutationClosure);
     const preRead = record(operation.preRead);
+    const adapter = typeof connector === "string" ? getSyntheticConnectorAdapter(connector) : undefined;
+    if (adapter !== undefined && transport?.mode !== adapter.transportMode) add(diagnostics, "CONNECTOR_PROFILE_ADAPTER_TRANSPORT", path + "/transport/mode", "Operation transport does not match the registered connector adapter.");
+    if (adapter !== undefined && kind !== "read" && concurrency?.mode !== adapter.mutationConcurrency) add(diagnostics, "CONNECTOR_PROFILE_ADAPTER_CONCURRENCY", path + "/concurrency/mode", "Mutation concurrency does not match the registered connector adapter.");
     if (transport?.mode === "connector-action" && (transport.method !== "ACTION" || typeof transport.action !== "string")) add(diagnostics, "CONNECTOR_PROFILE_ACTION_TRANSPORT", path + "/transport", "Connector-action transport requires ACTION and a named action.");
     if (transport?.mode === "http" && (transport.method === "ACTION" || transport.action !== undefined)) add(diagnostics, "CONNECTOR_PROFILE_HTTP_TRANSPORT", path + "/transport", "HTTP transport requires an HTTP method and cannot declare a connector action.");
     const allowlist = request !== undefined && stringArray(request.allowlist) ? request.allowlist : undefined;
