@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
+import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { test } from "node:test";
 
 const ROOT = process.cwd();
@@ -10,6 +12,16 @@ const SKILL_PATH = join(ROOT, "skills", "power-automate-flow-engineering-kit-dat
 const PROFILE_PATH = join(ROOT, "examples", "minimal-public-app", "connectors", "dataverse.red-green.json");
 const DOC_PATH = join(ROOT, "docs", "connectors", "dataverse-red-green.md");
 const RELEASE_CHECKLIST_PATH = join(ROOT, "docs", "release", "mvp-release-checklist.md");
+const REQUIRED_RELEASE_EVIDENCE_LINKS = [
+  "evidence/task-1-worker-handoff.md",
+  "evidence/task-1-independent-review.md",
+  "evidence/task-2-worker-handoff.md",
+  "evidence/task-2-independent-review.md",
+  "evidence/task-3-worker-handoff.md",
+  "evidence/task-3-independent-review.md",
+  "evidence/task-4-worker-handoff.md",
+  "evidence/task-4-independent-review.md",
+];
 
 type ScenarioProfile = {
   evidenceClass?: unknown;
@@ -23,18 +35,42 @@ function runOfflineCatalogConsistency(profile: ScenarioProfile): string {
       const id = scenario.id;
       const red = scenario.red as Record<string, unknown> | undefined;
       const green = scenario.green as Record<string, unknown> | undefined;
-      assert.equal(typeof id, "string");
-      assert.ok(red && typeof red === "object" && !Array.isArray(red));
-      assert.ok(green && typeof green === "object" && !Array.isArray(green));
-      assert.equal(typeof red.failure, "string");
-      assert.ok(String(red.failure).trim().length > 0);
-      assert.equal(typeof green.correction, "string");
-      assert.ok(String(green.correction).trim().length > 0);
+      if (typeof id !== "string") throw new Error("CATALOG_ID_REQUIRED");
+      if (!red || typeof red !== "object" || Array.isArray(red)) throw new Error("CATALOG_RED_SHAPE_REQUIRED");
+      if (!green || typeof green !== "object" || Array.isArray(green)) throw new Error("CATALOG_GREEN_SHAPE_REQUIRED");
+      if (typeof red.failure !== "string" || red.failure.trim().length === 0) throw new Error("CATALOG_RED_FAILURE_REQUIRED");
+      if (typeof green.correction !== "string" || green.correction.trim().length === 0) throw new Error("CATALOG_GREEN_CORRECTION_REQUIRED");
       return `${id}|RED=${red.failure}|GREEN=${green.correction}`;
     })
     .sort()
     .join("\n");
 }
+
+const INDEPENDENT_POSITIVE_CONTROL: ScenarioProfile = {
+  evidenceClass: "LOCAL_SYNTHETIC",
+  scenarios: [
+    {
+      id: "DV-POSITIVE-ALPHA",
+      title: "Independent branch-inspection control",
+      invariant: "A catalog entry with a distinct topology remains locally valid.",
+      red: { failure: "A branch-inspection record omits its required failure explanation." },
+      green: { correction: "The branch-inspection record supplies a stable failure explanation and correction." },
+      providerGate: "NOT_VERIFIED",
+      uatGate: "NOT_VERIFIED",
+      topology: { kind: "branch-inspection", order: ["red", "green"] },
+    },
+    {
+      id: "DV-POSITIVE-BETA",
+      title: "Independent payload-boundary control",
+      invariant: "A second catalog topology remains locally valid without tenant data.",
+      red: { failure: "A payload-boundary record omits its correction contract." },
+      green: { correction: "The payload-boundary record retains a deterministic correction contract." },
+      providerGate: "NOT_VERIFIED",
+      uatGate: "NOT_VERIFIED",
+      topology: { kind: "payload-boundary", fields: ["failure", "correction"] },
+    },
+  ],
+};
 
 test("Dataverse training skill is present, searchable, and provider-boundary explicit", async () => {
   const skill = await readFile(SKILL_PATH, "utf8");
@@ -114,9 +150,7 @@ test("MVP release checklist records reproducible evidence and explicit blockers"
     "Task 1",
     "Task 2",
     "Task 3",
-    "task-1-rereview-2.md",
-    "task-2-final-rereview.md",
-    "task-3-rereview.md",
+    ...REQUIRED_RELEASE_EVIDENCE_LINKS,
     "previous GitHub Actions matrix evidence",
     "final-head CI still pending",
     "live provider auth",
@@ -152,19 +186,35 @@ test("release checklist binds immutable heads and separates handoffs from review
     "existing prior CI run",
     "Worker handoffs",
     "Independent review reports",
-    ".superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-1-report.md",
-    ".superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-2-report.md",
-    ".superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-3-report.md",
-    ".superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-4-report.md",
-    ".superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-1-rereview-2.md",
-    ".superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-2-final-rereview.md",
-    ".superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-3-rereview.md",
-    ".superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-4-review.md",
+    ...REQUIRED_RELEASE_EVIDENCE_LINKS,
   ];
   for (const requiredEntry of requiredEntries) {
     assert.ok(checklist.includes(requiredEntry), `missing release traceability: ${requiredEntry}`);
   }
   assert.doesNotMatch(checklist, /final-head[^\n]*https?:\/\//i);
+  assert.doesNotMatch(checklist, /\.superpowers\/sdd\//i);
+});
+
+test("release checklist evidence links resolve to tracked public records", async () => {
+  const checklist = await readFile(RELEASE_CHECKLIST_PATH, "utf8");
+  const links = [...checklist.matchAll(/\[[^\]]+\]\(([^)#?]+)(?:#[^)]*)?\)/g)]
+    .map((match) => match[1])
+    .filter((target) => target.startsWith("evidence/"))
+    .sort();
+
+  assert.deepEqual(links, [...REQUIRED_RELEASE_EVIDENCE_LINKS].sort());
+  for (const link of links) {
+    const absoluteTarget = resolve(dirname(RELEASE_CHECKLIST_PATH), link);
+    const repositoryRelativeTarget = relative(ROOT, absoluteTarget).replaceAll("\\", "/");
+    assert.equal(repositoryRelativeTarget.startsWith("../"), false);
+    assert.equal(existsSync(absoluteTarget), true, `missing release evidence: ${link}`);
+    const trackedPath = execFileSync("git", ["ls-files", "--error-unmatch", "--", repositoryRelativeTarget], {
+      cwd: ROOT,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    assert.equal(trackedPath, repositoryRelativeTarget, `release evidence is not tracked: ${link}`);
+  }
 });
 
 test("public docs name all three offline APIs and their evidence boundary", async () => {
@@ -210,4 +260,30 @@ test("deterministic offline Dataverse catalog consistency requires RED and GREEN
   assert.match(documentation, /deterministic offline Dataverse catalog consistency harness/i);
   assert.match(documentation, /node --experimental-strip-types --test --test-name-pattern="deterministic offline Dataverse catalog consistency" tests\/skills\/dataverse-flow-engineering-kit-skill\.test\.ts/);
   assert.match(documentation, /does not execute live connector/i);
+});
+
+test("Task 4 catalog positive-control is structurally independent and locally GREEN", async () => {
+  const checklist = await readFile(RELEASE_CHECKLIST_PATH, "utf8");
+  const profile = JSON.parse(await readFile(PROFILE_PATH, "utf8")) as ScenarioProfile;
+  const positiveControl = runOfflineCatalogConsistency(INDEPENDENT_POSITIVE_CONTROL);
+  const shippedCatalog = runOfflineCatalogConsistency(profile);
+
+  assert.notEqual(positiveControl, shippedCatalog);
+  assert.match(positiveControl, /DV-POSITIVE-ALPHA/);
+  assert.equal(positiveControl.split("\n").length, 2);
+  assert.match(checklist, /Task 4 catalog positive-control/);
+});
+
+test("Task 4 catalog mutation\/RED fails closed for missing RED evidence", async () => {
+  const checklist = await readFile(RELEASE_CHECKLIST_PATH, "utf8");
+  const profile = JSON.parse(await readFile(PROFILE_PATH, "utf8")) as ScenarioProfile;
+  const mutatedProfile = {
+    ...profile,
+    scenarios: profile.scenarios?.map((scenario, index) =>
+      index === 0 ? { ...scenario, red: { ...(scenario.red as Record<string, unknown>), failure: "" } } : scenario,
+    ),
+  };
+
+  assert.throws(() => runOfflineCatalogConsistency(mutatedProfile), /CATALOG_RED_FAILURE_REQUIRED/);
+  assert.match(checklist, /Task 4 catalog mutation\/RED/);
 });

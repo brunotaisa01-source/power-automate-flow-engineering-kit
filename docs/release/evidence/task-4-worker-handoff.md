@@ -1,0 +1,29 @@
+# Task 4 Worker Handoff Summary
+
+Evidence class: `LOCAL_SYNTHETIC`.
+
+Task 4 documents the portable Dataverse training boundary and public release
+gates. The tracked checklist maps the three offline APIs, preserves immutable
+review/CI traceability, and links this committed evidence bundle rather than
+depending on ignored worktree records.
+
+The Dataverse fixture is a sanitized scenario catalog. Its deterministic local
+harness requires non-empty `red.failure` and `green.correction` fields for all
+9 scenarios, accepts a structurally independent positive control, and rejects
+a behaviorally relevant missing-RED mutation. These checks do not execute a
+live connector and do not establish provider or UAT evidence.
+
+Exact local control evidence:
+
+```text
+node --experimental-strip-types --test --test-name-pattern="Task 4 catalog positive-control" tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+=> exit 0; 1/1 passed
+
+node --experimental-strip-types --test --test-name-pattern="Task 4 catalog mutation/RED" tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+=> exit 0; 1/1 passed; CATALOG_RED_FAILURE_REQUIRED
+```
+
+The Task 4 worker scope has no tenant/provider access, import, rebind,
+execution, mutation, publication, or UAT action. Current release blockers
+remain the final-head GitHub Actions matrix, live provider auth/rebind/readback,
+UAT, and the unavailable official history-aware scanner.

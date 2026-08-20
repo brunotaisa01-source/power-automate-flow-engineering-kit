@@ -63,14 +63,8 @@ is an independent gate: if its engine is unavailable, record its exit `8` and
 
 ## Current local evidence
 
-The following prior worker evidence is local only and is cited for traceability:
-
-| Area | Evidence | Result |
-| --- | --- | --- |
-| Task 1 flow preparation | `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-1-rereview-2.md` | Clean scoped re-review, `APPROVE`; focused 11/11 |
-| Task 2 evidence reporting | `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-2-final-rereview.md` | `PASS`; focused 20/20, full 285/285, check 387/387 |
-| Task 3 read-only provider contract | `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-3-rereview.md` | `PASS`; focused 17/17, full 288/288, check 404/404 |
-| Task 4 fix round Dataverse/docs guard | `tests/skills/dataverse-flow-engineering-kit-skill.test.ts` | Focused 8/8; catalog harness 1/1; full 294/294; offline `npm run check` 410/410, 19 gates; supplemental privacy 0 markers; links 16/0; official scanner `exit 8`, `NOT_RUN` |
+The following committed, sanitized summaries are the release traceability
+records. All results are local only.
 
 The Task 2 and Task 3 check counts are historical checkpoints from their
 scoped re-reviews, not claims about the final Task 4 head. Re-run every command
@@ -78,22 +72,46 @@ above on the exact final commit.
 
 ### Worker handoffs
 
-These are worker-authored implementation records, not independent approvals:
+These are worker-authored summaries, not independent approvals:
 
-- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-1-report.md`
-- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-2-report.md`
-- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-3-report.md`
-- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-4-report.md`
+- [Task 1 worker handoff summary](evidence/task-1-worker-handoff.md)
+- [Task 2 worker handoff summary](evidence/task-2-worker-handoff.md)
+- [Task 3 worker handoff summary](evidence/task-3-worker-handoff.md)
+- [Task 4 worker handoff summary](evidence/task-4-worker-handoff.md)
 
 ### Independent review reports
 
-These are separate review records and must not be substituted for the worker
-handoffs above:
+These are separate sanitized review summaries and must not be substituted for
+the worker handoff summaries above:
 
-- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-1-rereview-2.md`
-- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-2-final-rereview.md`
-- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-3-rereview.md`
-- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-4-review.md`
+- [Task 1 independent review summary](evidence/task-1-independent-review.md)
+- [Task 2 independent review summary](evidence/task-2-independent-review.md)
+- [Task 3 independent review summary](evidence/task-3-independent-review.md)
+- [Task 4 independent review summary](evidence/task-4-independent-review.md)
+
+## Task 4 catalog independent controls
+
+The deterministic catalog harness has an independently shaped positive control
+and a behaviorally relevant mutation/RED control. Both are local synthetic
+checks only:
+
+```text
+node --experimental-strip-types --test --test-name-pattern="Task 4 catalog positive-control" tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+=> exit 0; 1/1 passed
+
+node --experimental-strip-types --test --test-name-pattern="Task 4 catalog mutation/RED" tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+=> exit 0; 1/1 passed; missing red.failure rejected with CATALOG_RED_FAILURE_REQUIRED
+```
+
+The positive control uses a distinct branch-inspection/payload-boundary
+topology. The mutation empties a required `red.failure` field and the harness
+fails closed. Neither control executes a live connector or establishes
+provider/UAT evidence.
+
+Current whole-branch correction candidate evidence: focused Task 4 suite 11/11,
+full `npm test` 418/418, and offline `npm run check` 418/418 with 19 gates and
+0 audit vulnerabilities. These are local results, not hosted/provider/UAT
+results.
 
 ## CI distinction
 
