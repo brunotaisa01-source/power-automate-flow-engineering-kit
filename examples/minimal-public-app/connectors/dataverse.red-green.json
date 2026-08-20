@@ -5,7 +5,7 @@
   "evidenceClass": "LOCAL_SYNTHETIC",
   "providerGate": "NOT_VERIFIED",
   "uatGate": "NOT_VERIFIED",
-  "description": "Sanitized local RED/GREEN training cases for Dataverse-backed Power Automate flows.",
+  "description": "Sanitized LOCAL_SYNTHETIC scenario catalog for Dataverse-backed Power Automate flow training.",
   "scenarios": [
     {
       "id": "DV-AUTH-001",

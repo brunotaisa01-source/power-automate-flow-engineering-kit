@@ -175,6 +175,26 @@ and fails closed when a logical reference is missing or ambiguous. It does not
 authenticate, call a tenant, publish, enable, or run a flow. This keeps the
 same save-boundary behavior on any laptop with Node 22/npm 10.
 
+## Public API contracts
+
+The MVP exposes three offline/read-only package contracts:
+
+- Task 1: `preparePowerAutomateDefinition` from
+  `@spflow/core/flow-save`. It prepares a local definition and never calls a
+  tenant.
+- Task 2: `createLocalEvidenceReport(input): LocalEvidenceReport` from
+  `@spflow/core/evidence-report`. It emits `LOCAL_SYNTHETIC` evidence while
+  keeping provider and UAT gates `NOT_VERIFIED`.
+- Task 3: `validateReadonlyProviderSnapshot(snapshot)` from
+  `@spflow/core/provider-readonly`. It validates a sanitized read-only
+  snapshot contract; it does not authenticate, read live state, mutate a
+  provider, or establish UAT.
+
+These package exports are local contracts only. `PROVIDER` requires an
+authenticated observation with authoritative readback, and `UAT` requires the
+named acceptance environment or user. Neither can be inferred from a local
+PASS.
+
 The public example is a complete, synthetic project. It contains a
 contract-bound frontend, a zero-action flow envelope for package inspection,
 and exact bundle/package manifests. It contains no tenant values, credentials,

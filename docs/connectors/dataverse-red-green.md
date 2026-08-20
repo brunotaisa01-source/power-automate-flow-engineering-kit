@@ -28,6 +28,23 @@ the named acceptance environment or user confirms the behavior. The read-only
 provider contract supplies sanitized snapshot validation; it does not import,
 rebind, enable, publish, run, write, or delete Dataverse resources.
 
+## Sanitized scenario catalog and offline consistency harness
+
+`dataverse.red-green.json` is a sanitized scenario catalog, not a tenant export
+and not a live connector test. The focused test runs a deterministic offline
+Dataverse catalog consistency harness. This deterministic offline Dataverse catalog consistency harness requires
+every scenario to have a non-empty
+`red.failure` and `green.correction`, canonicalizes the entries by scenario ID,
+and compares the result again after reversing the input order.
+
+Run that harness with:
+
+```text
+node --experimental-strip-types --test --test-name-pattern="deterministic offline Dataverse catalog consistency" tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+The harness checks catalog shape and deterministic local content only. It does not execute live connector calls, call a provider, mutate Dataverse, or establish provider or UAT evidence. Its result remains `LOCAL_SYNTHETIC` with provider and UAT `NOT_VERIFIED`.
+
 ## What the cases teach
 
 ### DV-AUTH-001 — platform-injected authentication

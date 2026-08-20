@@ -2,6 +2,8 @@
 
 **Scope:** Power Automate Flow Engineering Tool MVP, public synthetic repository
 **Base head:** `b1d00b9`
+Immutable Task 4 review head: `eaf31f8`
+Task 4 implementation commit: `2c269c2`
 **Release posture:** local evidence is reviewable; release remains blocked by
 external and final-head gates listed below.
 
@@ -32,6 +34,7 @@ npm run build
 npm test
 npm run check
 node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+node --experimental-strip-types --test --test-name-pattern="deterministic offline Dataverse catalog consistency" tests/skills/dataverse-flow-engineering-kit-skill.test.ts
 node packages/cli/dist/bin/spflow.js scan public-data . --history --format json
 git diff --check
 git status --short --branch
@@ -52,24 +55,52 @@ The following prior worker evidence is local only and is cited for traceability:
 | Task 1 flow preparation | `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-1-rereview-2.md` | Clean scoped re-review, `APPROVE`; focused 11/11 |
 | Task 2 evidence reporting | `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-2-final-rereview.md` | `PASS`; focused 20/20, full 285/285, check 387/387 |
 | Task 3 read-only provider contract | `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-3-rereview.md` | `PASS`; focused 17/17, full 288/288, check 404/404 |
-| Task 4 Dataverse/docs guard | `tests/skills/dataverse-flow-engineering-kit-skill.test.ts` | Focused 5/5; full 291/291; `npm run check` 407/407, 19 gates; supplemental privacy 0 markers; official scanner `exit 8`, `NOT_RUN` |
+| Task 4 fix round Dataverse/docs guard | `tests/skills/dataverse-flow-engineering-kit-skill.test.ts` | Focused 8/8; catalog harness 1/1; full 294/294; offline `npm run check` 410/410, 19 gates; supplemental privacy 0 markers; links 16/0; official scanner `exit 8`, `NOT_RUN` |
 
 The Task 2 and Task 3 check counts are historical checkpoints from their
 scoped re-reviews, not claims about the final Task 4 head. Re-run every command
 above on the exact final commit.
 
+### Worker handoffs
+
+These are worker-authored implementation records, not independent approvals:
+
+- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-1-report.md`
+- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-2-report.md`
+- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-3-report.md`
+- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-4-report.md`
+
+### Independent review reports
+
+These are separate review records and must not be substituted for the worker
+handoffs above:
+
+- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-1-rereview-2.md`
+- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-2-final-rereview.md`
+- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-3-rereview.md`
+- `.superpowers/sdd/2026-08-20-flow-engineering-tool-mvp-plan/task-4-review.md`
+
 ## CI distinction
 
-- **previous GitHub Actions matrix evidence:** the portable workflow was added
-  at `ef38767` and stabilized for operating systems at `70146c3`; prior worker
-  handoffs also record local `npm run check` parity. This establishes workflow
-  configuration and historical local evidence only, not a hosted result for
-  `b1d00b9` or the final Task 4 commit.
-- **final-head CI still pending:** run `.github/workflows/ci.yml` on the final
-  Task 4 commit and require `portable-check (ubuntu-latest)`,
-  `portable-check (macos-latest)`, and `portable-check (windows-latest)` to
-  pass. Record the immutable commit and run URL in the coordinator’s release
-  record, not in this public checklist if it contains private metadata.
+The previous GitHub Actions matrix evidence consists of the workflow
+configuration and the existing prior CI run below; it is separate from the
+final-head matrix state.
+
+- **existing prior CI run:** CI run `32405651477` completed successfully for
+  prior head `b5e9c6e1a4e19bad676f180b1a48638f652ef268` at
+  [the public run record](https://github.com/brunotaisa01-source/power-automate-flow-engineering-kit/actions/runs/32405651477).
+  It is historical evidence for that prior head, not evidence for the immutable
+  Task 4 review head `eaf31f8`, implementation commit `2c269c2`, or any later
+  coordinator/fix-round head.
+- **final-head GitHub Actions matrix: `NOT_RUN` / `PENDING`:** no final-head
+  matrix result exists for `eaf31f8` or any later coordinator head. Do not infer
+  it from the existing prior CI run, and do not invent a final-head URL or
+  result. Run `.github/workflows/ci.yml` only on the exact final head and
+  require `portable-check (ubuntu-latest)`, `portable-check (macos-latest)`,
+  and `portable-check (windows-latest)` to pass.
+
+The final-head CI still pending status remains `NOT_RUN`/`PENDING` until that
+exact matrix has completed.
 
 ## Blockers before release
 
