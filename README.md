@@ -258,11 +258,13 @@ intentionally stable.
 - `fixtures/`: synthetic RED, GREEN, positive-control, mutation, and connector fixtures.
 - `tests/`: unit, integration, adapter-boundary, and shipped-CLI verification tests.
 - `docs/specs/`: contracts, connector-profile semantics, and evidence model.
+- `docs/connectors/`: sanitized connector-specific RED/GREEN context packs.
 - `docs/architecture/`: product boundary, architecture, threat model, and source-derived patterns.
 - `docs/plans/`: implementation and remediation plans.
 - `docs/reviews/`: review records and acceptance gates.
 - `knowledge/self-improvement/`: approved global lessons and unresolved sanitized candidates.
 - `skills/`: the core engineering skill and the automatic connector-agnostic self-improvement skill.
+- `skills/power-automate-flow-engineering-kit-dataverse/`: Dataverse save-boundary, schema, approval, idempotency, and payment-handoff reference skill.
 
 ## Engineering Model
 
