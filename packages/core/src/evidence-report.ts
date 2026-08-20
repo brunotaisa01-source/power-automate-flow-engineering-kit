@@ -133,6 +133,43 @@ function redactValue(value: unknown): unknown {
   return value;
 }
 
+function isJsonSafeValue(value: unknown, ancestors = new Set<object>()): boolean {
+  try {
+    if (value === null || typeof value === "string" || typeof value === "boolean") {
+      return true;
+    }
+    if (typeof value === "number") {
+      return Number.isFinite(value);
+    }
+    if (typeof value !== "object") {
+      return false;
+    }
+
+    const object = value as object;
+    if (ancestors.has(object)) {
+      return false;
+    }
+    const array = Array.isArray(object);
+    const prototype = Object.getPrototypeOf(object);
+    if (array ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) {
+      return false;
+    }
+
+    ancestors.add(object);
+    for (const key of Object.keys(object)) {
+      const descriptor = Object.getOwnPropertyDescriptor(object, key);
+      if (descriptor === undefined || !("value" in descriptor)
+        || !isJsonSafeValue(descriptor.value, ancestors)) {
+        return false;
+      }
+    }
+    ancestors.delete(object);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function normalizedPath(value: unknown, fallback: string): string {
   return typeof value === "string" && value.length > 0 ? redactText(value) : fallback;
 }
@@ -155,13 +192,40 @@ function isDiagnosticInput(value: unknown): value is LocalEvidenceDiagnosticInpu
     || typeof value.message !== "string") {
     return false;
   }
+  try {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
   const validSeverity = value.severity === undefined
     || value.severity === "error"
     || value.severity === "warning"
     || value.severity === "info";
-  return validSeverity && ["path", "artifactPath", "jsonPointer", "remediation"].every((key) =>
-    value[key] === undefined || typeof value[key] === "string"
-  );
+  if (!validSeverity) {
+    return false;
+  }
+  for (const key of ["path", "artifactPath", "jsonPointer", "remediation"] as const) {
+    if (!Object.hasOwn(value, key)) {
+      continue;
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !("value" in descriptor) || typeof descriptor.value !== "string") {
+      return false;
+    }
+  }
+  for (const key of ["expected", "actual"] as const) {
+    if (!Object.hasOwn(value, key)) {
+      continue;
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (descriptor === undefined || !("value" in descriptor) || !isJsonSafeValue(descriptor.value)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 interface NormalizedDiagnostics {
