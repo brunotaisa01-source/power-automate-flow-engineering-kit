@@ -212,8 +212,8 @@ test("mutation counterexample rejects a missing logical connection reference", a
 test("prepare flow rejects ambiguous connection-reference matches", async () => {
   const { definitionPath, connectionsPath } = await writeInputs();
   await writeFile(connectionsPath, JSON.stringify({
-    first_alias: { connectionName: "synthetic-connection", connectionReferenceLogicalName: "prp_first" },
-    second_alias: { connectionName: "synthetic-connection", connectionReferenceLogicalName: "prp_second" },
+    first_alias: { connectionName: "synthetic_alias", connectionReferenceLogicalName: "prp_first" },
+    second_alias: { connectionName: "synthetic_alias", connectionReferenceLogicalName: "prp_second" },
   }), "utf8");
   const result = await runJson(["prepare", "flow", definitionPath, "--connections", connectionsPath, "--format", "json"]);
 
