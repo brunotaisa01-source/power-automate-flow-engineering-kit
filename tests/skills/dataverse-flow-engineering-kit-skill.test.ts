@@ -168,6 +168,7 @@ test("release checklist binds immutable heads and separates handoffs from review
 });
 
 test("public docs name all three offline APIs and their evidence boundary", async () => {
+  const checklist = await readFile(RELEASE_CHECKLIST_PATH, "utf8");
   const publicGuidance = (
     await Promise.all([
       readFile(README_PATH, "utf8"),
@@ -187,6 +188,7 @@ test("public docs name all three offline APIs and their evidence boundary", asyn
     "@spflow/core/provider-readonly",
   ]) {
     assert.ok(publicGuidance.includes(apiReference), `missing public API reference: ${apiReference}`);
+    assert.ok(checklist.includes(apiReference), `missing checklist API reference: ${apiReference}`);
   }
   for (const evidenceLabel of ["LOCAL_SYNTHETIC", "PROVIDER", "UAT", "NOT_VERIFIED"]) {
     assert.match(publicGuidance, new RegExp(evidenceLabel, "i"));

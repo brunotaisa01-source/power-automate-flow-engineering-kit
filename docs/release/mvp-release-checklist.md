@@ -23,6 +23,21 @@ sanitized evidence classes, never tenant values or raw connector evidence.
 provider snapshot, or a passing documentation test cannot establish provider,
 hosted, or UAT behavior.
 
+## Task 1–3 API mapping
+
+The release evidence maps to these exact offline exports; none establishes live
+provider or UAT evidence:
+
+| Task | Exact API/export | Evidence boundary |
+| --- | --- | --- |
+| Task 1 | `preparePowerAutomateDefinition` from `@spflow/core/flow-save` | Local package preparation/validation only; no tenant call or provider PASS |
+| Task 2 | `createLocalEvidenceReport(input): LocalEvidenceReport` from `@spflow/core/evidence-report` | `LOCAL`/`LOCAL_SYNTHETIC` only; provider/UAT remain `NOT_VERIFIED` |
+| Task 3 | `validateReadonlyProviderSnapshot(snapshot)` from `@spflow/core/provider-readonly` | Pure offline/read-only metadata contract; not live provider auth/rebind/readback/UAT |
+
+These contracts do not authenticate, mutate, rebind, execute, publish, or
+perform provider readback. `PROVIDER` requires authenticated authoritative
+readback, and `UAT` requires the named acceptance environment or user.
+
 ## Reproducible commands
 
 Run from a clean checkout with Node 22.x and npm 10.x. These commands are
