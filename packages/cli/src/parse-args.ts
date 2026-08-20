@@ -215,6 +215,24 @@ export function redactCommandReport(
   return redactValue(report, sensitiveValues) as CommandReport;
 }
 
+function safeRelativeCliPath(value: string): boolean {
+  if (
+    value.length === 0
+    || value.startsWith("/")
+    || value.startsWith("\\")
+    || value.includes("\\")
+    || value.includes(":")
+    || /[\u0000-\u001f\u007f]/.test(value)
+  ) {
+    return false;
+  }
+  return value.split("/").every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
+}
+
+export function sanitizeCliPath(value: string): string {
+  return safeRelativeCliPath(value) ? value : "<redacted-path>";
+}
+
 function parseFormat(value: string | undefined): OutputFormat {
   if (value === undefined) {
     return "text";

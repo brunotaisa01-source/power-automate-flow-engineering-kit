@@ -272,6 +272,65 @@ describe("local evidence report builder", () => {
     assert.match(JSON.stringify(report), /artifacts\/synthetic\.json/);
   });
 
+  test("sanitizes unsafe paths in diagnostic prose and artifact-kind claim IDs", () => {
+    const unsafePaths = [
+      "../../tenant/private.json",
+      "/opt/private/tenant.json",
+      "file:///Users/private/tenant.json",
+      "C:\\Users\\private\\x",
+      "\\\\server\\share\\x",
+    ];
+
+    for (const unsafePath of unsafePaths) {
+      const report = createLocalEvidenceReport({
+        preparedDefinition: {
+          path: "flows/safe.json",
+          result: "PASS",
+          diagnostics: [{
+            code: "UNSAFE-PROSE",
+            message: `Found ${unsafePath}.`,
+            remediation: `Remove ${unsafePath}.`,
+          }],
+        },
+        localArtifacts: [{
+          kind: unsafePath,
+          path: "artifacts/safe.json",
+          result: "PASS",
+          diagnostics: [],
+        }],
+      });
+      const serialized = JSON.stringify(report);
+
+      assert.doesNotMatch(serialized, new RegExp(unsafePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      assert.match(serialized, /<redacted-path>|<redacted-url>/);
+    }
+  });
+
+  test("preserves ordinary diagnostic prose and safe artifact kinds", () => {
+    const report = createLocalEvidenceReport({
+      preparedDefinition: {
+        path: "flows/safe.json",
+        result: "PASS",
+        diagnostics: [{
+          code: "SAFE-PROSE",
+          message: "Synthetic ordinary diagnostic prose remains readable.",
+          remediation: "Review the safe relative artifact before rerunning.",
+        }],
+      },
+      localArtifacts: [{
+        kind: "flow",
+        path: "artifacts/safe.json",
+        result: "PASS",
+        diagnostics: [],
+      }],
+    });
+    const serialized = JSON.stringify(report);
+
+    assert.equal(report.result, "PASS");
+    assert.match(serialized, /Synthetic ordinary diagnostic prose remains readable/);
+    assert.match(serialized, /artifact:flow:artifacts\/safe\.json/);
+  });
+
   test("fails closed for a prepared-definition getter that throws", () => {
     const hostile = new Proxy({
       localArtifacts: reportInput().localArtifacts,

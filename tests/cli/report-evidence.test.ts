@@ -150,6 +150,28 @@ test("report evidence preserves valid JSON-safe expected and actual values", asy
   assert.deepEqual(diagnostic?.actual, [true, null, { value: "observed" }]);
 });
 
+test("report evidence sanitizes unsafe unreadable input paths in JSON and text", async () => {
+  const unsafePaths = [
+    "../../tenant/private.json",
+    "/opt/private/tenant.json",
+    "file:///Users/private/tenant.json",
+    "C:\\Users\\private\\x",
+    "\\\\server\\share\\x",
+  ];
+
+  for (const unsafePath of unsafePaths) {
+    const jsonResult = await runJson(["report", "evidence", unsafePath, "--format", "json"]);
+    const textResult = await runText(["report", "evidence", unsafePath, "--format", "text"]);
+
+    assert.equal(jsonResult.exitCode, 2);
+    assert.equal(textResult.exitCode, 2);
+    assert.doesNotMatch(JSON.stringify(jsonResult.report), new RegExp(unsafePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.doesNotMatch(textResult.stdout, new RegExp(unsafePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(JSON.stringify(jsonResult.report), /<redacted-path>|<redacted-url>/);
+    assert.match(textResult.stdout, /<redacted-path>|<redacted-url>/);
+  }
+});
+
 test("report evidence fails closed for an unreadable local evidence path", async () => {
   const result = await runJson([
     "report", "evidence", "/private/tmp/missing-synthetic-evidence.json", "--format", "json",

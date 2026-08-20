@@ -7,6 +7,7 @@ import {
 import {
   createCommandReport,
   parseCliArgs,
+  sanitizeCliPath,
   type CommandHandler,
   type CommandReport,
   type ReportFinding,
@@ -23,7 +24,7 @@ function inputFailure(code: string, message: string, path: string): CommandRepor
     severity: "error",
     code,
     message,
-    artifactPath: path,
+    artifactPath: sanitizeCliPath(path),
     remediation: "Provide a readable local synthetic evidence JSON file.",
   }]);
 }

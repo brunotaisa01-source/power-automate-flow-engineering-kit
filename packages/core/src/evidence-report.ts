@@ -116,9 +116,16 @@ function redactText(input: string): string {
     .replace(/\bBearer\s+[^\s"']+/gi, "Bearer <redacted-secret>");
 }
 
+function redactPathBearingText(input: string): string {
+  return redactText(input)
+    .replace(/\b(?!https?:\/\/[^\s/]*\.example\.test\b)[a-z][a-z0-9+.-]*:(?:\/\/|[\\/])[^\s"']+/gi, "<redacted-url>")
+    .replace(/(^|[\s("'`])(?:\.\.?[\\/])+(?:[^\s"']+)/g, "$1<redacted-path>")
+    .replace(/(^|[\s("'`])\/[^\s"']+/g, "$1<redacted-path>");
+}
+
 function redactValue(value: unknown): unknown {
   if (typeof value === "string") {
-    return redactText(value);
+    return redactPathBearingText(value);
   }
   if (Array.isArray(value)) {
     return value.map(redactValue);
@@ -127,7 +134,7 @@ function redactValue(value: unknown): unknown {
     return Object.fromEntries(
       Object.entries(value)
         .sort(([left], [right]) => compareText(left, right))
-        .map(([key, item]) => [redactText(key), redactValue(item)]),
+        .map(([key, item]) => [redactPathBearingText(key), redactValue(item)]),
     );
   }
   return value;
@@ -284,12 +291,12 @@ function normalizedDiagnostics(
     const normalized: LocalEvidenceDiagnostic = {
       code: redactText(diagnostic.code),
       severity: diagnostic.severity ?? "info",
-      message: redactText(diagnostic.message),
+      message: redactPathBearingText(diagnostic.message),
       artifactPath: path,
       ...(diagnostic.jsonPointer === undefined ? {} : { jsonPointer: redactText(diagnostic.jsonPointer) }),
       ...(diagnostic.expected === undefined ? {} : { expected: redactValue(diagnostic.expected) }),
       ...(diagnostic.actual === undefined ? {} : { actual: redactValue(diagnostic.actual) }),
-      ...(diagnostic.remediation === undefined ? {} : { remediation: redactText(diagnostic.remediation) }),
+      ...(diagnostic.remediation === undefined ? {} : { remediation: redactPathBearingText(diagnostic.remediation) }),
     };
     return normalized;
   }).sort(compareDiagnostics);
@@ -507,7 +514,7 @@ function buildLocalEvidenceReport(input: unknown): LocalEvidenceReport {
       }
 
       const kind = typeof artifact.kind === "string" && artifact.kind.length > 0
-        ? redactText(artifact.kind)
+        ? redactPathBearingText(artifact.kind)
         : "local-artifact";
       const suppliedPath = artifact.path ?? artifact.artifactPath;
       const artifactPath = normalizedPath(suppliedPath, invalidArtifactPath);
