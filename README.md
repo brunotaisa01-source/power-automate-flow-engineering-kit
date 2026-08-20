@@ -1,10 +1,18 @@
 # SharePoint Flow Engineering Kit
 
-SharePoint Flow Engineering Kit is a public, synthetic-data toolkit for designing and validating applications built from:
+SharePoint Flow Engineering Kit is a public, synthetic-data toolkit for designing and validating Power Automate and Power Platform applications across connector-backed systems such as SharePoint, Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, and approvals.
+
+The reference profile is:
 
 `frontend -> SharePoint lists -> Power Automate -> SharePoint -> frontend`
 
-It gives an AI or engineer a project contract, deterministic artifact inspection, Power Automate and package rules, RED/GREEN fixtures, evidence boundaries, and a local CLI. The repository is designed to prevent common failures before any tenant operation is considered.
+The same engineering boundaries apply when the authoritative backend is Excel, Power Apps, Dataverse, or another connector:
+
+`frontend -> connector-backed data/services -> Power Automate -> authoritative systems -> frontend`
+
+The current executable frontend profile is intentionally SharePoint-specific, while the contracts, package/flow rules, evidence model, and self-improvement skill are designed to generalize across Power Automate connectors. The kit gives an AI or engineer a project contract, deterministic artifact inspection, RED/GREEN fixtures, evidence boundaries, and a local CLI. It is designed to prevent common failures before any tenant operation is considered.
+
+The repository does not contain a tenant-connected HTTP backend. The `spflow` CLI is offline/read-only with respect to tenants, and generalized connector contracts and self-improvement documentation do not constitute runtime evidence for Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, approvals, or future connectors. See the [architecture](docs/architecture/ARCHITECTURE.md) for the complete backend, orchestration, connector-boundary, and evidence model.
 
 ## Status
 
@@ -106,6 +114,30 @@ Validate the example project contract:
 node packages/cli/dist/bin/spflow.js validate contract examples/minimal-public-app/project.contract.json --format text
 ```
 
+Validate the connector-neutral synthetic profiles for SharePoint, Excel, Power
+Apps, Dataverse, Outlook, Graph, HTTP, SQL, and approvals:
+
+```powershell
+node packages/cli/dist/bin/spflow.js validate connector examples/minimal-public-app/connectors/excel.profile.json --format text
+```
+
+The same command validates every profile under
+`examples/minimal-public-app/connectors/`. These profiles prove only local
+synthetic operation semantics, status handling, concurrency, retry, idempotency,
+mutation closure, and semantic readback; they do not prove tenant connector
+availability or execution.
+
+Run the complete product-level offline acceptance journey:
+
+```powershell
+node --experimental-strip-types --test tests/integration/product-acceptance.test.ts
+```
+
+This test validates the reference contract/rules/artifact path, all nine connector
+flow fixtures, payload/permission/pagination/readback behavior, and the automatic
+self-improvement cycle from candidate RED through digest-bound promotion and
+approved-lesson consumption. It proves only local synthetic runtime behavior.
+
 Validate every shipped local rule against the example (global scope):
 
 ```powershell
@@ -144,21 +176,37 @@ execution, mutation, semantic readback, publication readback, and rule-specific
 `LIVE_SMOKE NOT_RUN` entries are derived from the required rule IDs and their
 shipped catalog metadata; they are not runtime observations.
 
+## AI Skill
+
+Install or copy [`skills/sharepoint-flow-engineering-kit/SKILL.md`](skills/sharepoint-flow-engineering-kit/SKILL.md) into an AI skill directory. It teaches a clean-context AI to read the project contract, derive contract-bound resources, generate operation-specific endpoint helpers, use typed command queues, enforce SharePoint and Power Automate boundaries, handle ETags/readbacks/schema states/indexes/permissions, run RED before GREEN, preserve privacy, and report residual evidence gates. Its documentation TDD records a pressure scenario that is RED without the skill and GREEN with it.
+
+The skill is advisory and agent-neutral: it invokes the same `spflow` contracts and CLI. It never authorizes tenant mutation and never uses a write-capable MCP.
+
+The companion [`sharepoint-flow-engineering-kit-self-improvement` skill](skills/sharepoint-flow-engineering-kit-self-improvement/SKILL.md) automatically loads the connector-agnostic lesson registry for Power Automate and Power Platform work, including Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, approvals, and future connectors. It captures new RED/review findings as sanitized candidates; only independently approved lessons become global instructions. Audit it with:
+
+```powershell
+node packages/cli/dist/bin/spflow.js learn audit knowledge/self-improvement/registry.json --format text
+```
+
+An open candidate intentionally returns exit `1` until its executable RED/GREEN/positive-control and independent review gates pass.
+
 ## Repository Map
 
-- `contracts/`: strict project, SharePoint, flow, package, rule, and evidence schemas.
+- `contracts/`: strict project, SharePoint, connector-profile, flow, package, rule, and evidence schemas.
 - `packages/core/`: contracts, canonical data, artifact graph, diagnostics, and evidence types.
 - `packages/package-adapters/`: safe archive/XML inspection and normalized flow evidence.
 - `packages/rules/`: deterministic package and Power Automate rule detectors.
 - `packages/cli/`: the `spflow` command-line interface and reporters.
 - `examples/minimal-public-app/`: the synthetic contract, frontend, flow definition,
-  package ZIP, and exact manifests used by the README commands.
-- `fixtures/`: synthetic RED, GREEN, positive-control, and mutation fixtures.
+  connector profiles, package ZIP, and exact manifests used by the README commands.
+- `fixtures/`: synthetic RED, GREEN, positive-control, mutation, and connector fixtures.
 - `tests/`: unit, integration, adapter-boundary, and shipped-CLI verification tests.
-- `docs/specs/`: contracts and evidence model.
+- `docs/specs/`: contracts, connector-profile semantics, and evidence model.
 - `docs/architecture/`: product boundary, architecture, threat model, and source-derived patterns.
 - `docs/plans/`: implementation and remediation plans.
 - `docs/reviews/`: review records and acceptance gates.
+- `knowledge/self-improvement/`: approved global lessons and unresolved sanitized candidates.
+- `skills/`: the core engineering skill and the automatic connector-agnostic self-improvement skill.
 
 ## Engineering Model
 

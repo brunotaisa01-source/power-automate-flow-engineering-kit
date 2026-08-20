@@ -1,0 +1,268 @@
+{
+  "schemaVersion": "1.0",
+  "claimClass": "RUNTIME_SYNTHETIC",
+  "tenantRuntime": false,
+  "flows": [
+    {
+      "connector": "sharepoint",
+      "flowId": "synthetic-sharepoint-product-flow",
+      "trigger": "synthetic-manual",
+      "actions": [
+        {
+          "id": "read",
+          "operation": "read-record",
+          "phase": "pre-read"
+        },
+        {
+          "id": "mutate",
+          "operation": "update-record",
+          "phase": "mutation"
+        },
+        {
+          "id": "readback",
+          "operation": "read-record",
+          "phase": "semantic-readback"
+        }
+      ],
+      "permissionReadback": [
+        "principal",
+        "role",
+        "effective"
+      ],
+      "paginationMode": "continuation-url",
+      "failureBranch": "fail-closed"
+    },
+    {
+      "connector": "excel",
+      "flowId": "synthetic-excel-product-flow",
+      "trigger": "synthetic-manual",
+      "actions": [
+        {
+          "id": "read",
+          "operation": "read-record",
+          "phase": "pre-read"
+        },
+        {
+          "id": "mutate",
+          "operation": "update-record",
+          "phase": "mutation"
+        },
+        {
+          "id": "readback",
+          "operation": "read-record",
+          "phase": "semantic-readback"
+        }
+      ],
+      "permissionReadback": [
+        "principal",
+        "role",
+        "effective"
+      ],
+      "paginationMode": "offset",
+      "failureBranch": "fail-closed"
+    },
+    {
+      "connector": "power-apps",
+      "flowId": "synthetic-power-apps-product-flow",
+      "trigger": "synthetic-manual",
+      "actions": [
+        {
+          "id": "read",
+          "operation": "read-record",
+          "phase": "pre-read"
+        },
+        {
+          "id": "mutate",
+          "operation": "update-record",
+          "phase": "mutation"
+        },
+        {
+          "id": "readback",
+          "operation": "read-record",
+          "phase": "semantic-readback"
+        }
+      ],
+      "permissionReadback": [
+        "principal",
+        "role",
+        "effective"
+      ],
+      "paginationMode": "page-token",
+      "failureBranch": "fail-closed"
+    },
+    {
+      "connector": "dataverse",
+      "flowId": "synthetic-dataverse-product-flow",
+      "trigger": "synthetic-manual",
+      "actions": [
+        {
+          "id": "read",
+          "operation": "read-record",
+          "phase": "pre-read"
+        },
+        {
+          "id": "mutate",
+          "operation": "update-record",
+          "phase": "mutation"
+        },
+        {
+          "id": "readback",
+          "operation": "read-record",
+          "phase": "semantic-readback"
+        }
+      ],
+      "permissionReadback": [
+        "principal",
+        "role",
+        "effective"
+      ],
+      "paginationMode": "continuation-url",
+      "failureBranch": "fail-closed"
+    },
+    {
+      "connector": "outlook",
+      "flowId": "synthetic-outlook-product-flow",
+      "trigger": "synthetic-manual",
+      "actions": [
+        {
+          "id": "read",
+          "operation": "read-record",
+          "phase": "pre-read"
+        },
+        {
+          "id": "mutate",
+          "operation": "update-record",
+          "phase": "mutation"
+        },
+        {
+          "id": "readback",
+          "operation": "read-record",
+          "phase": "semantic-readback"
+        }
+      ],
+      "permissionReadback": [
+        "principal",
+        "role",
+        "effective"
+      ],
+      "paginationMode": "page-token",
+      "failureBranch": "fail-closed"
+    },
+    {
+      "connector": "graph",
+      "flowId": "synthetic-graph-product-flow",
+      "trigger": "synthetic-manual",
+      "actions": [
+        {
+          "id": "read",
+          "operation": "read-record",
+          "phase": "pre-read"
+        },
+        {
+          "id": "mutate",
+          "operation": "update-record",
+          "phase": "mutation"
+        },
+        {
+          "id": "readback",
+          "operation": "read-record",
+          "phase": "semantic-readback"
+        }
+      ],
+      "permissionReadback": [
+        "principal",
+        "role",
+        "effective"
+      ],
+      "paginationMode": "page-token",
+      "failureBranch": "fail-closed"
+    },
+    {
+      "connector": "http",
+      "flowId": "synthetic-http-product-flow",
+      "trigger": "synthetic-manual",
+      "actions": [
+        {
+          "id": "read",
+          "operation": "read-record",
+          "phase": "pre-read"
+        },
+        {
+          "id": "mutate",
+          "operation": "update-record",
+          "phase": "mutation"
+        },
+        {
+          "id": "readback",
+          "operation": "read-record",
+          "phase": "semantic-readback"
+        }
+      ],
+      "permissionReadback": [
+        "principal",
+        "role",
+        "effective"
+      ],
+      "paginationMode": "continuation-url",
+      "failureBranch": "fail-closed"
+    },
+    {
+      "connector": "sql",
+      "flowId": "synthetic-sql-product-flow",
+      "trigger": "synthetic-manual",
+      "actions": [
+        {
+          "id": "read",
+          "operation": "read-record",
+          "phase": "pre-read"
+        },
+        {
+          "id": "mutate",
+          "operation": "update-record",
+          "phase": "mutation"
+        },
+        {
+          "id": "readback",
+          "operation": "read-record",
+          "phase": "semantic-readback"
+        }
+      ],
+      "permissionReadback": [
+        "principal",
+        "role",
+        "effective"
+      ],
+      "paginationMode": "offset",
+      "failureBranch": "fail-closed"
+    },
+    {
+      "connector": "approvals",
+      "flowId": "synthetic-approvals-product-flow",
+      "trigger": "synthetic-manual",
+      "actions": [
+        {
+          "id": "read",
+          "operation": "read-record",
+          "phase": "pre-read"
+        },
+        {
+          "id": "mutate",
+          "operation": "update-record",
+          "phase": "mutation"
+        },
+        {
+          "id": "readback",
+          "operation": "read-record",
+          "phase": "semantic-readback"
+        }
+      ],
+      "permissionReadback": [
+        "principal",
+        "role",
+        "effective"
+      ],
+      "paginationMode": "page-token",
+      "failureBranch": "fail-closed"
+    }
+  ]
+}

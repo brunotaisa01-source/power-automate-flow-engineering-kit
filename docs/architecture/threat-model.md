@@ -48,7 +48,9 @@ Controls:
 - typed command schemas reject undeclared fields;
 - protected fields cannot be patched from the browser;
 - OData literals and parameters are encoded;
-- continuation URLs must be same-origin and site-path constrained;
+- Save, OData, and pagination use separate exact contract-bound endpoint grammars;
+- continuation URLs must be same-origin, exact-list, and site-path constrained;
+- `/fields`, `/items`, extra descendants, traversal, encoded separators, and resource substitutions fail before fetch;
 - digest is acquired per transaction;
 - exact `IF-MATCH` is mandatory;
 - HTTP 412 is surfaced as conflict;
@@ -105,6 +107,21 @@ Controls:
 - binary types are denied unless explicitly generated and proven synthetic;
 - release requires independent privacy and intellectual-property review.
 
+### TB-6: New finding to global self-improvement registry
+
+Threats: private runtime leakage, token-only lessons, candidate promotion without
+review, connector-specific lessons being hidden by a SharePoint-only scope, or an
+MCP gaining write authority.
+
+Controls:
+
+- sanitize every candidate and retain only repository-relative synthetic data;
+- bind RED, GREEN, and structurally independent positive-control tests to real files;
+- run `spflow learn audit` automatically in offline verification;
+- require independent review and privacy/history gates before `APPROVED`;
+- make the registry append/versioned and keep candidates blocked;
+- expose only registry read operations through a future plugin/read-only MCP.
+
 ## 6. Threat Register
 
 | ID | Threat | Impact | Required control and validator |
@@ -127,6 +144,8 @@ Controls:
 | `T-016` | Unbounded destructive operation | Large-scale data loss | `FLOW-DESTRUCTIVE-001` |
 | `T-017` | Local claim promoted to tenant verified | Unsafe release | `RELEASE-EVIDENCE-001`, `RELEASE-EVIDENCE-002` |
 | `T-018` | Private data in repository or archive | Confidentiality/IP breach | `DATA-PUBLIC-001`, `DATA-PUBLIC-002` |
+| `T-019` | Generic list-prefix accepts wrong operation resource | Unauthorized read/write or false authority | Operation-specific endpoint grammars, pre-normalization traversal rejection, no-fetch adversarial tests |
+| `T-020` | Unreviewed or private self-learning lesson reaches future AI | Cross-project false authority or data leakage | Connector-agnostic registry schema, executable bindings, candidate gate, privacy scrub, independent review, read-only integration |
 
 ## 7. Destructive Operation Controls
 

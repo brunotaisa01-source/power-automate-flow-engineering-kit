@@ -1,0 +1,54 @@
+{
+  "schemaVersion": "1.0",
+  "registryId": "sharepoint-flow-engineering-kit-global",
+  "revision": 1,
+  "lessons": [
+    {
+      "id": "operation-specific-endpoint-authority",
+      "version": 1,
+      "status": "APPROVED",
+      "scope": ["frontend", "sharepoint", "evidence"],
+      "trigger": {
+        "kind": "review-finding",
+        "summary": "A generic list-resource prefix accepted a subresource that was not authorized for the operation."
+      },
+      "invariant": "Save, OData, and pagination must use separate exact contract-bound endpoint grammars and reject raw or encoded traversal before URL normalization and fetch.",
+      "red": {
+        "path": "tests/rules/wp-06-raw-artifact-authority.test.ts",
+        "testName": "WP16 RED: Save, OData, and pagination reject a non-item fields endpoint",
+        "runner": "node-test",
+        "expectedExitCode": 0
+      },
+      "green": {
+        "path": "tests/rules/wp-06-raw-artifact-authority.test.ts",
+        "testName": "real frontend inventory and parsed source create trusted evidence",
+        "runner": "node-test",
+        "expectedExitCode": 0
+      },
+      "positiveControl": {
+        "path": "tests/integration/wp-06-built-cli.test.ts",
+        "testName": "frontend caller-authored source IR and copied evidence fail closed",
+        "runner": "node-test",
+        "expectedExitCode": 0
+      },
+      "claimBoundary": "LOCAL_RUNTIME",
+      "provenance": {
+        "workPackage": "WP-16",
+        "recordPath": "docs/reviews/wp-16-operation-specific-endpoint-authority-remediation-record.md"
+      },
+      "review": {
+        "decision": "APPROVED",
+        "recordPath": "docs/reviews/wp-16-operation-specific-endpoint-authority-independent-review-r01.md",
+        "reviewerRole": "independent-luna-max-reviewer"
+      },
+      "privacy": "synthetic-public",
+      "lifecycle": {
+        "current": "APPROVED",
+        "history": [
+          { "status": "CANDIDATE", "recordPath": "docs/reviews/wp-16-operation-specific-endpoint-authority-remediation-record.md" },
+          { "status": "APPROVED", "recordPath": "docs/reviews/wp-16-operation-specific-endpoint-authority-independent-review-r01.md" }
+        ]
+      }
+    }
+  ]
+}

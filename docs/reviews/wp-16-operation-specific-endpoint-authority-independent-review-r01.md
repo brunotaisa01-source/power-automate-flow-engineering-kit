@@ -2,7 +2,10 @@
 
 ## Decision
 
-`APPROVED`
+Decision: APPROVED
+
+Reviewer role: independent-luna-max-reviewer
+Review evidence: RED/GREEN/positive-control tests; local synthetic only.
 
 A fresh independent reviewer using the required Luna max profile reviewed the
 WP-16 implementation without modifying the worktree. No P0, P1, P2, or P3

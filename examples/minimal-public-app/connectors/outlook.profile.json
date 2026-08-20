@@ -1,0 +1,204 @@
+{
+  "schemaVersion": "1.0",
+  "profileId": "minimal-outlook-connector",
+  "connector": "outlook",
+  "target": {
+    "resource": "{OUTLOOK_RESOURCE}",
+    "synthetic": true
+  },
+  "operations": [
+    {
+      "id": "read-record",
+      "kind": "read",
+      "transport": {
+        "mode": "connector-action",
+        "method": "ACTION",
+        "action": "GetMessage"
+      },
+      "request": {
+        "allowlist": [
+          "recordId"
+        ],
+        "required": [
+          "recordId"
+        ],
+        "forbidden": [
+          "tenantId",
+          "rawUrl",
+          "accessToken"
+        ]
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "failureStatuses": [
+          400,
+          404,
+          429,
+          500,
+          503
+        ],
+        "body": "object",
+        "semanticReadback": {
+          "required": false,
+          "fields": [
+            "recordId",
+            "value"
+          ]
+        }
+      },
+      "concurrency": {
+        "mode": "none",
+        "tokenField": null
+      },
+      "retry": {
+        "maxAttempts": 2,
+        "retryableStatuses": [
+          429,
+          503
+        ],
+        "ambiguousMutation": "fail"
+      },
+      "idempotency": {
+        "required": false,
+        "keyFields": [
+          "recordId"
+        ],
+        "duplicatePolicy": "no-op"
+      },
+      "mutationClosure": {
+        "plan": false,
+        "status": false,
+        "audit": false,
+        "readback": false
+      },
+      "preRead": {
+        "required": false,
+        "fields": []
+      }
+    },
+    {
+      "id": "update-record",
+      "kind": "update",
+      "transport": {
+        "mode": "connector-action",
+        "method": "ACTION",
+        "action": "UpdateMessage"
+      },
+      "request": {
+        "allowlist": [
+          "recordId",
+          "value",
+          "idempotencyKey",
+          "version"
+        ],
+        "required": [
+          "recordId",
+          "value",
+          "idempotencyKey",
+          "version"
+        ],
+        "forbidden": [
+          "tenantId",
+          "rawUrl",
+          "accessToken"
+        ]
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          204
+        ],
+        "failureStatuses": [
+          400,
+          409,
+          412,
+          429,
+          500,
+          503
+        ],
+        "body": "object",
+        "semanticReadback": {
+          "required": true,
+          "fields": [
+            "recordId",
+            "value"
+          ]
+        }
+      },
+      "concurrency": {
+        "mode": "optimistic",
+        "tokenField": "version"
+      },
+      "retry": {
+        "maxAttempts": 2,
+        "retryableStatuses": [
+          429,
+          503
+        ],
+        "ambiguousMutation": "reconcile"
+      },
+      "idempotency": {
+        "required": true,
+        "keyFields": [
+          "idempotencyKey"
+        ],
+        "duplicatePolicy": "no-op"
+      },
+      "mutationClosure": {
+        "plan": true,
+        "status": true,
+        "audit": true,
+        "readback": true
+      },
+      "preRead": {
+        "required": true,
+        "fields": [
+          "recordId",
+          "value",
+          "version"
+        ]
+      }
+    }
+  ],
+  "evidence": {
+    "claimClass": "RUNTIME_SYNTHETIC",
+    "tenantRuntime": false
+  },
+  "connectorContract": {
+    "connectionKind": "outlook-mailbox",
+    "nativeOperations": {
+      "read": "GetMessage",
+      "mutation": "UpdateMessage"
+    },
+    "permission": {
+      "required": true,
+      "mutationRole": "mailbox-message-write",
+      "readbackFields": [
+        "principal",
+        "role",
+        "effective"
+      ]
+    },
+    "pagination": {
+      "mode": "page-token",
+      "pageSize": 50,
+      "readbackRequired": true
+    },
+    "payload": {
+      "mode": "parameterized-fields",
+      "requiredFields": [
+        "recordId",
+        "idempotencyKey"
+      ],
+      "forbiddenFields": [
+        "tenantId",
+        "rawUrl",
+        "accessToken",
+        "rawQuery",
+        "queryFragment"
+      ]
+    }
+  }
+}

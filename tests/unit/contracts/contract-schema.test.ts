@@ -612,6 +612,7 @@ describe("contract schema", () => {
   test("loads every WP-01 schema by deterministic name", async () => {
     const names = [
       "evidence",
+      "self-improvement",
       "flow-contract",
       "package-profile",
       "project-contract",
@@ -630,6 +631,7 @@ describe("contract schema", () => {
   test("strictly rejects unknown properties in every standalone contract schema", async () => {
     const names = [
       "evidence",
+      "self-improvement",
       "flow-contract",
       "package-profile",
       "project-contract",
@@ -673,6 +675,33 @@ describe("contract schema", () => {
         value: validRule,
         mutateNested(value: any) {
           value.detector.unknownNested = true;
+        },
+      },
+      {
+        name: "self-improvement",
+        value: {
+          schemaVersion: "1.0",
+          registryId: "sharepoint-flow-engineering-kit-global",
+          revision: 1,
+          lessons: [{
+            id: "synthetic-lesson",
+            version: 1,
+            status: "APPROVED",
+            scope: ["power-automate", "excel", "connectors"],
+            trigger: { kind: "red-test", summary: "Synthetic counterexample." },
+            invariant: "A status check precedes body trust.",
+            red: { path: "tests/red.test.ts", testName: "red", runner: "node-test", expectedExitCode: 0 },
+            green: { path: "tests/green.test.ts", testName: "green", runner: "node-test", expectedExitCode: 0 },
+            positiveControl: { path: "tests/positive.test.ts", testName: "positive", runner: "node-test", expectedExitCode: 0 },
+            claimBoundary: "LOCAL_RUNTIME",
+            provenance: { workPackage: "WP-17", recordPath: "docs/source.md" },
+            review: { decision: "APPROVED", recordPath: "docs/review.md", reviewerRole: "synthetic-reviewer" },
+            privacy: "synthetic-public",
+            lifecycle: { current: "APPROVED", history: [{ status: "CANDIDATE", recordPath: "docs/source.md" }, { status: "APPROVED", recordPath: "docs/review.md" }] },
+          }],
+        },
+        mutateNested(value: any) {
+          value.lessons[0].trigger.unknownNested = true;
         },
       },
       {

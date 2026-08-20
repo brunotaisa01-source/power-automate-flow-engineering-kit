@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spflow.dev/schemas/self-improvement.schema.json",
+  "title": "Global Self-Improvement Lesson Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "registryId", "revision", "lessons"],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "registryId": { "type": "string", "const": "sharepoint-flow-engineering-kit-global" },
+    "revision": { "type": "integer", "minimum": 1 },
+    "lessons": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/lesson" },
+      "uniqueItems": true
+    }
+  },
+  "$defs": {
+    "path": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*(?:^|/)\\.(?:/|$))[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$"
+    },
+    "identifier": { "type": "string", "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$" },
+    "domain": {
+      "type": "string",
+      "enum": ["frontend", "power-automate", "power-platform", "sharepoint", "excel", "power-apps", "dataverse", "outlook", "graph", "http", "sql", "approvals", "connectors", "package", "evidence", "release", "privacy", "skills", "cli"]
+    },
+    "testBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "testName", "runner", "expectedExitCode"],
+      "properties": {
+        "path": { "$ref": "#/$defs/path" },
+        "testName": { "type": "string", "minLength": 1 },
+        "runner": { "const": "node-test" },
+        "expectedExitCode": { "const": 0 }
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current", "history"],
+      "properties": {
+        "current": { "enum": ["CANDIDATE", "BLOCKED", "APPROVED", "RETIRED"] },
+        "history": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["status", "recordPath"],
+            "properties": {
+              "status": { "enum": ["CANDIDATE", "BLOCKED", "APPROVED", "RETIRED"] },
+              "recordPath": { "$ref": "#/$defs/path" }
+            }
+          }
+        }
+      }
+    },
+    "lesson": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version", "status", "scope", "trigger", "invariant", "red", "green", "positiveControl", "claimBoundary", "provenance", "review", "privacy", "lifecycle"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "version": { "type": "integer", "minimum": 1 },
+        "status": { "enum": ["CANDIDATE", "BLOCKED", "APPROVED", "RETIRED"] },
+        "scope": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/domain" }, "uniqueItems": true },
+        "trigger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "summary"],
+          "properties": {
+            "kind": { "enum": ["red-test", "review-finding", "runtime-counterexample", "scanner-finding"] },
+            "summary": { "type": "string", "minLength": 1 }
+          }
+        },
+        "invariant": { "type": "string", "minLength": 1 },
+        "red": { "$ref": "#/$defs/testBinding" },
+        "green": { "$ref": "#/$defs/testBinding" },
+        "positiveControl": { "$ref": "#/$defs/testBinding" },
+        "claimBoundary": { "enum": ["LOCAL_STATIC", "LOCAL_RUNTIME", "PACKAGE_ARTIFACT", "RUNTIME_SYNTHETIC"] },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["workPackage", "recordPath"],
+          "properties": {
+            "workPackage": { "type": "string", "pattern": "^WP-[0-9]+$" },
+            "recordPath": { "$ref": "#/$defs/path" }
+          }
+        },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["decision", "recordPath", "reviewerRole"],
+          "properties": {
+            "decision": { "enum": ["PENDING", "BLOCKED", "APPROVED", "RETIRED"] },
+            "recordPath": { "$ref": "#/$defs/path" },
+            "reviewerRole": { "type": "string", "minLength": 1 }
+          }
+        },
+        "privacy": { "const": "synthetic-public" },
+        "lifecycle": { "$ref": "#/$defs/lifecycle" }
+      }
+    }
+  }
+}

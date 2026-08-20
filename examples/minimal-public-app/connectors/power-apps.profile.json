@@ -1,0 +1,204 @@
+{
+  "schemaVersion": "1.0",
+  "profileId": "minimal-power-apps-connector",
+  "connector": "power-apps",
+  "target": {
+    "resource": "{POWER_APPS_RESOURCE}",
+    "synthetic": true
+  },
+  "operations": [
+    {
+      "id": "read-record",
+      "kind": "read",
+      "transport": {
+        "mode": "connector-action",
+        "method": "ACTION",
+        "action": "InvokeAppRead"
+      },
+      "request": {
+        "allowlist": [
+          "recordId"
+        ],
+        "required": [
+          "recordId"
+        ],
+        "forbidden": [
+          "tenantId",
+          "rawUrl",
+          "accessToken"
+        ]
+      },
+      "response": {
+        "successStatuses": [
+          200
+        ],
+        "failureStatuses": [
+          400,
+          404,
+          429,
+          500,
+          503
+        ],
+        "body": "object",
+        "semanticReadback": {
+          "required": false,
+          "fields": [
+            "recordId",
+            "value"
+          ]
+        }
+      },
+      "concurrency": {
+        "mode": "none",
+        "tokenField": null
+      },
+      "retry": {
+        "maxAttempts": 2,
+        "retryableStatuses": [
+          429,
+          503
+        ],
+        "ambiguousMutation": "fail"
+      },
+      "idempotency": {
+        "required": false,
+        "keyFields": [
+          "recordId"
+        ],
+        "duplicatePolicy": "no-op"
+      },
+      "mutationClosure": {
+        "plan": false,
+        "status": false,
+        "audit": false,
+        "readback": false
+      },
+      "preRead": {
+        "required": false,
+        "fields": []
+      }
+    },
+    {
+      "id": "update-record",
+      "kind": "update",
+      "transport": {
+        "mode": "connector-action",
+        "method": "ACTION",
+        "action": "InvokeAppUpdate"
+      },
+      "request": {
+        "allowlist": [
+          "recordId",
+          "value",
+          "idempotencyKey",
+          "version"
+        ],
+        "required": [
+          "recordId",
+          "value",
+          "idempotencyKey",
+          "version"
+        ],
+        "forbidden": [
+          "tenantId",
+          "rawUrl",
+          "accessToken"
+        ]
+      },
+      "response": {
+        "successStatuses": [
+          200,
+          204
+        ],
+        "failureStatuses": [
+          400,
+          409,
+          412,
+          429,
+          500,
+          503
+        ],
+        "body": "object",
+        "semanticReadback": {
+          "required": true,
+          "fields": [
+            "recordId",
+            "value"
+          ]
+        }
+      },
+      "concurrency": {
+        "mode": "optimistic",
+        "tokenField": "version"
+      },
+      "retry": {
+        "maxAttempts": 2,
+        "retryableStatuses": [
+          429,
+          503
+        ],
+        "ambiguousMutation": "reconcile"
+      },
+      "idempotency": {
+        "required": true,
+        "keyFields": [
+          "idempotencyKey"
+        ],
+        "duplicatePolicy": "no-op"
+      },
+      "mutationClosure": {
+        "plan": true,
+        "status": true,
+        "audit": true,
+        "readback": true
+      },
+      "preRead": {
+        "required": true,
+        "fields": [
+          "recordId",
+          "value",
+          "version"
+        ]
+      }
+    }
+  ],
+  "evidence": {
+    "claimClass": "RUNTIME_SYNTHETIC",
+    "tenantRuntime": false
+  },
+  "connectorContract": {
+    "connectionKind": "power-apps-app",
+    "nativeOperations": {
+      "read": "InvokeAppRead",
+      "mutation": "InvokeAppUpdate"
+    },
+    "permission": {
+      "required": true,
+      "mutationRole": "app-record-write",
+      "readbackFields": [
+        "principal",
+        "role",
+        "effective"
+      ]
+    },
+    "pagination": {
+      "mode": "page-token",
+      "pageSize": 50,
+      "readbackRequired": true
+    },
+    "payload": {
+      "mode": "parameterized-fields",
+      "requiredFields": [
+        "recordId",
+        "idempotencyKey"
+      ],
+      "forbiddenFields": [
+        "tenantId",
+        "rawUrl",
+        "accessToken",
+        "rawQuery",
+        "queryFragment"
+      ]
+    }
+  }
+}
