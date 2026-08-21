@@ -13,6 +13,7 @@ import { validateContractCommand } from "../commands/validate-contract.ts";
 import { validateEvidenceCommand } from "../commands/validate-evidence.ts";
 import { validateRulesCommand } from "../commands/validate-rules.ts";
 import { verifyCommand } from "../commands/verify.ts";
+import { workspaceCheckCommand } from "../commands/workspace.ts";
 import {
   CliUsageError,
   createCommandReport,
@@ -43,6 +44,7 @@ export const HELP_TEXT = [
   "  learn audit <registry-path> [--execute] [--format text|json]",
   "  learn capture <candidate-path> [--format text|json]",
   "  learn promote <candidate-path> --review <path> --reviewer-role <role> [--format text|json]",
+  "  workspace check --manifest <workspace-manifest> [--format text|json]",
   "  verify --root <repository> --offline [--format text|json]",
   "",
 ].join("\n");
@@ -61,6 +63,7 @@ const DEFAULT_HANDLERS: CliHandlers = {
   "learn-audit": learnAuditCommand,
   "learn-capture": learnCaptureCommand,
   "learn-promote": learnPromoteCommand,
+  "workspace-check": { run: workspaceCheckCommand },
   verify: verifyCommand,
 };
 

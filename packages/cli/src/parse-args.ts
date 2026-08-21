@@ -19,6 +19,7 @@ export type CommandRoute =
   | "learn-audit"
   | "learn-capture"
   | "learn-promote"
+  | "workspace-check"
   | "verify";
 
 export interface CommandDiagnostic {
@@ -90,6 +91,7 @@ export type ParsedCliArgs =
   | (ParsedBase & { route: "learn-audit"; path: string; executeBindings: boolean })
   | (ParsedBase & { route: "learn-capture"; path: string })
   | (ParsedBase & { route: "learn-promote"; path: string; reviewPath: string; reviewerRole: string })
+  | (ParsedBase & { route: "workspace-check"; manifestPath: string })
   | (ParsedBase & { route: "verify"; root: string; offline: true });
 
 export class CliUsageError extends Error {
@@ -430,6 +432,17 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
     if (parsed.positionals.length !== 1) throw new CliUsageError("learn promote requires exactly one candidate path.");
     if (typeof parsed.values.review !== "string" || typeof parsed.values["reviewer-role"] !== "string") throw new CliUsageError("learn promote requires --review <path> and --reviewer-role <role>.");
     return { kind: "command", route: "learn-promote", command: "learn promote", format: parseFormat(parsed.values.format), path: parsed.positionals[0] ?? "", reviewPath: parsed.values.review, reviewerRole: parsed.values["reviewer-role"] };
+  }
+  if (first === "workspace" && second === "check") {
+    const parsed = parseOptions(args.slice(2), { manifest: { type: "string" }, format: { type: "string" } }, "workspace check");
+    if (parsed.positionals.length !== 0) throw new CliUsageError("workspace check accepts no positional arguments.");
+    return {
+      kind: "command",
+      route: "workspace-check",
+      command: "workspace check",
+      format: parseFormat(parsed.values.format),
+      manifestPath: requiredOption(parsed.values.manifest, "workspace check requires --manifest <workspace manifest>."),
+    };
   }
   if (first === "verify") {
     const parsed = parseOptions(
