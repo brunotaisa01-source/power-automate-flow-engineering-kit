@@ -20,14 +20,7 @@ function replaceSchemePath(input: string): string {
     if (/^https?:\/\/[^\s/]*\.example\.test\b/i.test(candidate)) {
       return candidate;
     }
-    if (
-      candidate.includes("/")
-      || candidate.includes("\\")
-      || /^(?:file|https?|s3|opaque):/i.test(candidate)
-    ) {
-      return REDACTED_URL;
-    }
-    return candidate;
+    return REDACTED_URL;
   });
 }
 
@@ -35,7 +28,7 @@ export function redactPathBearingText(input: string): string {
   return replaceSchemePath(redactText(input))
     .replace(/(^|[\s("'`])[^\s"']*(?:\.\.[\\/])[^\s"']*/g, `$1${REDACTED_PATH}`)
     .replace(/(^|[\s("'`])[A-Za-z]:[^\s"']+/g, `$1${REDACTED_PATH}`)
-    .replace(/(^|[\s("'`])\/[^\s"']+/g, `$1${REDACTED_PATH}`);
+    .replace(/(^|[^A-Za-z0-9_/:])\/[^\s"']+/g, `$1${REDACTED_PATH}`);
 }
 
 function safeRelativePath(value: string): boolean {

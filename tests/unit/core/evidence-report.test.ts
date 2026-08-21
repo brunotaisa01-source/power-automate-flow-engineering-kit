@@ -341,6 +341,34 @@ describe("local evidence report builder", () => {
     assert.match(serialized, /artifact:flow:artifacts\/safe\.json/);
   });
 
+  test("redacts delimiter-embedded absolute paths and unlisted schemes everywhere", () => {
+    for (const unsafeValue of ["/opt/private/tenant.json", "custom:secret"]) {
+      const report = createLocalEvidenceReport({
+        preparedDefinition: {
+          path: "flows/safe.json",
+          result: "PASS",
+          diagnostics: [{
+            code: unsafeValue,
+            message: `artifact=${unsafeValue}`,
+            remediation: `repair=${unsafeValue}`,
+            expected: { nested: `artifact=${unsafeValue}` },
+            actual: [`artifact=${unsafeValue}`],
+          }],
+        },
+        localArtifacts: [{
+          kind: unsafeValue,
+          path: "artifacts/safe.json",
+          result: "PASS",
+          diagnostics: [],
+        }],
+      });
+      const serialized = JSON.stringify(report);
+
+      assert.doesNotMatch(serialized, new RegExp(unsafeValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      assert.equal(report.result, "PASS");
+    }
+  });
+
   test("fails closed for a prepared-definition getter that throws", () => {
     const hostile = new Proxy({
       localArtifacts: reportInput().localArtifacts,

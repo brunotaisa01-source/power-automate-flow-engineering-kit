@@ -206,7 +206,8 @@ function redactValue(
       || key === "definitionPath" || key === "connectionsPath") {
       return sanitizeRepositoryRelativePath(redacted, REDACTED_PATH);
     }
-    if (key === "jsonPointer") {
+    if (key === "jsonPointer" || key === "residualGate" || key === "ruleId"
+      || key === "code" || key === "command") {
       return redacted;
     }
     return redactPathBearingText(redacted);
