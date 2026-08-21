@@ -27,9 +27,17 @@ The plan has four sequential tasks with disjoint implementation surfaces.
 ## Task status
 
 - Task 1: complete — worker Hume delivered 06aa6ea; reviewer Avicenna found two P2s; worker Franklin fixed them in 3cb8681; reviewer Pascal marked both resolved and retired.
-- Task 2: pending
-- Task 3: pending
+- Task 2: complete — worker Chandrasekhar delivered 2fb6d39; reviewer Parfit found four findings; worker Poincare fixed them in 4571a28; reviewer Popper marked all resolved and retired.
+- Task 3: in progress — synthetic fixture and compiled-CLI end-to-end test next.
 - Task 4: pending
+
+## Task 2 review
+
+- Reviewer Parfit retired with four findings: credential-shaped child output
+  redaction, rejected-path diagnostic leakage, missing registry/precedence/
+  Windows/parser regression coverage, and stale test-count evidence.
+- Ruling: fix all four before Task 3; the first two are security/privacy
+  boundaries and the latter two are acceptance evidence gaps.
 
 ## Task 1 review
 
