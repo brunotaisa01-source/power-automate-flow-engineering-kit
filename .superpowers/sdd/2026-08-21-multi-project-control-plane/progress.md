@@ -28,8 +28,8 @@ The plan has four sequential tasks with disjoint implementation surfaces.
 
 - Task 1: complete — worker Hume delivered 06aa6ea; reviewer Avicenna found two P2s; worker Franklin fixed them in 3cb8681; reviewer Pascal marked both resolved and retired.
 - Task 2: complete — worker Chandrasekhar delivered 2fb6d39; reviewer Parfit found four findings; worker Poincare fixed them in 4571a28; reviewer Popper marked all resolved and retired.
-- Task 3: in progress — synthetic fixture and compiled-CLI end-to-end test next.
-- Task 4: pending
+- Task 3: complete — worker Faraday delivered 17d60c5; reviewer Harvey found three P2s; worker Banach fixed them in 6851f36; reviewer Arendt marked all resolved and retired.
+- Task 4: in progress — final review, clean-context clone, real fixture command, and CI release evidence.
 
 ## Task 2 review
 
