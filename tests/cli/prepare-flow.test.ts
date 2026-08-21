@@ -137,6 +137,8 @@ test("prepare and validate flow sanitize unsafe input paths in JSON and text err
     "foo/../../tenant/private.json",
     "safe\\..\\secret",
     "s3://bucket/private.json",
+    "artifact=/opt/private/tenant.json",
+    "artifact=../private/tenant.json",
   ];
 
   for (const route of ["prepare", "validate"] as const) {
@@ -167,6 +169,8 @@ test("prepare flow sanitizes unsafe explicit output paths in JSON and text error
     "foo/../../tenant/private.json",
     "safe\\..\\secret",
     "s3://bucket/private.json",
+    "artifact=/opt/private/tenant.json",
+    "artifact=../private/tenant.json",
   ];
 
   for (const unsafePath of unsafePaths) {

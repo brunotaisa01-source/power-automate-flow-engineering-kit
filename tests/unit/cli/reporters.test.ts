@@ -179,4 +179,25 @@ describe("CLI reporters", () => {
     assert.equal(output.includes(networkPath), false);
     assert.equal(output.includes("/sharePoint/lists/0"), true);
   });
+
+  test("redacts embedded unsafe paths from generic fields and nested data", () => {
+    for (const unsafePath of [
+      "artifact=/opt/private/tenant.json",
+      "artifact=../private/tenant.json",
+    ]) {
+      const report = createCommandReport("prepare flow", [{
+        exitCode: 2,
+        ruleId: "CLI-INPUT",
+        severity: "error",
+        code: "CLI_INPUT_UNREADABLE",
+        message: `Could not read ${unsafePath}.`,
+        artifactPath: unsafePath,
+        remediation: "Correct the synthetic input.",
+      }], { data: { path: unsafePath } });
+      const output = `${formatJsonReport(redactCommandReport(report, []))}${formatTextReport(redactCommandReport(report, []))}`;
+
+      assert.doesNotMatch(output, new RegExp(unsafePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      assert.match(output, /<redacted-path>/);
+    }
+  });
 });

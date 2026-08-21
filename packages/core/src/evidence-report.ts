@@ -49,6 +49,9 @@ export function sanitizeRepositoryRelativePath(value: unknown, missingFallback: 
   if (typeof value !== "string" || value.length === 0) {
     return missingFallback;
   }
+  if (redactPathBearingText(value) !== value) {
+    return REDACTED_PATH;
+  }
   return safeRelativePath(value) ? value : REDACTED_PATH;
 }
 

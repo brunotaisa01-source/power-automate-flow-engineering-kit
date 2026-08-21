@@ -369,6 +369,42 @@ describe("local evidence report builder", () => {
     }
   });
 
+  test("redacts embedded unsafe tokens in explicit paths and derived IDs", () => {
+    for (const unsafePath of [
+      "artifact=/opt/private/tenant.json",
+      "artifact=../private/tenant.json",
+    ]) {
+      const report = createLocalEvidenceReport({
+        preparedDefinition: {
+          path: unsafePath,
+          result: "PASS",
+          diagnostics: [{
+            code: "SAFE-CODE",
+            message: "Synthetic explicit path.",
+            path: unsafePath,
+          }],
+        },
+        localArtifacts: [{
+          kind: "flow",
+          path: unsafePath,
+          result: "PASS",
+          diagnostics: [{
+            code: "SAFE-ARTIFACT",
+            message: "Synthetic explicit artifact path.",
+            artifactPath: unsafePath,
+          }],
+        }],
+      });
+      const serialized = JSON.stringify(report);
+
+      assert.doesNotMatch(serialized, new RegExp(unsafePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+      assert.equal(report.result, "PASS");
+      assert.ok(report.claims.every(({ id, artifactPath }) =>
+        !id.includes(unsafePath) && !artifactPath.includes(unsafePath)
+      ));
+    }
+  });
+
   test("fails closed for a prepared-definition getter that throws", () => {
     const hostile = new Proxy({
       localArtifacts: reportInput().localArtifacts,

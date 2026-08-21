@@ -157,6 +157,8 @@ test("report evidence sanitizes unsafe unreadable input paths in JSON and text",
     "file:///Users/private/tenant.json",
     "C:\\Users\\private\\x",
     "\\\\server\\share\\x",
+    "artifact=/opt/private/tenant.json",
+    "artifact=../private/tenant.json",
   ];
 
   for (const unsafePath of unsafePaths) {
