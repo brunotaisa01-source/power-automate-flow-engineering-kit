@@ -13,7 +13,7 @@ This repository is a public, synthetic-data Power Automate Flow Engineering Kit.
 3. Confirm Node.js 22.x and npm 10.x, then install with `npm ci`.
 4. State the requested scope, the evidence class being produced, and any provider gate that cannot be proven locally.
 5. Use TDD for behavior changes: write one deterministic RED test, observe the intended failure, implement the smallest GREEN change, then run the complete checks.
-6. For a multi-project local check, read [`docs/MULTI_PROJECT_CONTROL_PLANE.md`](docs/MULTI_PROJECT_CONTROL_PLANE.md) and run the fixture manifest from inside its workspace directory. Do not treat one project result as approval for another.
+6. For a multi-project local check, read [`docs/MULTI_PROJECT_CONTROL_PLANE.md`](docs/MULTI_PROJECT_CONTROL_PLANE.md). The fixture manifest is stored inside its workspace directory, but the displayed CLI command runs from the repository root. Do not treat one project result as approval for another.
 
 ## Repository Map
 
