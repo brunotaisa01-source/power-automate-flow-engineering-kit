@@ -5,6 +5,8 @@ This repository is a public, synthetic-data Power Automate Flow Engineering Kit.
 ## Start Here
 
 1. Read this contract, `README.md`, and the relevant skill under `skills/`.
+   For Dataverse-backed flows, also read
+   [`docs/DATAVERSE_FLOW_RUNBOOK.md`](docs/DATAVERSE_FLOW_RUNBOOK.md).
 2. Run `git status --short` and inspect existing user changes before editing. Preserve unrelated work; never use a destructive reset to make the tree convenient.
 3. Confirm Node.js 22.x and npm 10.x, then install with `npm ci`.
 4. State the requested scope, the evidence class being produced, and any provider gate that cannot be proven locally.
@@ -17,6 +19,8 @@ This repository is a public, synthetic-data Power Automate Flow Engineering Kit.
 - `fixtures/`: synthetic RED, GREEN, positive-control, mutation, and connector fixtures.
 - `skills/`: installable AI guidance, including read-only and Dataverse-specific boundaries.
 - `docs/`: architecture, specs, connector guidance, reviews, plans, and AI workflow documentation.
+- `docs/DATAVERSE_FLOW_RUNBOOK.md`: actionable Dataverse connection-reference,
+  flow lifecycle, synthetic-run, and semantic-readback sequence.
 - `examples/`: the synthetic public app, connector profiles, flow/package artifacts, and local contracts.
 - `.superpowers/sdd/`: worker reports containing exact files, commands, evidence, and handoff status.
 

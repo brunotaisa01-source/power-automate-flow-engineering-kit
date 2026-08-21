@@ -2,6 +2,11 @@
 
 This is the durable, connector-neutral workflow for any AI entering the repository with no prior conversation context. Read [`../AGENTS.md`](../AGENTS.md) first; that file is the short contract, and this document supplies the operating detail.
 
+When the task involves Dataverse-backed Power Automate flows, read the
+connector-specific [`Dataverse flow runbook`](DATAVERSE_FLOW_RUNBOOK.md) after
+this document. It supplies the provider-gated connection, reference, flow,
+publish, run, and semantic-readback sequence.
+
 ## Start Here
 
 ### 1. Establish repository context

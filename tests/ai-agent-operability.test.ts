@@ -126,3 +126,29 @@ test("clean-context AI contract defines safe Git, handoff, retirement, and stops
     "MFA",
   ], "safe worker contract");
 });
+
+test("Dataverse runbook gives a clean-context AI an actionable provider-gated sequence", async () => {
+  const runbook = await readContract("docs/DATAVERSE_FLOW_RUNBOOK.md");
+  assert.ok(runbook.length > 0, "docs/DATAVERSE_FLOW_RUNBOOK.md must exist and be readable");
+  assertHasAll(runbook, [
+    "Microsoft Dataverse",
+    "connection reference",
+    "@odata.bind",
+    "npm run check",
+    "validate connector",
+    "LOCAL_SYNTHETIC",
+    "PROVIDER_TENANT",
+    "HOSTED",
+    "UAT",
+    "MFA",
+    "example.invalid",
+    "preflight",
+    "preview",
+    "publish",
+    "enable",
+    "run ID",
+    "semantic readback",
+    "SYNTHETIC_SUPPRESSED",
+    "stop",
+  ], "Dataverse flow runbook");
+});

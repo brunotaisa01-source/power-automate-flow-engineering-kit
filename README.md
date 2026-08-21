@@ -271,6 +271,12 @@ intentionally stable.
 - `skills/`: the core engineering skill and the automatic connector-agnostic self-improvement skill.
 - `skills/power-automate-flow-engineering-kit-dataverse/`: Dataverse save-boundary, schema, approval, idempotency, and payment-handoff reference skill.
 
+For a practical Dataverse-backed flow sequence, read the
+[Dataverse + Power Automate flow runbook](docs/DATAVERSE_FLOW_RUNBOOK.md).
+It explains how an AI should connect through the authorized maker surface,
+bind connection references, prepare and preflight a definition, publish and
+enable narrowly, run a synthetic branch, and prove semantic readback.
+
 ## Engineering Model
 
 The default protected-write model is a typed command queue. The frontend submits an allowlisted intent; a flow re-reads identity, capability, scope, state, and ETag; validates the transition; writes the authoritative state; records an audit event; performs semantic readback; and lets the frontend reload authoritative state.
