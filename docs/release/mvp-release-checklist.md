@@ -4,6 +4,7 @@
 **Base head:** `b1d00b9`
 Immutable Task 4 review head: `eaf31f8`
 Task 4 implementation commit: `2c269c2`
+Latest locally verified code head: `cfc1967`
 **Release posture:** local evidence is reviewable; release remains blocked by
 external and final-head gates listed below.
 
@@ -112,10 +113,14 @@ topology. The mutation empties a required `red.failure` field and the harness
 fails closed. Neither control executes a live connector or establishes
 provider/UAT evidence.
 
-Current whole-branch correction candidate evidence: focused Task 4 suite 11/11,
-full `npm test` 422/422, and offline `npm run check` 422/422 with 19 gates and
-0 audit vulnerabilities. These are local results, not hosted/provider/UAT
-results.
+Current whole-branch correction candidate evidence at `cfc1967`: focused Task 4
+suite 11/11, full `npm test` 427/427, and offline `npm run check` 427/427 with
+19 gates and 0 audit vulnerabilities. The whole-branch direct probes also
+covered 14 unsafe path values across 126 core channels, 392 source-CLI cases,
+and 56 built-CLI cases with zero raw leaks. These are local results, not
+hosted/provider/UAT results.
+
+The sanitized whole-branch release summary is [tracked here](evidence/whole-branch-final-pass.md).
 
 ## CI distinction
 

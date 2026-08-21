@@ -21,6 +21,7 @@ const REQUIRED_RELEASE_EVIDENCE_LINKS = [
   "evidence/task-3-independent-review.md",
   "evidence/task-4-worker-handoff.md",
   "evidence/task-4-independent-review.md",
+  "evidence/whole-branch-final-pass.md",
 ];
 
 type ScenarioProfile = {
