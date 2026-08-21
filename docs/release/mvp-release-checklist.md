@@ -5,6 +5,8 @@
 Immutable Task 4 review head: `eaf31f8`
 Task 4 implementation commit: `2c269c2`
 Latest locally verified code head: `55962ae`
+Final CI-verified head: `04a7c43`
+Final CI run: `32435123660`
 **Release posture:** local evidence is reviewable; release remains blocked by
 external and final-head gates listed below.
 
@@ -146,19 +148,16 @@ final-head matrix state.
   assertion; the `ubuntu-latest` and `macos-latest` jobs passed. The local fix
   is recorded at `55962ae` and must still be followed by a fresh final-head
   matrix before release. This reported failure is not a final-head PASS.
-- **final-head GitHub Actions matrix: `NOT_RUN` / `PENDING`:** no final-head
-  matrix result exists for `eaf31f8` or any later coordinator head. Do not infer
-  it from the existing prior CI run, and do not invent a final-head URL or
-  result. Run `.github/workflows/ci.yml` only on the exact final head and
-  require `portable-check (ubuntu-latest)`, `portable-check (macos-latest)`,
-  and `portable-check (windows-latest)` to pass.
+- **final-head GitHub Actions matrix: `PASS`:** run `32435123660` passed for
+  exact head `04a7c43` with `portable-check (ubuntu-latest)`,
+  `portable-check (macos-latest)`, and `portable-check (windows-latest)` all
+  successful at [the public run record](https://github.com/brunotaisa01-source/power-automate-flow-engineering-kit/actions/runs/32435123660).
 
-The final-head CI still pending status remains `NOT_RUN`/`PENDING` until that
-exact matrix has completed.
+This CI result proves portable repository gates only; it does not establish
+provider authentication, tenant readback, or UAT.
 
 ## Blockers before release
 
-- Final GitHub Actions matrix on the final head is pending.
 - Live provider auth is pending; no tenant credential or provider session is
   part of this repository evidence.
 - Connection rebind and solution import/save are pending and must be verified

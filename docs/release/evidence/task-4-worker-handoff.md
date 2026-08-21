@@ -25,8 +25,8 @@ node --experimental-strip-types --test --test-name-pattern="Task 4 catalog mutat
 
 The Task 4 worker scope has no tenant/provider access, import, rebind,
 execution, mutation, publication, or UAT action. Current release blockers
-remain the final-head GitHub Actions matrix, live provider auth/rebind/readback,
-UAT, and the unavailable official history-aware scanner.
+remain live provider auth/rebind/readback, UAT, and the unavailable official
+history-aware scanner.
 
 Current whole-branch I-6 parity evidence at implementation commit `55962ae`:
 `npm test` uses `scripts/test-all.mjs` and passed **428/428**, matching offline
@@ -39,5 +39,8 @@ The coordinator reported CI run `32434425061` with one Windows-only failure:
 the complete-inventory regression saw native backslash paths. Linux and macOS
 passed. The correction normalizes the returned inventory to deterministic
 POSIX-relative strings and converts those entries back to native paths only
-for process arguments. This worker did not query GitHub or any external
-resource; a fresh final-head matrix remains required.
+for process arguments. The coordinator then reported final CI run
+`32435123660` as `PASS` for exact head `04a7c43`, with the Ubuntu, macOS, and
+Windows portable-check jobs successful. This CI result covers portable
+repository gates only; provider authentication, tenant readback, and UAT
+remain unverified. This worker did not query GitHub or any external resource.

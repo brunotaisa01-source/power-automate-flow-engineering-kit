@@ -238,6 +238,93 @@ head.
 - `remaining_blockers`: fresh final-head GitHub Actions matrix; live provider auth/rebind/readback/UAT; unavailable official scanner
 - `delegated_subagents`: `0`
 
+## Final release-doc CI PASS assertion adjustment
+
+### Scope and traceability
+
+The coordinator’s public checklist now records final CI `PASS` for exact head
+`04a7c43` from run `32435123660`, with `portable-check` successful on Ubuntu,
+macOS, and Windows. The focused documentation test now requires those exact
+head/run/PASS values, retains the prior historical CI distinction, and keeps
+provider/UAT and official-scanner boundaries asserted. The implementation
+commit is `8aec866846da77e51166d19a6a79ca8dbfd1db5d`
+(`test: align final CI release assertions`).
+
+The prior historical run `32405651477` remains separate evidence for its
+earlier head. The reported Windows regression `32434425061` remains recorded
+as the failure corrected by the preceding inventory-path fix; neither is
+recast as the final PASS.
+
+### RED evidence
+
+```text
+node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Before the assertion correction, exit `1`; **11 tests ran, 9 passed, 2
+intended failures**. The failures were the stale `final-head CI still
+pending` and `final-head ... NOT_RUN / PENDING` expectations against the
+coordinator’s exact final PASS record.
+
+### GREEN evidence
+
+```text
+node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Exit `0`; **11/11 tests passed**. The assertions require exact head
+`04a7c43`, run `32435123660`, the three portable-check job names, prior-run
+distinction, `PROVIDER`/`UAT` `NOT_VERIFIED`, and the official history-aware
+scanner `NOT_RUN` boundary.
+
+```text
+npm test
+```
+
+Exit `0`; **428/428 tests passed** across 28 suites.
+
+```text
+npm run build
+```
+
+Exit `0`.
+
+```text
+npm_config_offline=true npm run check
+```
+
+Exit `0`; **428/428 tests**, **19 portable-check gates**, and **0 audit
+vulnerabilities**.
+
+Privacy checks report zero private markers in the public Dataverse skill,
+guide, and fixture; the release evidence link check resolves **9/9** tracked
+targets; and `git diff --check` is clean. The final CI PASS is portable-CI
+evidence only, not provider or UAT evidence.
+
+### Limitations and no-external-access statement
+
+Provider authentication, tenant readback, connection rebind/import/save, flow
+execution, Dataverse effects, publication, and UAT remain `NOT_VERIFIED`. The
+official history-aware public-data scanner remains `NOT_RUN`/unavailable. The
+worker did not query GitHub or any provider, tenant, Power Automate, or
+Dataverse resource, and performed no external authentication or mutation, no
+push/merge, no agent coordination, and no coordinator-ledger edit.
+
+### Fix-round completion fields
+
+- `incident_id`: `N/A` — final release traceability test correction
+- `status`: `GREEN_LOCAL; FINAL_CI_RECORDED; RELEASE_BLOCKED_PROVIDER_UAT`
+- `wave/task`: Flow Engineering Tool MVP / Task 4 final release-doc test adjustment
+- `red_command/result`: focused Dataverse skill test; exit 1, 11 total, 9 pass, 2 intended failures
+- `green_command/result`: focused Dataverse skill test; exit 0, 11/11 pass
+- `implementation_commit`: `8aec866846da77e51166d19a6a79ca8dbfd1db5d`
+- `handoff_commit`: this handoff commit, returned separately
+- `files`: `tests/skills/dataverse-flow-engineering-kit-skill.test.ts`, current release checklist/evidence, and this handoff
+- `review_status`: final documentation correction ready for coordinator re-review
+- `evidence_class`: `LOCAL_SYNTHETIC` plus coordinator-reported portable CI evidence
+- `remaining_blockers`: live provider auth/rebind/readback/UAT; unavailable official scanner
+- `delegated_subagents`: `0`
+
 ## Whole-branch fix round — I-1 and I-5
 
 ### Status and scope
