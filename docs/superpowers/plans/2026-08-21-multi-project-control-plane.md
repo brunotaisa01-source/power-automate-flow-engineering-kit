@@ -113,7 +113,7 @@
 ### Task 3: Synthetic workspace fixture, global-memory behavior, and onboarding
 
 **Files:**
-- Create: `examples/multi-project-workspace.manifest.json`
+- Create: `examples/multi-project-workspace/workspace.manifest.json`
 - Create: `examples/multi-project-workspace/projects/green-a/package.json`
 - Create: `examples/multi-project-workspace/projects/green-a/check.mjs`
 - Create: `examples/multi-project-workspace/projects/green-b/package.json`
@@ -145,7 +145,7 @@
 
 - [ ] **Step 3: Add synthetic project checks and manifest.**
 
-  Each fixture project uses a dependency-free `npm run check` script. Green checks exit zero with synthetic output; the red check exits one with a deterministic red code. The manifest uses only relative paths and a fixture-local registry at `examples/multi-project-workspace/knowledge/self-improvement/registry.json`, which follows the canonical global registry contract.
+  Each fixture project uses a dependency-free `npm run check` script. Green checks exit zero with synthetic output; the red check exits one with a deterministic red code. The manifest lives inside `examples/multi-project-workspace/`, uses `registryPath: "knowledge/self-improvement/registry.json"`, project roots `projects/...`, and follows the canonical global registry contract.
 
 - [ ] **Step 4: Add the operator/AI runbook.**
 
@@ -153,7 +153,7 @@
 
 - [ ] **Step 5: Run focused GREEN and real fixture command.**
 
-  Run `node --experimental-strip-types --test tests/integration/multi-project-workspace.test.ts` and `node packages/cli/dist/bin/spflow.js workspace check --manifest examples/multi-project-workspace.manifest.json --format json`. Confirm two projects pass, output is deterministic, and no private values appear.
+  Run `node --experimental-strip-types --test tests/integration/multi-project-workspace.test.ts` and `node packages/cli/dist/bin/spflow.js workspace check --manifest examples/multi-project-workspace/workspace.manifest.json --format json`. Confirm two projects pass, output is deterministic, and no private values appear.
 
 - [ ] **Step 6: Run full acceptance.**
 
@@ -161,7 +161,7 @@
 
 - [ ] **Step 7: Commit fixtures and onboarding.**
 
-  Run `git add examples/multi-project-workspace.manifest.json examples/multi-project-workspace docs/MULTI_PROJECT_CONTROL_PLANE.md AGENTS.md README.md docs/AI_AGENT_WORKFLOW.md tests/integration/multi-project-workspace.test.ts && git commit -m "test: add multi-project control-plane fixture"`.
+  Run `git add examples/multi-project-workspace docs/MULTI_PROJECT_CONTROL_PLANE.md AGENTS.md README.md docs/AI_AGENT_WORKFLOW.md tests/integration/multi-project-workspace.test.ts && git commit -m "test: add multi-project control-plane fixture"`.
 
 ### Task 4: Final independent review and release evidence
 
