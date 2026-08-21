@@ -205,6 +205,11 @@ execution, mutation, semantic readback, publication readback, and rule-specific
 `LIVE_SMOKE NOT_RUN` entries are derived from the required rule IDs and their
 shipped catalog metadata; they are not runtime observations.
 
+Use npm run check for a zero-exit local acceptance gate. The offline `verify`
+command is an evidence report, so its non-zero exit is intentional when a
+requested scanner or external gate is unavailable; do not treat that result as
+a broken installation or convert its `NOT_RUN` entries into PASS.
+
 ## AI Skill
 
 Install or copy [`skills/power-automate-flow-engineering-kit/SKILL.md`](skills/power-automate-flow-engineering-kit/SKILL.md) into an AI skill directory. It teaches a clean-context AI to read the project contract, derive contract-bound resources, generate operation-specific endpoint helpers, use typed command queues, enforce SharePoint and Power Automate boundaries, handle ETags/readbacks/schema states/indexes/permissions, run RED before GREEN, preserve privacy, and report residual evidence gates. Its documentation TDD records a pressure scenario that is RED without the skill and GREEN with it.

@@ -22,6 +22,7 @@ function assertHasAll(text: string, required: readonly string[], label: string):
 test("clean-context AI contract exposes onboarding, map, and portable gates", async () => {
   const agents = await readContract("AGENTS.md");
   const workflow = await readContract("docs/AI_AGENT_WORKFLOW.md");
+  const readme = await readContract("README.md");
   const contract = `${agents}\n${workflow}`;
 
   assert.ok(agents.length > 0, "AGENTS.md must exist and be readable");
@@ -57,6 +58,14 @@ test("clean-context AI contract exposes onboarding, map, and portable gates", as
     "npm run check",
     "git diff --check",
   ], "portable onboarding");
+
+  assertHasAll(readme, [
+    "verify --root examples/minimal-public-app --offline --format text",
+    "expected to return exit `8`",
+    "Use npm run check for a zero-exit local acceptance gate",
+    "npm run check",
+    "NOT_RUN",
+  ], "first-use verification guidance");
 });
 
 test("clean-context AI contract names connector scope and evidence boundaries", async () => {
