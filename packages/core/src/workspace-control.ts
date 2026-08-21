@@ -59,6 +59,7 @@ type JsonRecord = Record<string, unknown>;
 
 const MANIFEST_KEYS = new Set(["schemaVersion", "workspaceId", "registryPath", "projects"]);
 const PROJECT_KEYS = new Set(["id", "root", "check", "required"]);
+const PUBLIC_SYNTHETIC_IDENTIFIER = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
 
 function isRecord(value: unknown): value is JsonRecord {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -68,6 +69,10 @@ function isSafeText(value: unknown): value is string {
   return typeof value === "string"
     && value.length > 0
     && !/[\u0000-\u001f\u007f]/.test(value);
+}
+
+function isPublicSyntheticIdentifier(value: unknown): value is string {
+  return typeof value === "string" && PUBLIC_SYNTHETIC_IDENTIFIER.test(value);
 }
 
 function compareText(left: string, right: string): number {
@@ -145,8 +150,8 @@ export function validateWorkspaceManifest(value: unknown): WorkspaceDiagnostic[]
   if (value.schemaVersion !== "1.0") {
     addDiagnostic(diagnostics, "WORKSPACE_SCHEMA_VERSION", "/schemaVersion", "Workspace manifest schemaVersion must be '1.0'.");
   }
-  if (!isSafeText(value.workspaceId)) {
-    addDiagnostic(diagnostics, "WORKSPACE_FIELD_INVALID", "/workspaceId", "Workspace workspaceId must be a non-empty string without control characters.");
+  if (!isPublicSyntheticIdentifier(value.workspaceId)) {
+    addDiagnostic(diagnostics, "WORKSPACE_FIELD_INVALID", "/workspaceId", "Workspace identifiers must be lowercase ASCII labels with digits and single hyphens only.");
   }
   validateRepositoryPath(value.registryPath, "/registryPath", diagnostics);
 
@@ -169,8 +174,8 @@ export function validateWorkspaceManifest(value: unknown): WorkspaceDiagnostic[]
 
     reportUnknownKeys(projectValue, PROJECT_KEYS, path, diagnostics);
 
-    if (!isSafeText(projectValue.id)) {
-      addDiagnostic(diagnostics, "WORKSPACE_FIELD_INVALID", `${path}/id`, "Project id must be a non-empty string without control characters.");
+    if (!isPublicSyntheticIdentifier(projectValue.id)) {
+      addDiagnostic(diagnostics, "WORKSPACE_FIELD_INVALID", `${path}/id`, "Project identifiers must be lowercase ASCII labels with digits and single hyphens only.");
     } else {
       const previous = ids.get(projectValue.id);
       if (previous !== undefined) {
@@ -251,7 +256,11 @@ export function aggregateWorkspaceResults(
 
   return Object.freeze({
     workspaceId: manifest.workspaceId,
-    registry: Object.freeze({ ...registryAudit }),
+    registry: Object.freeze({
+      revision: registryAudit.revision,
+      digest: registryAudit.digest,
+      audit: registryAudit.audit,
+    }),
     projects: frozenProjects,
     summary,
     result,

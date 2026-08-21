@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { mkdir, mkdtemp, realpath, symlink, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
 
@@ -35,6 +35,7 @@ async function writeWorkspace(
   projects: readonly Record<string, unknown>[],
   missingRoots: readonly string[] = [],
   targetDirectory?: string,
+  workspaceId: unknown = "synthetic-workspace",
 ): Promise<WorkspaceFixture> {
   const directory = targetDirectory ?? await mkdtemp(join(tmpdir(), "spflow-workspace-check-"));
   await mkdir(directory, { recursive: true });
@@ -47,7 +48,7 @@ async function writeWorkspace(
   const manifestPath = join(directory, "workspace.manifest.json");
   await writeFile(manifestPath, JSON.stringify({
     schemaVersion: "1.0",
-    workspaceId: "synthetic-workspace",
+    workspaceId,
     registryPath: "knowledge/self-improvement/registry.json",
     projects,
   }, null, 2), "utf8");
@@ -76,7 +77,11 @@ test("workspace check runs only the fixed command with an isolated environment a
 
   const report = await workspaceCheckCommand([
     "workspace", "check", "--manifest", fixture.manifestPath, "--format", "json",
-  ], { runner, env: { PATH: "/synthetic/bin", SPFLOW_BINDING_TOKEN: "controller-secret", HOME: "/private/home" } });
+  ], {
+    runner,
+    platform: "linux",
+    env: { PATH: "/synthetic/bin", SPFLOW_BINDING_TOKEN: "controller-secret", HOME: "/private/home" },
+  });
   const data = reportData(report);
 
   assert.equal(report.exitCode, 0);
@@ -129,7 +134,7 @@ test("workspace check preserves a required RED while continuing through later pr
   const calls: string[] = [];
   const runner: WorkspaceRunner = (_command, _args, options) => {
     calls.push(options.cwd);
-    return options.cwd.endsWith("/red")
+    return basename(options.cwd) === "red"
       ? { exitCode: 1, stdout: "red", stderr: "" }
       : { exitCode: 0, stdout: "green", stderr: "" };
   };
@@ -254,6 +259,33 @@ test("workspace check keeps rejected manifest path diagnostics value-free while 
   assert.ok(report.diagnostics.every(({ remediation }) => remediation.includes("safe relative paths")));
 });
 
+test("workspace check rejects private identifiers before direct or formatted reports", async () => {
+  const fixture = await writeWorkspace([
+    { id: "alice@example.com", root: "projects/email", check: "npm run check", required: true },
+    { id: "Private Project", root: "projects/private", check: "npm run check", required: true },
+  ], [], undefined, "/private/workspace-secret");
+  const args = ["workspace", "check", "--manifest", fixture.manifestPath, "--format", "json"] as const;
+  const direct = await workspaceCheckCommand(args);
+  let formatted = "";
+  const exitCode = await executeCli(args, {
+    stdout(value) { formatted += value; },
+    stderr() {},
+    env: {},
+    handlers: {
+      "workspace-check": { run: (commandArgs) => workspaceCheckCommand(commandArgs) },
+    },
+  });
+  const serialized = `${JSON.stringify(direct)}\n${formatted}`;
+
+  assert.equal(exitCode, 1);
+  assert.deepEqual(direct.diagnostics.map(({ code, jsonPointer }) => [code, jsonPointer]), [
+    ["WORKSPACE_FIELD_INVALID", "/projects/0/id"],
+    ["WORKSPACE_FIELD_INVALID", "/projects/1/id"],
+    ["WORKSPACE_FIELD_INVALID", "/workspaceId"],
+  ]);
+  assert.doesNotMatch(serialized, /private\/workspace-secret|alice@example\.com|Private Project/);
+});
+
 test("workspace check does not echo a symlink-escape project path", async () => {
   const fixture = await writeWorkspace([
     { id: "symlink", root: "projects/symlink-private-value", check: "npm run check", required: true },
@@ -303,7 +335,7 @@ test("workspace check preserves required failure exit precedence while optional 
     { id: "required", root: "projects/required", check: "npm run check", required: true },
     { id: "optional", root: "projects/optional", check: "npm run check", required: false },
   ]);
-  const runner: WorkspaceRunner = (_command, _args, options) => options.cwd.endsWith("/required")
+  const runner: WorkspaceRunner = (_command, _args, options) => basename(options.cwd) === "required"
     ? { exitCode: 2, stdout: "required failure", stderr: "" }
     : { exitCode: 5, stdout: "optional failure", stderr: "" };
 

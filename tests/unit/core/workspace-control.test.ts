@@ -57,6 +57,25 @@ describe("workspace control-plane core contracts", () => {
     assert.ok(codes.includes("WORKSPACE_CHECK_UNSUPPORTED"));
   });
 
+  test("rejects non-public workspace and project identifiers without echoing their values", () => {
+    const diagnostics = validateWorkspaceManifest({
+      ...validManifest(),
+      workspaceId: "/private/workspace-secret",
+      projects: [
+        { id: "alice@example.com", root: "./procurement", check: "npm run check", required: true },
+        { id: "Private Project", root: "./expenses", check: "npm run check", required: true },
+      ],
+    });
+    const serialized = JSON.stringify(diagnostics);
+
+    assert.deepEqual(diagnostics.map(({ code, path }) => [code, path]), [
+      ["WORKSPACE_FIELD_INVALID", "/projects/0/id"],
+      ["WORKSPACE_FIELD_INVALID", "/projects/1/id"],
+      ["WORKSPACE_FIELD_INVALID", "/workspaceId"],
+    ]);
+    assert.doesNotMatch(serialized, /private\/workspace-secret|alice@example\.com|Private Project/);
+  });
+
   test("sorts project results by ID and fails when a required project is RED", () => {
     const aggregate = aggregateWorkspaceResults(
       validManifest(),
@@ -92,6 +111,20 @@ describe("workspace control-plane core contracts", () => {
       projectResult("expenses", true, "PASS", 0),
       projectResult("procurement", true, "PASS", 0),
     ]);
+  });
+
+  test("copies only declared registry audit fields into aggregate data", () => {
+    const aggregate = aggregateWorkspaceResults(
+      validManifest(),
+      { ...registryAudit(), privateLesson: "private registry value" },
+      [
+        projectResult("procurement", true, "PASS", 0),
+        projectResult("expenses", true, "PASS", 0),
+      ],
+    );
+
+    assert.deepEqual(aggregate.registry, registryAudit());
+    assert.doesNotMatch(JSON.stringify(aggregate), /private registry value/);
   });
 
   test("returns GREEN when all required projects PASS with zero exit codes", () => {
