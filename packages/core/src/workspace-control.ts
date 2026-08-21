@@ -201,8 +201,17 @@ export function validateWorkspaceManifest(value: unknown): WorkspaceDiagnostic[]
   return diagnostics.sort(compareDiagnostics);
 }
 
-function cloneProjectResult(project: WorkspaceProjectResult): WorkspaceProjectResult {
-  return Object.freeze({ ...project });
+function cloneProjectResult(
+  project: Pick<WorkspaceProjectResult, "id" | "result" | "exitCode" | "evidenceClass">,
+  required: boolean,
+): WorkspaceProjectResult {
+  return Object.freeze({
+    id: project.id,
+    required,
+    result: project.result,
+    exitCode: project.exitCode,
+    evidenceClass: project.evidenceClass,
+  });
 }
 
 export function aggregateWorkspaceResults(
@@ -217,12 +226,11 @@ export function aggregateWorkspaceResults(
       return cloneProjectResult(result === undefined
         ? {
           id: project.id,
-          required: project.required,
           result: "NOT_RUN",
           exitCode: 8,
           evidenceClass: "LOCAL_SYNTHETIC",
         }
-        : { ...result, required: project.required });
+        : result, project.required);
     })
     .sort((left, right) => compareText(left.id, right.id));
   const frozenProjects = Object.freeze(orderedProjects);

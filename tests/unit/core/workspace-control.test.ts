@@ -75,6 +75,54 @@ describe("workspace control-plane core contracts", () => {
     assert.equal(Object.isFrozen(aggregate.projects), true);
   });
 
+  test("does not copy private-looking runtime fields into project results", () => {
+    const aggregate = aggregateWorkspaceResults(
+      validManifest(),
+      registryAudit(),
+      [
+        {
+          ...projectResult("expenses", true, "PASS", 0),
+          privatePath: "/private/project",
+        },
+        projectResult("procurement", true, "PASS", 0),
+      ],
+    );
+
+    assert.deepEqual(aggregate.projects, [
+      projectResult("expenses", true, "PASS", 0),
+      projectResult("procurement", true, "PASS", 0),
+    ]);
+  });
+
+  test("returns GREEN when all required projects PASS with zero exit codes", () => {
+    const aggregate = aggregateWorkspaceResults(
+      validManifest(),
+      registryAudit(),
+      [
+        projectResult("procurement", true, "PASS", 0),
+        projectResult("expenses", true, "PASS", 0),
+      ],
+    );
+
+    assert.equal(aggregate.result, "PASS");
+    assert.deepEqual(aggregate.summary, { total: 2, passed: 2, failed: 0, notRun: 0, blocked: 0 });
+  });
+
+  test("fails the aggregate when registry audit FAILs despite all projects passing", () => {
+    const aggregate = aggregateWorkspaceResults(
+      validManifest(),
+      registryAudit("FAIL"),
+      [
+        projectResult("procurement", true, "PASS", 0),
+        projectResult("expenses", true, "PASS", 0),
+      ],
+    );
+
+    assert.equal(aggregate.registry.audit, "FAIL");
+    assert.equal(aggregate.result, "FAIL");
+    assert.deepEqual(aggregate.summary, { total: 2, passed: 2, failed: 0, notRun: 0, blocked: 0 });
+  });
+
   test("keeps an optional NOT_RUN project visible without failing required GREEN", () => {
     const manifest = validManifest();
     const aggregate = aggregateWorkspaceResults(
