@@ -34,8 +34,10 @@ async function writeRegistry(directory: string): Promise<void> {
 async function writeWorkspace(
   projects: readonly Record<string, unknown>[],
   missingRoots: readonly string[] = [],
+  targetDirectory?: string,
 ): Promise<WorkspaceFixture> {
-  const directory = await mkdtemp(join(tmpdir(), "spflow-workspace-check-"));
+  const directory = targetDirectory ?? await mkdtemp(join(tmpdir(), "spflow-workspace-check-"));
+  await mkdir(directory, { recursive: true });
   await writeRegistry(directory);
   for (const project of projects) {
     if (typeof project.root === "string" && !missingRoots.includes(project.root)) {
@@ -95,6 +97,28 @@ test("workspace check runs only the fixed command with an isolated environment a
     { PATH: "/synthetic/bin", npm_config_loglevel: "error" },
     { PATH: "/synthetic/bin", npm_config_loglevel: "error" },
   ]);
+});
+
+test("workspace check audits a nested manifest registry from the manifest directory", async () => {
+  const parentDirectory = await mkdtemp(join(tmpdir(), "spflow-workspace-repository-"));
+  const fixture = await writeWorkspace(
+    [{ id: "green", root: "projects/green", check: "npm run check", required: true }],
+    [],
+    join(parentDirectory, "examples", "multi-project-workspace"),
+  );
+  let calls = 0;
+  const runner: WorkspaceRunner = () => {
+    calls += 1;
+    return { exitCode: 0, stdout: "green", stderr: "" };
+  };
+
+  const report = await workspaceCheckCommand(["workspace", "check", "--manifest", fixture.manifestPath], { runner });
+  const data = reportData(report);
+
+  assert.equal(report.exitCode, 0);
+  assert.equal(data.registry.audit, "PASS");
+  assert.deepEqual(data.projects.map(({ id, result }) => [id, result]), [["green", "PASS"]]);
+  assert.equal(calls, 1);
 });
 
 test("workspace check preserves a required RED while continuing through later projects", async () => {

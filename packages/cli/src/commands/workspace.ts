@@ -139,10 +139,6 @@ function unreadableManifestReport(): CommandReport {
   }], { applicableChecksCompleted: true });
 }
 
-function registryRoot(registryPath: string): string {
-  return resolve(registryPath, "..", "..", "..");
-}
-
 function registryAuditFailure(diagnostics: readonly { code: string }[]): ReportFinding[] {
   return diagnostics.map(({ code }) => ({
     exitCode: code.includes("PRIVATE") || code.includes("CREDENTIAL") || code.includes("TOKEN") ? 5 : 1,
@@ -216,7 +212,7 @@ export async function workspaceCheckCommand(
     }], { applicableChecksCompleted: true });
   }
 
-  const auditResult = await auditLearningRegistry(registryRoot(safeRegistryPath), safeRegistryPath);
+  const auditResult = await auditLearningRegistry(manifestDirectory, safeRegistryPath);
   const registryAudit: WorkspaceRegistryAudit = {
     revision: auditResult.revision ?? 0,
     digest: auditResult.digest ?? "[SANITIZED_DIGEST]",
