@@ -14,6 +14,8 @@
     "./evidence-report": "./dist/evidence-report.js",
     "./readonly-plugin": "./dist/readonly-plugin.js",
     "./self-improvement": "./dist/self-improvement.js",
+    "./path-policy": "./dist/path-policy.js",
+    "./workspace-control": "./dist/workspace-control.js",
     "./types/*": "./dist/types/*.js"
   },
   "dependencies": {
