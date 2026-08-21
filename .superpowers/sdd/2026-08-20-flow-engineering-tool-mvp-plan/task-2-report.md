@@ -360,3 +360,50 @@ All evidence remains local/synthetic/offline. No provider readback, hosted execu
 ### Final I-2 implementation commit
 
 `e47e1d00e8501ef0973d7e8a42f70a663b9e3d18` (`fix: close whole-branch path privacy boundary`).
+
+## Whole-branch final fix round — core I-2 delimiter/scheme privacy
+
+### Scope and status
+
+DONE for the remaining core I-2 finding. The shared core sanitizer now redacts POSIX absolute paths after arbitrary delimiters and all scheme-looking tokens with non-space payloads, including unlisted opaque schemes, across every recursively emitted core string/ID/value channel. The CLI boundary remains clean and stable metadata fields retain their documented values. No coordinator ledger, provider/tenant/Power Automate/Dataverse resource, agent, push, merge, or publish action was touched.
+
+### Changed files
+
+- `packages/core/src/evidence-report.ts` — scheme tokens are redacted conservatively except reserved synthetic `example.test` URLs; POSIX absolute paths are redacted independent of delimiter position.
+- `packages/cli/src/parse-args.ts` — preserves stable internal metadata (`code`, `ruleId`, `residualGate`, `command`, `jsonPointer`) while continuing path-bearing sanitization for user-visible report fields.
+- `tests/unit/core/evidence-report.test.ts` — direct-core `/opt/private/tenant.json` and `custom:secret` coverage across code, message, remediation, expected, actual, artifact kind, derived IDs, and serialized output.
+
+### RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts
+```
+
+Result: expected RED with 19 tests total: 18 passed and 1 failed. The new matrix found raw `/opt/private/tenant.json` in delimiter-embedded prose/nested values; the unlisted `custom:secret` case was covered by the same test.
+
+### GREEN and verification
+
+- `npm run build` — exit 0.
+- `node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts tests/cli/prepare-flow.test.ts` — 41 passed, 0 failed.
+- `node --experimental-strip-types --test tests/integration/shipped-validation.test.ts` — 32 passed, 0 failed after preserving stable CLI metadata fields.
+- `node --experimental-strip-types --test tests/cli/*.test.ts tests/unit/cli/*.test.ts tests/unit/core/evidence-report.test.ts tests/unit/core/flow-save.test.ts` — 82 passed, 0 failed.
+- `npm test` — 425 passed, 0 failed.
+- `npm_config_offline=true npm run check` — exit 0; 425 tests passed, all 19 portable-check gates passed, and npm audit reported 0 vulnerabilities.
+- `git diff --check` — clean.
+- Production privacy scan over core/CLI production files for unsafe path/scheme fixture forms — no unsafe fixture values found.
+
+### Fix design decisions
+
+- `replaceSchemePath` now redacts every `[A-Za-z][A-Za-z0-9+.-]*:` token with a non-space payload, preserving only reserved synthetic `https?://*.example.test` URLs; ordinary prose such as `status: PASS` remains unchanged because its scheme token has no non-space payload.
+- The POSIX path replacement no longer depends on start/whitespace delimiters, so `artifact=/opt/private/tenant.json` is redacted. Existing nested traversal, drive/UNC, file/s3/opaque, code/kind/ID, expected/actual, and safe-relative controls remain green.
+- A broad CLI sanitizer regression was corrected by exempting stable internal metadata fields from path-bearing text redaction; user-visible path/message fields remain sanitized and shipped verification retains exact residual-gate identifiers.
+
+### Evidence boundary and remaining limitations
+
+All evidence remains local/synthetic/offline. Provider and UAT remain `NOT_VERIFIED`; no provider readback, hosted execution, UAT, tenant import, rebinding, enablement, publication, or flow execution was attempted. Final-head GitHub Actions and the official history-aware privacy scanner remain external/unavailable gates.
+
+### Final core I-2 implementation commit
+
+`71d0a24fbc2a9bef63f1fd680468f8c1783d5302` (`fix: close final core evidence privacy escapes`).
