@@ -29,7 +29,7 @@ The plan has four sequential tasks with disjoint implementation surfaces.
 - Task 1: complete — worker Hume delivered 06aa6ea; reviewer Avicenna found two P2s; worker Franklin fixed them in 3cb8681; reviewer Pascal marked both resolved and retired.
 - Task 2: complete — worker Chandrasekhar delivered 2fb6d39; reviewer Parfit found four findings; worker Poincare fixed them in 4571a28; reviewer Popper marked all resolved and retired.
 - Task 3: complete — worker Faraday delivered 17d60c5; reviewer Harvey found three P2s; worker Banach fixed them in 6851f36; reviewer Arendt marked all resolved and retired.
-- Task 4: complete — final reviewer Godel found two privacy P2s and the user-authorized license scope; worker Schrodinger fixed the P2s in 5d1b290; reviewer Nietzsche marked the final scope clean and retired. Final clean clone and CI run 32520433132 passed.
+- Task 4: complete — final reviewer Godel found two privacy P2s and the user-authorized license scope; worker Schrodinger fixed the P2s in 5d1b290; reviewer Nietzsche marked the final scope clean and retired. Final clean clone passed and CI run 32521040732 passed on Ubuntu, macOS, and Windows.
 
 ## Task 2 review
 
