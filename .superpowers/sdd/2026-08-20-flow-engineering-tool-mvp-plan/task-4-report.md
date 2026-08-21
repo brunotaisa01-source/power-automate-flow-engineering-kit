@@ -147,6 +147,97 @@ credential, or raw payload was added to the public files.
 - `remaining_blockers`: final-head GitHub Actions matrix; live provider auth/rebind/readback/UAT; unavailable official scanner
 - `delegated_subagents`: `0`
 
+## Windows CI fix — shell-neutral inventory path normalization
+
+### Root cause and scope
+
+Coordinator-reported CI run `32434425061` failed only in
+`portable-check (windows-latest)`: the complete-inventory regression expected
+POSIX suffixes but `discoverTestFiles()` exposed native Windows backslash
+paths. Linux and macOS passed. Root cause was that the inventory sorter had a
+POSIX projection only for ordering; the returned API values remained native
+absolute paths.
+
+Implementation commit:
+`55962ae4fc317e2e38ec4a300c858e1fb9f46142`
+(`fix: normalize cross-platform test inventory paths`). It changes the
+inventory API to return deterministic POSIX-relative `tests/...` strings,
+while `buildTestCommand()` and `buildCheckCommands()` convert those entries to
+native filesystem paths for `spawnSync`. All process calls remain argument
+arrays with `shell: false` for Node commands; no shell glob or string command
+was added.
+
+### RED evidence
+
+```text
+node --test tests/unit/portable-check.test.mjs
+```
+
+Before the implementation, exit `1`; **4 tests ran, 2 passed, 2 intended
+failures**. The existing parity assertion rejected the absolute inventory, and
+the new Windows/POSIX simulation failed because `normalizeTestInventory` was
+not yet available.
+
+### GREEN evidence
+
+```text
+node --test tests/unit/portable-check.test.mjs
+```
+
+Exit `0`; **4/4 tests passed**. The regression proves Windows-style and
+POSIX-style separators produce the same sorted relative inventory, while the
+command-array assertions prove native spawn paths remain separate from the
+comparison representation.
+
+```text
+npm test
+```
+
+Exit `0`; **428/428 tests passed** across 28 suites.
+
+```text
+npm run build
+```
+
+Exit `0`.
+
+```text
+npm_config_offline=true npm run check
+```
+
+Exit `0`; **428/428 tests**, **19 portable-check gates**, and **0 audit
+vulnerabilities**.
+
+The focused public Dataverse privacy test remains GREEN with no private
+markers, the tracked release evidence set remains 9/9, and `git diff --check`
+is clean. The reported CI failure is not converted into a final-head PASS;
+the fresh final-head GitHub Actions matrix remains pending.
+
+### Limitations and no-external-access statement
+
+This correction is `LOCAL`/`LOCAL_SYNTHETIC` evidence. The worker did not query
+GitHub, provider, tenant, Power Automate, or Dataverse resources and did not
+perform external authentication, import, rebind, save, execution, mutation,
+readback, publication, UAT, push, merge, agent coordination, or coordinator
+ledger edits. Provider and UAT remain `NOT_VERIFIED`; the final-head CI matrix
+remains `NOT_RUN`/`PENDING` until a fresh matrix passes on the exact final
+head.
+
+### Fix-round completion fields
+
+- `incident_id`: `REG-20260821-001` — Windows test-inventory separator regression
+- `status`: `GREEN_LOCAL; CI_RECHECK_REQUIRED; RELEASE_BLOCKED_EXTERNAL_GATES`
+- `wave/task`: Flow Engineering Tool MVP / Task 4 Windows CI inventory fix
+- `red_command/result`: portable-check focused test; exit 1, 4 total, 2 pass, 2 intended failures
+- `green_command/result`: portable-check focused test; exit 0, 4/4 pass
+- `implementation_commit`: `55962ae4fc317e2e38ec4a300c858e1fb9f46142`
+- `handoff_commit`: this handoff commit, returned separately
+- `files`: `scripts/test-all.mjs`, `scripts/portable-check.mjs`, `tests/unit/portable-check.test.mjs`, current release evidence, and this handoff
+- `review_status`: fix round ready for fresh CI re-review
+- `evidence_class`: `LOCAL_SYNTHETIC`
+- `remaining_blockers`: fresh final-head GitHub Actions matrix; live provider auth/rebind/readback/UAT; unavailable official scanner
+- `delegated_subagents`: `0`
+
 ## Whole-branch fix round — I-1 and I-5
 
 ### Status and scope

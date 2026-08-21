@@ -4,7 +4,7 @@
 **Base head:** `b1d00b9`
 Immutable Task 4 review head: `eaf31f8`
 Task 4 implementation commit: `2c269c2`
-Latest locally verified code head: `cfc1967`
+Latest locally verified code head: `55962ae`
 **Release posture:** local evidence is reviewable; release remains blocked by
 external and final-head gates listed below.
 
@@ -113,12 +113,19 @@ topology. The mutation empties a required `red.failure` field and the harness
 fails closed. Neither control executes a live connector or establishes
 provider/UAT evidence.
 
-Current whole-branch correction candidate evidence at `cfc1967`: focused Task 4
-suite 11/11, full `npm test` 427/427, and offline `npm run check` 427/427 with
-19 gates and 0 audit vulnerabilities. The whole-branch direct probes also
-covered 14 unsafe path values across 126 core channels, 392 source-CLI cases,
-and 56 built-CLI cases with zero raw leaks. These are local results, not
-hosted/provider/UAT results.
+Historical whole-branch correction candidate evidence at `cfc1967`: focused
+Task 4 suite 11/11, full `npm test` 427/427, and offline `npm run check`
+427/427 with 19 gates and 0 audit vulnerabilities. The whole-branch direct
+probes also covered 14 unsafe path values across 126 core channels, 392
+source-CLI cases, and 56 built-CLI cases with zero raw leaks. These are local
+results, not hosted/provider/UAT results.
+
+Current Windows-inventory correction evidence at `55962ae`: focused
+portable-check suite 4/4, full `npm test` 428/428, and offline `npm run check`
+428/428 with 19 gates and 0 audit vulnerabilities. The inventory regression
+normalizes POSIX-relative paths for comparison while retaining native paths
+for process arguments. These are local results, not hosted/provider/UAT
+results.
 
 The sanitized whole-branch release summary is [tracked here](evidence/whole-branch-final-pass.md).
 
@@ -134,6 +141,11 @@ final-head matrix state.
   It is historical evidence for that prior head, not evidence for the immutable
   Task 4 review head `eaf31f8`, implementation commit `2c269c2`, or any later
   coordinator/fix-round head.
+- **reported Windows regression:** CI run `32434425061` reported only
+  `portable-check (windows-latest)` failing in the complete-inventory path
+  assertion; the `ubuntu-latest` and `macos-latest` jobs passed. The local fix
+  is recorded at `55962ae` and must still be followed by a fresh final-head
+  matrix before release. This reported failure is not a final-head PASS.
 - **final-head GitHub Actions matrix: `NOT_RUN` / `PENDING`:** no final-head
   matrix result exists for `eaf31f8` or any later coordinator head. Do not infer
   it from the existing prior CI run, and do not invent a final-head URL or
