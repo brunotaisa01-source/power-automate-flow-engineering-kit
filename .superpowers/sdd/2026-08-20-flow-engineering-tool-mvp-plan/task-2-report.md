@@ -407,3 +407,51 @@ All evidence remains local/synthetic/offline. Provider and UAT remain `NOT_VERIF
 ### Final core I-2 implementation commit
 
 `71d0a24fbc2a9bef63f1fd680468f8c1783d5302` (`fix: close final core evidence privacy escapes`).
+
+## Whole-branch final fix round — I-2 explicit path fields
+
+### Scope and status
+
+DONE for the remaining explicit-path I-2 gap. The shared normalization boundary now rejects any path-bearing token before accepting a value as repository-relative, preventing embedded absolute/traversal/scheme strings from entering core artifact paths, claims, IDs, CLI fields, nested data, JSON, or text. Existing text/kind/ID sanitization, hostile-input fail-closed behavior, valid safe paths, and provider/UAT boundaries remain intact. No coordinator ledger, provider/tenant/Power Automate/Dataverse resource, agent, push, merge, or publish action was touched.
+
+### Changed files
+
+- `packages/core/src/evidence-report.ts` — `sanitizeRepositoryRelativePath` now rejects values whose path-bearing sanitizer output changes, before relative-path acceptance.
+- `tests/unit/core/evidence-report.test.ts` — embedded `artifact=/opt/...` and `artifact=../...` coverage across prepared/artifact path fields and derived IDs.
+- `tests/cli/prepare-flow.test.ts` — embedded explicit input/output path coverage for prepare/validate JSON/text routes.
+- `tests/cli/report-evidence.test.ts` — embedded missing-input path matrix.
+- `tests/unit/cli/reporters.test.ts` — generic artifactPath and nested data.path coverage.
+
+### RED
+
+Command:
+
+```text
+node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts tests/cli/prepare-flow.test.ts tests/unit/cli/reporters.test.ts
+```
+
+Result: expected RED with 55 tests total: 50 passed and 5 failed. Embedded explicit paths leaked from core path fields/IDs, report-evidence input errors, prepare/validate input/output errors, and generic CLI nested/path fields.
+
+### GREEN and verification
+
+- `npm run build` — exit 0.
+- `node --experimental-strip-types --test tests/unit/core/evidence-report.test.ts tests/cli/report-evidence.test.ts tests/cli/prepare-flow.test.ts tests/unit/cli/reporters.test.ts` — 55 passed, 0 failed.
+- `node --experimental-strip-types --test tests/cli/*.test.ts tests/unit/cli/*.test.ts tests/unit/core/evidence-report.test.ts tests/unit/core/flow-save.test.ts` — 84 passed, 0 failed.
+- `npm test` — 427 passed, 0 failed.
+- `npm_config_offline=true npm run check` — exit 0; 427 tests passed, all 19 portable-check gates passed, and npm audit reported 0 vulnerabilities.
+- `git diff --check` — clean.
+- Production privacy scan over core/CLI production files for embedded absolute/traversal/scheme fixtures — no unsafe explicit-path fixtures found.
+
+### Fix design decisions
+
+- `sanitizeRepositoryRelativePath` first compares the shared `redactPathBearingText` result with the input; any embedded path/scheme token now becomes `<redacted-path>` instead of being accepted as a relative path. Safe repository-relative paths and ordinary non-path values remain supported.
+- The same shared boundary feeds core claim/diagnostic paths and IDs, CLI `artifactPath`/`path`/`outputPath`/nested data fields, and prepare/validate/report-evidence route errors.
+- Stable CLI metadata such as `residualGate`, `ruleId`, `code`, `command`, and JSON pointers retains its contract while user-visible path-bearing text remains sanitized.
+
+### Evidence boundary and remaining limitations
+
+All evidence remains local/synthetic/offline. Provider and UAT remain `NOT_VERIFIED`; no provider readback, hosted execution, UAT, tenant import, rebinding, enablement, publication, or flow execution was attempted. Final-head GitHub Actions and the official history-aware privacy scanner remain external/unavailable gates.
+
+### Final explicit-path implementation commit
+
+`8ea25419217652bbc1e33b1dbac6963dedcc4087` (`fix: reject embedded unsafe explicit paths`).
