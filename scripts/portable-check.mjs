@@ -1,7 +1,7 @@
 import { join, relative } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
-import { discoverTestFiles, walkFiles } from "./test-all.mjs";
+import { discoverTestFiles, nativeTestPath, walkFiles } from "./test-all.mjs";
 
 function npmExecutable() {
   return process.platform === "win32" ? "npm.cmd" : "npm";
@@ -19,7 +19,7 @@ export function buildCheckCommands(root, platform = process.platform) {
   const example = join(root, "examples", "minimal-public-app");
   const connectorProfiles = walkFiles(join(example, "connectors"))
     .filter((file) => file.endsWith(".profile.json"));
-  const testFiles = discoverTestFiles(root);
+  const testFiles = discoverTestFiles(root).map((file) => nativeTestPath(root, file));
 
   return [
     command("build", npm, ["run", "build"], root, npmShell),

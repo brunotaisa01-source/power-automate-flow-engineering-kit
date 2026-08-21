@@ -1,6 +1,6 @@
 import { readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { join, relative, sep } from "node:path";
+import { join, relative, resolve, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
 function compare(left, right) {
@@ -9,6 +9,27 @@ function compare(left, right) {
 
 function relativePosix(root, file) {
   return relative(root, file).split(sep).join("/");
+}
+
+function slashNormalize(value) {
+  return value.replaceAll("\\", "/");
+}
+
+export function normalizeTestInventory(root, files) {
+  const normalizedRoot = slashNormalize(root).replace(/\/+$/, "") || "/";
+  const rootPrefix = normalizedRoot === "/" ? "/" : `${normalizedRoot}/`;
+
+  return files.map((file) => {
+    const normalizedFile = slashNormalize(file);
+    if (!normalizedFile.startsWith(rootPrefix)) {
+      throw new Error(`test inventory path is outside root: ${file}`);
+    }
+    return normalizedFile.slice(rootPrefix.length);
+  }).sort(compare);
+}
+
+export function nativeTestPath(root, inventoryPath) {
+  return join(root, ...inventoryPath.split("/"));
 }
 
 export function walkFiles(root) {
@@ -28,14 +49,17 @@ export function walkFiles(root) {
 }
 
 export function discoverTestFiles(root = process.cwd()) {
-  return walkFiles(join(root, "tests"))
+  const projectRoot = resolve(root);
+  const candidates = walkFiles(join(projectRoot, "tests"))
     .filter((file) => file.endsWith(".test.ts") || file.endsWith(".test.mjs"));
+  return normalizeTestInventory(projectRoot, candidates);
 }
 
 export function buildTestCommand(root = process.cwd()) {
+  const testFiles = discoverTestFiles(root);
   return {
     executable: process.execPath,
-    args: ["--experimental-strip-types", "--test", ...discoverTestFiles(root)],
+    args: ["--experimental-strip-types", "--test", ...testFiles.map((file) => nativeTestPath(root, file))],
     cwd: root,
     shell: false,
   };

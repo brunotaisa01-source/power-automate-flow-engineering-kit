@@ -45,11 +45,32 @@ test("npm test uses the complete shell-neutral test inventory", async () => {
   const { buildTestCommand, discoverTestFiles } = await import("../../scripts/test-all.mjs");
   const discovered = discoverTestFiles(root);
   const portableTest = buildCheckCommands(root).find((command) => command.label === "test");
+  const nativeDiscovered = discovered.map((file) => join(root, ...file.split("/")));
 
   assert.ok(portableTest);
-  assert.deepEqual(portableTest.args.slice(2), discovered);
+  assert.ok(discovered.every((file) => file.startsWith("tests/")));
+  assert.ok(discovered.every((file) => !file.includes("\\")));
+  assert.deepEqual(portableTest.args.slice(2), nativeDiscovered);
   assert.ok(discovered.some((file) => file.endsWith(".test.ts")));
   assert.ok(discovered.some((file) => file.endsWith(".test.mjs")));
   assert.ok(discovered.some((file) => file.endsWith("tests/unit/portable-check.test.mjs")));
-  assert.deepEqual(buildTestCommand(root).args, ["--experimental-strip-types", "--test", ...discovered]);
+  assert.deepEqual(buildTestCommand(root).args, ["--experimental-strip-types", "--test", ...nativeDiscovered]);
+});
+
+test("test inventory is identical after Windows separator normalization", async () => {
+  const { normalizeTestInventory } = await import("../../scripts/test-all.mjs");
+  const windowsRoot = "C:\\workspace\\repo";
+  const windowsFiles = [
+    "C:\\workspace\\repo\\tests\\unit\\portable-check.test.mjs",
+    "C:\\workspace\\repo\\tests\\nested\\sample.test.ts",
+  ];
+  const posixRoot = "C:/workspace/repo";
+  const posixFiles = [
+    "C:/workspace/repo/tests/unit/portable-check.test.mjs",
+    "C:/workspace/repo/tests/nested/sample.test.ts",
+  ];
+  const expected = ["tests/nested/sample.test.ts", "tests/unit/portable-check.test.mjs"];
+
+  assert.deepEqual(normalizeTestInventory(windowsRoot, windowsFiles), expected);
+  assert.deepEqual(normalizeTestInventory(posixRoot, posixFiles), expected);
 });
