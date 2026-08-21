@@ -153,17 +153,22 @@ test("MVP release checklist records reproducible evidence and explicit blockers"
     "Task 3",
     ...REQUIRED_RELEASE_EVIDENCE_LINKS,
     "previous GitHub Actions matrix evidence",
-    "final-head CI still pending",
+    "Final CI-verified head: `04a7c43`",
+    "Final CI run: `32435123660`",
+    "final-head GitHub Actions matrix: `PASS`",
+    "portable-check (windows-latest)",
     "live provider auth",
     "rebind",
     "readback",
     "UAT",
-    "final GitHub Actions matrix",
+    "official history-aware public-data scanner",
   ]) {
     assert.ok(checklist.toLowerCase().includes(requiredText.toLowerCase()), `missing checklist entry: ${requiredText}`);
   }
   assert.match(checklist, /LOCAL|PROVIDER|HOSTED|UAT/);
-  assert.match(checklist, /NOT_VERIFIED|NOT_RUN/);
+  assert.match(checklist, /PROVIDER[^\n]*NOT_VERIFIED/i);
+  assert.match(checklist, /UAT[^\n]*NOT_VERIFIED/i);
+  assert.match(checklist, /official history-aware public-data scanner[\s\S]*NOT_RUN/i);
 });
 
 test("public Dataverse training content rejects private marker classes", async () => {
@@ -183,8 +188,12 @@ test("release checklist binds immutable heads and separates handoffs from review
   const requiredEntries = [
     "Immutable Task 4 review head: `eaf31f8`",
     "Task 4 implementation commit: `2c269c2`",
-    "final-head GitHub Actions matrix: `NOT_RUN` / `PENDING`",
+    "Final CI-verified head: `04a7c43`",
+    "Final CI run: `32435123660`",
+    "final-head GitHub Actions matrix: `PASS`",
+    "actions/runs/32435123660",
     "existing prior CI run",
+    "reported Windows regression",
     "Worker handoffs",
     "Independent review reports",
     ...REQUIRED_RELEASE_EVIDENCE_LINKS,
@@ -194,6 +203,9 @@ test("release checklist binds immutable heads and separates handoffs from review
   }
   assert.doesNotMatch(checklist, /final-head[^\n]*https?:\/\//i);
   assert.doesNotMatch(checklist, /\.superpowers\/sdd\//i);
+  assert.match(checklist, /PROVIDER[^\n]*NOT_VERIFIED/i);
+  assert.match(checklist, /UAT[^\n]*NOT_VERIFIED/i);
+  assert.match(checklist, /official history-aware public-data scanner[\s\S]*NOT_RUN/i);
 });
 
 test("release checklist evidence links resolve to tracked public records", async () => {
