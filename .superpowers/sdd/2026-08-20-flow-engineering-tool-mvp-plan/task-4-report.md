@@ -564,3 +564,93 @@ evidence or private values were added.
 - `evidence_class`: `LOCAL_SYNTHETIC`
 - `remaining_blockers`: final-head GitHub Actions matrix; live provider auth/rebind/readback/UAT; unavailable official scanner
 - `delegated_subagents`: `0`
+
+## Coordinator release-doc fix — nine tracked evidence targets
+
+### Scope and traceability
+
+The coordinator-added public final-pass summary is preserved at
+`docs/release/evidence/whole-branch-final-pass.md`. The release checklist now
+has nine tracked evidence targets, and the Dataverse documentation regression
+test expects that exact set, including the final-pass summary. The public
+summary and Task 4 handoff record the current 427-test local result and 9/9
+tracked evidence links. The implementation commit is
+`75e6b912d67d859e469b25304d17320839781032` (`test: track final release evidence link`).
+
+### RED evidence
+
+```text
+node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Before the correction, exit `1`; **11 tests ran, 10 passed, 1 intended failure**.
+The release-link assertion found the ninth checklist target but the expected
+set still contained only eight entries. After adding the ninth expected path,
+the first run also correctly failed closed until the coordinator summary was
+tracked, proving the clean-checkout guard is active.
+
+### GREEN evidence
+
+```text
+node --experimental-strip-types --test tests/skills/dataverse-flow-engineering-kit-skill.test.ts
+```
+
+Exit `0`; **11/11 tests passed**. The release-link subtest resolved and tracked
+**9/9** public evidence targets, including
+`evidence/whole-branch-final-pass.md`; the private-marker checks also passed.
+
+```text
+npm test
+```
+
+Exit `0`; **427/427 tests passed** across 28 suites through the maintained
+shell-neutral runner.
+
+```text
+npm run build
+```
+
+Exit `0`.
+
+```text
+npm_config_offline=true npm run check
+```
+
+Exit `0`; **427/427 tests**, **19 portable-check gates**, and **0 audit
+vulnerabilities**.
+
+The exact public-data scanner command remains an external limitation:
+
+```text
+node packages/cli/dist/bin/spflow.js scan public-data . --history --format json
+```
+
+Exit `8`; `CLI_VALIDATOR_NOT_RUN`, residual gate `public-data-scanner`,
+classified `NOT_RUN`, not PASS. `git diff --check` is clean. The focused
+privacy guard reports zero private markers for the public Dataverse skill,
+guide, and fixture; the link guard reports 9/9 tracked evidence targets.
+
+### Limitations and no-tenant statement
+
+All evidence in this fix round is `LOCAL`/`LOCAL_SYNTHETIC`. The final-head
+GitHub Actions matrix remains `NOT_RUN`/`PENDING`; the existing prior CI run is
+not final-head evidence. Live provider authentication, rebind/import/save,
+provider readback, execution, Dataverse effects, publication, and UAT remain
+`NOT_VERIFIED`. This fix round performed no provider, tenant, Power Automate,
+or Dataverse access or mutation, no raw-evidence import, no push or merge, no
+agent coordination, and no coordinator-ledger edit.
+
+### Fix-round completion fields
+
+- `incident_id`: `N/A` — release documentation correction, no production incident
+- `status`: `GREEN_LOCAL; RELEASE_BLOCKED_EXTERNAL_GATES`
+- `wave/task`: Flow Engineering Tool MVP / Task 4 coordinator release-doc fix
+- `red_command/result`: focused Dataverse skill test; exit 1, 11 total, 10 pass, 1 intended failure
+- `green_command/result`: focused Dataverse skill test; exit 0, 11/11 pass
+- `implementation_commit`: `75e6b912d67d859e469b25304d17320839781032`
+- `handoff_commit`: this handoff commit, returned separately
+- `files`: scoped documentation test, release checklist/evidence summaries, and this handoff
+- `review_status`: fix round ready for coordinator re-review
+- `evidence_class`: `LOCAL_SYNTHETIC`
+- `remaining_blockers`: final-head GitHub Actions matrix; live provider auth/rebind/readback/UAT; unavailable official scanner
+- `delegated_subagents`: `0`
