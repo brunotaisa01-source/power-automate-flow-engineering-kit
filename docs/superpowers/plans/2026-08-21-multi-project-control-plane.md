@@ -120,6 +120,8 @@
 - Create: `examples/multi-project-workspace/projects/green-b/check.mjs`
 - Create: `examples/multi-project-workspace/projects/red/package.json`
 - Create: `examples/multi-project-workspace/projects/red/check.mjs`
+- Create: `examples/multi-project-workspace/knowledge/self-improvement/registry.json`
+- Create: `examples/multi-project-workspace/knowledge/self-improvement/registry.sha256`
 - Create: `docs/MULTI_PROJECT_CONTROL_PLANE.md`
 - Modify: `AGENTS.md`
 - Modify: `README.md`
@@ -143,7 +145,7 @@
 
 - [ ] **Step 3: Add synthetic project checks and manifest.**
 
-  Each fixture project uses a dependency-free `npm run check` script. Green checks exit zero with synthetic output; the red check exits one with a deterministic red code. The manifest uses only relative paths and the checked-in registry.
+  Each fixture project uses a dependency-free `npm run check` script. Green checks exit zero with synthetic output; the red check exits one with a deterministic red code. The manifest uses only relative paths and a fixture-local registry at `examples/multi-project-workspace/knowledge/self-improvement/registry.json`, which follows the canonical global registry contract.
 
 - [ ] **Step 4: Add the operator/AI runbook.**
 
