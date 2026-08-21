@@ -154,6 +154,56 @@ describe("local evidence report builder", () => {
     assert.equal(report.uatGate, "NOT_VERIFIED");
   });
 
+  test("fails closed for unsupported or cyclic expected and actual values", () => {
+    const cyclic: Record<string, unknown> = {};
+    cyclic.self = cyclic;
+    const malformedValues = [
+      { expected: 123n },
+      { actual: Symbol("x") },
+      { expected: cyclic },
+    ];
+
+    for (const value of malformedValues) {
+      const report = createLocalEvidenceReport({
+        preparedDefinition: {
+          result: "PASS",
+          diagnostics: [{
+            code: "MALFORMED-JSON-VALUE",
+            message: "Synthetic unsupported diagnostic value.",
+            ...value,
+          }],
+        },
+        localArtifacts: reportInput().localArtifacts,
+      });
+
+      assert.equal(report.result, "NOT_RUN");
+      assert.ok(report.diagnostics.some(({ code }) => code === "LOCAL_DIAGNOSTIC_ENTRY_INVALID"));
+      assert.ok(report.claims.some(({ status }) => status === "NOT_RUN"));
+      assert.equal(report.providerGate, "NOT_VERIFIED");
+      assert.equal(report.uatGate, "NOT_VERIFIED");
+    }
+  });
+
+  test("preserves valid JSON-safe expected and actual objects and arrays", () => {
+    const report = createLocalEvidenceReport({
+      preparedDefinition: {
+        result: "PASS",
+        diagnostics: [{
+          code: "VALID-JSON-VALUE",
+          message: "Synthetic JSON-safe diagnostic values.",
+          expected: { nested: ["first", { value: 2 }] },
+          actual: [true, null, { value: "observed" }],
+        }],
+      },
+      localArtifacts: reportInput().localArtifacts,
+    });
+
+    assert.equal(report.result, "PASS");
+    const diagnostic = report.claims.find(({ subject }) => subject === "prepared-definition")?.diagnostics[0];
+    assert.deepEqual(diagnostic?.expected, { nested: ["first", { value: 2 }] });
+    assert.deepEqual(diagnostic?.actual, [true, null, { value: "observed" }]);
+  });
+
   test("requires an actual diagnostics array for object-form prepared evidence", () => {
     const undefinedDiagnostics = createLocalEvidenceReport({
       preparedDefinition: {

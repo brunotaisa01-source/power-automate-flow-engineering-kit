@@ -132,6 +132,24 @@ test("report evidence handles malformed optional diagnostic fields without an in
   assert.equal((result.report.data as { result: string }).result, "NOT_RUN");
 });
 
+test("report evidence preserves valid JSON-safe expected and actual values", async () => {
+  const input = evidenceInput();
+  input.preparedDefinition.diagnostics[0]!.expected = { nested: ["first", { value: 2 }] };
+  input.preparedDefinition.diagnostics[0]!.actual = [true, null, { value: "observed" }];
+  const path = await writeEvidence(input);
+  const result = await runJson(["report", "evidence", path, "--format", "json"]);
+
+  assert.equal(result.exitCode, 0);
+  const data = result.report.data as {
+    result: string;
+    claims: Array<{ subject: string; diagnostics: Array<{ expected?: unknown; actual?: unknown }> }>;
+  };
+  assert.equal(data.result, "PASS");
+  const diagnostic = data.claims.find(({ subject }) => subject === "prepared-definition")?.diagnostics[0];
+  assert.deepEqual(diagnostic?.expected, { nested: ["first", { value: 2 }] });
+  assert.deepEqual(diagnostic?.actual, [true, null, { value: "observed" }]);
+});
+
 test("report evidence fails closed for an unreadable local evidence path", async () => {
   const result = await runJson([
     "report", "evidence", "/private/tmp/missing-synthetic-evidence.json", "--format", "json",
