@@ -79,7 +79,7 @@ function redactOutput(value: string, sensitiveValues: readonly string[]): string
     output = output.replaceAll(sensitive, "<redacted>");
   }
   return output
-    .replace(/\b(password|token|secret|api[_-]?key|authorization)\s*[:=]\s*[^\s,;]+/gi, "$1=<redacted>")
+    .replace(/\b((?:(?:client|access|refresh)[_.-]?(?:secret|token))|password|token|secret|api[_.-]?key|authorization)\s*[:=]\s*[^\s,;]+/gi, "$1=<redacted>")
     .replace(/\b[A-Za-z]:[\\/][^\s"']+/g, "<redacted-path>")
     .replace(/\\\\[^\\\s]+\\[^\s"']+/g, "<redacted-path>")
     .replace(/(^|[\s(])\/(?:home|Users|tmp|var|private)\/[^\s"']+/g, "$1<redacted-path>")
@@ -120,7 +120,7 @@ function manifestFinding(diagnostic: WorkspaceDiagnostic): ReportFinding {
     ruleId: "WORKSPACE-MANIFEST-001",
     severity: "error",
     code: diagnostic.code,
-    message: diagnostic.message,
+    message: "The workspace manifest contains an invalid or unsafe value.",
     artifactPath: "<workspace-manifest>",
     jsonPointer: diagnostic.path,
     remediation: "Use the strict workspace manifest schema with safe relative paths and exact npm run check commands.",
