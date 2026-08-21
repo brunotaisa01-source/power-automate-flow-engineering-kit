@@ -88,6 +88,15 @@ All results are local evidence only. Tenant import, rebinding, enablement,
 execution, mutation, semantic readback, and publication readback are separate
 gates and are not performed by this repository.
 
+## License
+
+This repository uses the Personal and Internal Use License in [`LICENSE`](LICENSE).
+Personal and internal business use is permitted, but selling, redistributing,
+publishing, commercializing, offering a hosted/SaaS service, or transferring
+the Software or a substantially similar derivative requires separate written
+permission. The project name and trademarks are not licensed for promotion or
+endorsement. This is source-available, not an OSI open-source license.
+
 ## Quick Start
 
 Requirements:

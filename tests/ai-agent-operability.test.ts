@@ -152,3 +152,19 @@ test("Dataverse runbook gives a clean-context AI an actionable provider-gated se
     "stop",
   ], "Dataverse flow runbook");
 });
+
+test("repository license permits internal use but blocks unlicensed commercialization", async () => {
+  const license = await readContract("LICENSE");
+  assert.ok(license.length > 0, "LICENSE must exist and be readable");
+  assert.doesNotMatch(license, /MIT License|sell copies|without restriction/i, "the repository must not silently restore MIT resale rights");
+  assertHasAll(license, [
+    "personal use",
+    "internal business use",
+    "may not sell",
+    "may not redistribute",
+    "commercialize",
+    "written permission",
+    "trademark",
+    "AS IS",
+  ], "repository license boundary");
+});

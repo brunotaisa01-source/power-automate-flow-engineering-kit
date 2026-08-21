@@ -7,6 +7,8 @@ This repository is a public, synthetic-data Power Automate Flow Engineering Kit.
 1. Read this contract, `README.md`, and the relevant skill under `skills/`.
    For Dataverse-backed flows, also read
    [`docs/DATAVERSE_FLOW_RUNBOOK.md`](docs/DATAVERSE_FLOW_RUNBOOK.md).
+   Read `LICENSE` before distributing or commercializing anything; this
+   repository permits personal/internal use but not unlicensed resale.
 2. Run `git status --short` and inspect existing user changes before editing. Preserve unrelated work; never use a destructive reset to make the tree convenient.
 3. Confirm Node.js 22.x and npm 10.x, then install with `npm ci`.
 4. State the requested scope, the evidence class being produced, and any provider gate that cannot be proven locally.

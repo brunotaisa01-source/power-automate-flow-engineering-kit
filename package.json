@@ -2,6 +2,7 @@
   "name": "power-automate-flow-engineering-kit",
   "version": "0.0.0",
   "private": true,
+  "license": "SEE LICENSE IN LICENSE",
   "type": "module",
   "engines": {
     "node": ">=22.0.0 <23.0.0",
