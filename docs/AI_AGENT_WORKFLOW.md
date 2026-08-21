@@ -79,6 +79,30 @@ Local evidence must be reported as local evidence. Do not call `LOCAL_SYNTHETIC`
 
 The engineering contract can apply to SharePoint, Excel, Power Apps, Dataverse, Outlook, Graph, HTTP, SQL, and approvals. Connector-specific semantics must be read from the relevant skill, profile, contract, and fixture. Do not copy a SharePoint assumption into Excel, Dataverse, Outlook, or another connector. The repository's public examples use synthetic data and the local CLI is offline/read-only with respect to tenants.
 
+## Multi-project local checks
+
+For independent local project checks, read
+[`MULTI_PROJECT_CONTROL_PLANE.md`](MULTI_PROJECT_CONTROL_PLANE.md) and start
+with `examples/multi-project-workspace/workspace.manifest.json`. The manifest
+must sit beside its `knowledge/self-improvement/registry.json` and project
+roots so the controller can enforce canonical relative paths. Run:
+
+```text
+node packages/cli/dist/bin/spflow.js workspace check --manifest examples/multi-project-workspace/workspace.manifest.json --format json
+```
+
+Treat `PASS`, `FAIL`, and `NOT_RUN` as project-specific outcomes. Continue to
+report every project after a required RED; do not allow a GREEN project to
+mask it. An optional unavailable project is visible as `NOT_RUN`. A failing
+registry audit blocks all child checks and must be resolved before any result
+is relied on. This command yields `LOCAL_SYNTHETIC` evidence only.
+
+New cross-project lessons are not promoted by a workspace run. Capture only
+sanitized synthetic-public candidates, preserve the RED, GREEN, and positive
+control evidence, obtain independent review, and promote only after the
+governed registry workflow succeeds. Keep provider, hosted, and UAT evidence
+in each project rather than in the shared registry.
+
 ## Tenant, Privacy, MFA, and No-Real-Email Rules
 
 - Never commit or paste credentials, tokens, cookies, passwords, MFA codes, tenant IDs, personal addresses, mailbox contents, production exports, or customer data.

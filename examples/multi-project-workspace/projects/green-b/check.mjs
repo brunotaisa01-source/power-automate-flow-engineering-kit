@@ -1,0 +1,1 @@
+console.log("SYNTHETIC_WORKSPACE_GREEN_B");

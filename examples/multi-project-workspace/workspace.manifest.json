@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "workspaceId": "synthetic-multi-project-workspace",
+  "registryPath": "knowledge/self-improvement/registry.json",
+  "projects": [
+    {
+      "id": "green-a",
+      "root": "projects/green-a",
+      "check": "npm run check",
+      "required": true
+    },
+    {
+      "id": "green-b",
+      "root": "projects/green-b",
+      "check": "npm run check",
+      "required": true
+    }
+  ]
+}

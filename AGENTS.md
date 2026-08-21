@@ -13,6 +13,7 @@ This repository is a public, synthetic-data Power Automate Flow Engineering Kit.
 3. Confirm Node.js 22.x and npm 10.x, then install with `npm ci`.
 4. State the requested scope, the evidence class being produced, and any provider gate that cannot be proven locally.
 5. Use TDD for behavior changes: write one deterministic RED test, observe the intended failure, implement the smallest GREEN change, then run the complete checks.
+6. For a multi-project local check, read [`docs/MULTI_PROJECT_CONTROL_PLANE.md`](docs/MULTI_PROJECT_CONTROL_PLANE.md) and run the fixture manifest from inside its workspace directory. Do not treat one project result as approval for another.
 
 ## Repository Map
 
@@ -24,6 +25,7 @@ This repository is a public, synthetic-data Power Automate Flow Engineering Kit.
 - `docs/DATAVERSE_FLOW_RUNBOOK.md`: actionable Dataverse connection-reference,
   flow lifecycle, synthetic-run, and semantic-readback sequence.
 - `examples/`: the synthetic public app, connector profiles, flow/package artifacts, and local contracts.
+- `examples/multi-project-workspace/`: dependency-free project checks, a canonical local registry, and its workspace manifest.
 - `.superpowers/sdd/`: worker reports containing exact files, commands, evidence, and handoff status.
 
 ## Portable Commands

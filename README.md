@@ -120,6 +120,22 @@ checks, read-only plugin checks, and the high-severity dependency audit through
 Node argument arrays instead of shell-specific loops. The same command runs in
 the repository's Linux, macOS, and Windows GitHub Actions matrix.
 
+## Multi-project local control plane
+
+Run isolated, dependency-free checks for the two synthetic workspace projects:
+
+```powershell
+node packages/cli/dist/bin/spflow.js workspace check --manifest examples/multi-project-workspace/workspace.manifest.json --format json
+```
+
+The manifest, project roots, and governed registry are all rooted at
+`examples/multi-project-workspace/`. The aggregate is GREEN only when the
+registry audit and every required project are GREEN; a required RED remains
+visible while other projects continue independently. An optional missing
+project is reported as `NOT_RUN`, and an unresolved registry candidate blocks
+all project checks. Read [`docs/MULTI_PROJECT_CONTROL_PLANE.md`](docs/MULTI_PROJECT_CONTROL_PLANE.md)
+before adapting the fixture.
+
 ## Portable Power Automate Save Boundary
 
 When a raw Power Automate definition is going to an XRM/Flow API save path,
