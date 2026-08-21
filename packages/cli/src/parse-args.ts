@@ -6,6 +6,9 @@ import {
 export type ExitCode = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type OutputFormat = "json" | "text";
 export type CommandRoute =
+  | "prepare-flow"
+  | "validate-flow"
+  | "report-evidence"
   | "validate-contract"
   | "validate-rules"
   | "validate-artifact"
@@ -16,6 +19,7 @@ export type CommandRoute =
   | "learn-audit"
   | "learn-capture"
   | "learn-promote"
+  | "workspace-check"
   | "verify";
 
 export interface CommandDiagnostic {
@@ -66,6 +70,9 @@ interface ParsedBase {
 
 export type ParsedCliArgs =
   | { kind: "help"; format: OutputFormat }
+  | (ParsedBase & { route: "prepare-flow"; definitionPath: string; connectionsPath: string; outputPath?: string })
+  | (ParsedBase & { route: "validate-flow"; definitionPath: string; connectionsPath: string })
+  | (ParsedBase & { route: "report-evidence"; path: string })
   | (ParsedBase & { route: "validate-contract"; path: string })
   | (ParsedBase & { route: "validate-rules"; root: string; requiredOnly: boolean })
   | (ParsedBase & {
@@ -84,6 +91,7 @@ export type ParsedCliArgs =
   | (ParsedBase & { route: "learn-audit"; path: string; executeBindings: boolean })
   | (ParsedBase & { route: "learn-capture"; path: string })
   | (ParsedBase & { route: "learn-promote"; path: string; reviewPath: string; reviewerRole: string })
+  | (ParsedBase & { route: "workspace-check"; manifestPath: string })
   | (ParsedBase & { route: "verify"; root: string; offline: true });
 
 export class CliUsageError extends Error {
@@ -267,6 +275,26 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
 
   const first = args[0];
   const second = args[1];
+  if (first === "prepare" && second === "flow") {
+    const parsed = parseOptions(args.slice(2), { connections: { type: "string" }, output: { type: "string" }, format: { type: "string" } }, "prepare flow");
+    if (parsed.positionals.length !== 1) throw new CliUsageError("prepare flow requires exactly one definition path.");
+    const outputPath = typeof parsed.values.output === "string" ? parsed.values.output : undefined;
+    return {
+      kind: "command", route: "prepare-flow", command: "prepare flow", format: parseFormat(parsed.values.format),
+      definitionPath: parsed.positionals[0] ?? "",
+      connectionsPath: requiredOption(parsed.values.connections, "prepare flow requires --connections <path>."),
+      ...(outputPath === undefined ? {} : { outputPath }),
+    };
+  }
+  if (first === "validate" && second === "flow") {
+    const parsed = parseOptions(args.slice(2), { connections: { type: "string" }, format: { type: "string" } }, "validate flow");
+    if (parsed.positionals.length !== 1) throw new CliUsageError("validate flow requires exactly one definition path.");
+    return {
+      kind: "command", route: "validate-flow", command: "validate flow", format: parseFormat(parsed.values.format),
+      definitionPath: parsed.positionals[0] ?? "",
+      connectionsPath: requiredOption(parsed.values.connections, "validate flow requires --connections <path>."),
+    };
+  }
   if (first === "validate" && second === "contract") {
     const parsed = parseOptions(args.slice(2), { format: { type: "string" } }, "validate contract");
     if (parsed.positionals.length !== 1) {
@@ -276,6 +304,19 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
       kind: "command",
       route: "validate-contract",
       command: "validate contract",
+      format: parseFormat(parsed.values.format),
+      path: parsed.positionals[0] ?? "",
+    };
+  }
+  if (first === "report" && second === "evidence") {
+    const parsed = parseOptions(args.slice(2), { format: { type: "string" } }, "report evidence");
+    if (parsed.positionals.length !== 1) {
+      throw new CliUsageError("report evidence requires exactly one local evidence path.");
+    }
+    return {
+      kind: "command",
+      route: "report-evidence",
+      command: "report evidence",
       format: parseFormat(parsed.values.format),
       path: parsed.positionals[0] ?? "",
     };
@@ -391,6 +432,17 @@ export function parseCliArgs(args: readonly string[]): ParsedCliArgs {
     if (parsed.positionals.length !== 1) throw new CliUsageError("learn promote requires exactly one candidate path.");
     if (typeof parsed.values.review !== "string" || typeof parsed.values["reviewer-role"] !== "string") throw new CliUsageError("learn promote requires --review <path> and --reviewer-role <role>.");
     return { kind: "command", route: "learn-promote", command: "learn promote", format: parseFormat(parsed.values.format), path: parsed.positionals[0] ?? "", reviewPath: parsed.values.review, reviewerRole: parsed.values["reviewer-role"] };
+  }
+  if (first === "workspace" && second === "check") {
+    const parsed = parseOptions(args.slice(2), { manifest: { type: "string" }, format: { type: "string" } }, "workspace check");
+    if (parsed.positionals.length !== 0) throw new CliUsageError("workspace check accepts no positional arguments.");
+    return {
+      kind: "command",
+      route: "workspace-check",
+      command: "workspace check",
+      format: parseFormat(parsed.values.format),
+      manifestPath: requiredOption(parsed.values.manifest, "workspace check requires --manifest <workspace manifest>."),
+    };
   }
   if (first === "verify") {
     const parsed = parseOptions(

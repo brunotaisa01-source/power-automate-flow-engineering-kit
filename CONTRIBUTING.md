@@ -7,7 +7,8 @@
 3. Implement the smallest change that turns the RED into GREEN.
 4. Add an independent positive control and a mutation or counterexample test.
 5. Run the Node 22 build and the complete test suite.
-6. Run the source-only privacy and capability scans.
+6. Run `npm run check` for the cross-platform acceptance pack.
+7. Run the source-only privacy and capability scans.
 
 ## Public Data Rules
 
@@ -42,9 +43,13 @@ retire the worker after its report.
 - Keep endpoint helpers operation-specific: Save item, OData list, and pagination
   collection/continuation. Do not restore a generic list-prefix authority check.
 - Run `npm ci`, the Node 22 build, the complete suite, README example commands,
-  `git diff --check`, dependency audit, and the official history-aware scanner.
+  `npm run check`, `git diff --check`, dependency audit, and the official
+  history-aware scanner.
 - If the scanner engine is unavailable, record exit `8` and `NOT_RUN`; never call
   that result PASS. Do not publish until explicit publication authorization, clean
   scope, privacy review, independent approval, and required readbacks exist.
+- Before saving raw Power Automate definitions, use `@spflow/core/flow-save` and
+  keep connection-reference logical names sourced from the declared map. Never
+  send action-level `inputs.authentication` or invent a logical name.
 - Never use `git add -A` for mixed scope. Stage explicit paths and preserve
   unrelated worktree changes.

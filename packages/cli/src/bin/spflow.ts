@@ -3,6 +3,8 @@
 import { pathToFileURL } from "node:url";
 
 import { learnAuditCommand, learnCaptureCommand, learnPromoteCommand } from "../commands/learn.ts";
+import { prepareFlowCommand, validateFlowCommand } from "../commands/prepare-flow.ts";
+import { reportEvidenceCommand } from "../commands/report-evidence.ts";
 import { readonlyPluginCommand } from "../commands/readonly-plugin.ts";
 import { scanPublicDataCommand } from "../commands/scan-public-data.ts";
 import { validateArtifactCommand } from "../commands/validate-artifact.ts";
@@ -11,6 +13,7 @@ import { validateContractCommand } from "../commands/validate-contract.ts";
 import { validateEvidenceCommand } from "../commands/validate-evidence.ts";
 import { validateRulesCommand } from "../commands/validate-rules.ts";
 import { verifyCommand } from "../commands/verify.ts";
+import { workspaceCheckCommand } from "../commands/workspace.ts";
 import {
   CliUsageError,
   createCommandReport,
@@ -28,6 +31,9 @@ export const HELP_TEXT = [
   "Usage: spflow <command> [options]",
   "",
   "Commands:",
+  "  prepare flow <definition> --connections <path> [--output <path>] [--format text|json]",
+  "  validate flow <definition> --connections <path> [--format text|json]",
+  "  report evidence <path> [--format text|json]",
   "  validate contract <path> [--format text|json]",
   "  validate rules --root <repository> [--required-only] [--format text|json]",
   "  validate artifact <path> --contract <path> [--format text|json]",
@@ -38,11 +44,15 @@ export const HELP_TEXT = [
   "  learn audit <registry-path> [--execute] [--format text|json]",
   "  learn capture <candidate-path> [--format text|json]",
   "  learn promote <candidate-path> --review <path> --reviewer-role <role> [--format text|json]",
+  "  workspace check --manifest <workspace-manifest> [--format text|json]",
   "  verify --root <repository> --offline [--format text|json]",
   "",
 ].join("\n");
 
 const DEFAULT_HANDLERS: CliHandlers = {
+  "prepare-flow": prepareFlowCommand,
+  "validate-flow": validateFlowCommand,
+  "report-evidence": reportEvidenceCommand,
   "validate-contract": validateContractCommand,
   "validate-connector": validateConnectorCommand,
   "readonly-plugin": readonlyPluginCommand,
@@ -53,6 +63,7 @@ const DEFAULT_HANDLERS: CliHandlers = {
   "learn-audit": learnAuditCommand,
   "learn-capture": learnCaptureCommand,
   "learn-promote": learnPromoteCommand,
+  "workspace-check": { run: workspaceCheckCommand },
   verify: verifyCommand,
 };
 

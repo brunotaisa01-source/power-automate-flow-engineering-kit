@@ -1,0 +1,193 @@
+import assert from "node:assert/strict";
+import { describe, test } from "node:test";
+
+import {
+  aggregateWorkspaceResults,
+  validateWorkspaceManifest,
+  type WorkspaceManifest,
+  type WorkspaceProjectResult,
+  type WorkspaceRegistryAudit,
+} from "../../../packages/core/src/workspace-control.ts";
+
+function validManifest(): WorkspaceManifest {
+  return {
+    schemaVersion: "1.0",
+    workspaceId: "synthetic-project-workspace",
+    registryPath: "./knowledge/self-improvement/registry.json",
+    projects: [
+      { id: "procurement", root: "./procurement", check: "npm run check", required: true },
+      { id: "expenses", root: "./expenses", check: "npm run check", required: true },
+    ],
+  };
+}
+
+function registryAudit(audit: WorkspaceRegistryAudit["audit"] = "PASS"): WorkspaceRegistryAudit {
+  return { revision: 1, digest: "[SANITIZED_DIGEST]", audit };
+}
+
+function projectResult(
+  id: string,
+  required: boolean,
+  result: WorkspaceProjectResult["result"],
+  exitCode: number,
+): WorkspaceProjectResult {
+  return { id, required, result, exitCode, evidenceClass: "LOCAL_SYNTHETIC" };
+}
+
+describe("workspace control-plane core contracts", () => {
+  test("accepts a valid two-project manifest", () => {
+    assert.deepEqual(validateWorkspaceManifest(validManifest()), []);
+  });
+
+  test("rejects duplicate IDs and roots, unsafe paths, and non-portable checks", () => {
+    const diagnostics = validateWorkspaceManifest({
+      ...validManifest(),
+      projects: [
+        { id: "same", root: "./projects/one", check: "npm run check", required: true },
+        { id: "same", root: "projects/one", check: "npm run build", required: false },
+        { id: "outside", root: "../outside", check: "npm run check", required: true },
+        { id: "absolute", root: "/private/project", check: "npm run check", required: true },
+      ],
+    });
+    const codes = diagnostics.map(({ code }) => code);
+
+    assert.ok(codes.includes("WORKSPACE_PROJECT_ID_DUPLICATE"));
+    assert.ok(codes.includes("WORKSPACE_PROJECT_ROOT_DUPLICATE"));
+    assert.ok(codes.includes("WORKSPACE_PATH_INVALID"));
+    assert.ok(codes.includes("WORKSPACE_CHECK_UNSUPPORTED"));
+  });
+
+  test("rejects non-public workspace and project identifiers without echoing their values", () => {
+    const diagnostics = validateWorkspaceManifest({
+      ...validManifest(),
+      workspaceId: "/private/workspace-secret",
+      projects: [
+        { id: "alice@example.com", root: "./procurement", check: "npm run check", required: true },
+        { id: "Private Project", root: "./expenses", check: "npm run check", required: true },
+      ],
+    });
+    const serialized = JSON.stringify(diagnostics);
+
+    assert.deepEqual(diagnostics.map(({ code, path }) => [code, path]), [
+      ["WORKSPACE_FIELD_INVALID", "/projects/0/id"],
+      ["WORKSPACE_FIELD_INVALID", "/projects/1/id"],
+      ["WORKSPACE_FIELD_INVALID", "/workspaceId"],
+    ]);
+    assert.doesNotMatch(serialized, /private\/workspace-secret|alice@example\.com|Private Project/);
+  });
+
+  test("sorts project results by ID and fails when a required project is RED", () => {
+    const aggregate = aggregateWorkspaceResults(
+      validManifest(),
+      registryAudit(),
+      [
+        projectResult("procurement", true, "PASS", 0),
+        projectResult("expenses", true, "FAIL", 1),
+      ],
+    );
+
+    assert.deepEqual(aggregate.projects.map(({ id }) => id), ["expenses", "procurement"]);
+    assert.equal(aggregate.result, "FAIL");
+    assert.deepEqual(aggregate.summary, { total: 2, passed: 1, failed: 1, notRun: 0, blocked: 0 });
+    assert.equal(aggregate.registry.audit, "PASS");
+    assert.equal(Object.isFrozen(aggregate), true);
+    assert.equal(Object.isFrozen(aggregate.projects), true);
+  });
+
+  test("does not copy private-looking runtime fields into project results", () => {
+    const aggregate = aggregateWorkspaceResults(
+      validManifest(),
+      registryAudit(),
+      [
+        {
+          ...projectResult("expenses", true, "PASS", 0),
+          privatePath: "/private/project",
+        },
+        projectResult("procurement", true, "PASS", 0),
+      ],
+    );
+
+    assert.deepEqual(aggregate.projects, [
+      projectResult("expenses", true, "PASS", 0),
+      projectResult("procurement", true, "PASS", 0),
+    ]);
+  });
+
+  test("copies only declared registry audit fields into aggregate data", () => {
+    const aggregate = aggregateWorkspaceResults(
+      validManifest(),
+      { ...registryAudit(), privateLesson: "private registry value" },
+      [
+        projectResult("procurement", true, "PASS", 0),
+        projectResult("expenses", true, "PASS", 0),
+      ],
+    );
+
+    assert.deepEqual(aggregate.registry, registryAudit());
+    assert.doesNotMatch(JSON.stringify(aggregate), /private registry value/);
+  });
+
+  test("returns GREEN when all required projects PASS with zero exit codes", () => {
+    const aggregate = aggregateWorkspaceResults(
+      validManifest(),
+      registryAudit(),
+      [
+        projectResult("procurement", true, "PASS", 0),
+        projectResult("expenses", true, "PASS", 0),
+      ],
+    );
+
+    assert.equal(aggregate.result, "PASS");
+    assert.deepEqual(aggregate.summary, { total: 2, passed: 2, failed: 0, notRun: 0, blocked: 0 });
+  });
+
+  test("fails the aggregate when registry audit FAILs despite all projects passing", () => {
+    const aggregate = aggregateWorkspaceResults(
+      validManifest(),
+      registryAudit("FAIL"),
+      [
+        projectResult("procurement", true, "PASS", 0),
+        projectResult("expenses", true, "PASS", 0),
+      ],
+    );
+
+    assert.equal(aggregate.registry.audit, "FAIL");
+    assert.equal(aggregate.result, "FAIL");
+    assert.deepEqual(aggregate.summary, { total: 2, passed: 2, failed: 0, notRun: 0, blocked: 0 });
+  });
+
+  test("keeps an optional NOT_RUN project visible without failing required GREEN", () => {
+    const manifest = validManifest();
+    const aggregate = aggregateWorkspaceResults(
+      {
+        ...manifest,
+        projects: manifest.projects.map((project) =>
+          project.id === "expenses" ? { ...project, required: false } : project
+        ),
+      },
+      registryAudit(),
+      [
+        projectResult("procurement", true, "PASS", 0),
+        projectResult("expenses", false, "NOT_RUN", 8),
+      ],
+    );
+
+    assert.equal(aggregate.result, "PASS");
+    assert.deepEqual(aggregate.summary, { total: 2, passed: 1, failed: 0, notRun: 1, blocked: 0 });
+  });
+
+  test("fails closed and reports a required project with no result", () => {
+    const aggregate = aggregateWorkspaceResults(
+      validManifest(),
+      registryAudit(),
+      [projectResult("procurement", true, "PASS", 0)],
+    );
+
+    assert.equal(aggregate.result, "FAIL");
+    assert.deepEqual(aggregate.projects, [
+      projectResult("expenses", true, "NOT_RUN", 8),
+      projectResult("procurement", true, "PASS", 0),
+    ]);
+    assert.deepEqual(aggregate.summary, { total: 2, passed: 1, failed: 0, notRun: 1, blocked: 0 });
+  });
+});

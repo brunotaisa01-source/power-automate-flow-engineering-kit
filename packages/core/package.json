@@ -10,8 +10,12 @@
     "./schema-loader": "./dist/schema-loader.js",
     "./connector-profile": "./dist/connector-profile.js",
     "./connector-runtime-harness": "./dist/connector-runtime-harness.js",
+    "./flow-save": "./dist/flow-save.js",
+    "./evidence-report": "./dist/evidence-report.js",
     "./readonly-plugin": "./dist/readonly-plugin.js",
     "./self-improvement": "./dist/self-improvement.js",
+    "./path-policy": "./dist/path-policy.js",
+    "./workspace-control": "./dist/workspace-control.js",
     "./types/*": "./dist/types/*.js"
   },
   "dependencies": {

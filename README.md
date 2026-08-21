@@ -88,12 +88,22 @@ All results are local evidence only. Tenant import, rebinding, enablement,
 execution, mutation, semantic readback, and publication readback are separate
 gates and are not performed by this repository.
 
+## License
+
+This repository uses the Personal and Internal Use License in [`LICENSE`](LICENSE).
+Personal and internal business use is permitted, but selling, redistributing,
+publishing, commercializing, offering a hosted/SaaS service, or transferring
+the Software or a substantially similar derivative requires separate written
+permission. The project name and trademarks are not licensed for promotion or
+endorsement. This is source-available, not an OSI open-source license.
+
 ## Quick Start
 
 Requirements:
 
 - Node.js `22.x`
 - npm `10.x`
+- Use `.nvmrc` with nvm, fnm, or another Node version manager when available.
 
 Install and verify:
 
@@ -101,7 +111,51 @@ Install and verify:
 npm ci
 npm run build
 npm test
+npm run check
 ```
+
+`npm run check` is the portable acceptance command. It invokes the build, the
+complete test inventory, all nine connector profiles, contract/rule/artifact
+checks, read-only plugin checks, and the high-severity dependency audit through
+Node argument arrays instead of shell-specific loops. The same command runs in
+the repository's Linux, macOS, and Windows GitHub Actions matrix.
+
+## Multi-project local control plane
+
+Run isolated, dependency-free checks for the two synthetic workspace projects:
+
+```powershell
+node packages/cli/dist/bin/spflow.js workspace check --manifest examples/multi-project-workspace/workspace.manifest.json --format json
+```
+
+The manifest, project roots, and governed registry are all rooted at
+`examples/multi-project-workspace/`. The aggregate is GREEN only when the
+registry audit and every required project are GREEN; a required RED remains
+visible while other projects continue independently. An optional missing
+project is reported as `NOT_RUN`, and an unresolved registry candidate blocks
+all project checks. Read [`docs/MULTI_PROJECT_CONTROL_PLANE.md`](docs/MULTI_PROJECT_CONTROL_PLANE.md)
+before adapting the fixture.
+
+## Portable Power Automate Save Boundary
+
+When a raw Power Automate definition is going to an XRM/Flow API save path,
+prepare it locally with the exported `@spflow/core/flow-save` helper:
+
+```ts
+import { preparePowerAutomateDefinition } from "@spflow/core/flow-save";
+
+const saveDefinition = preparePowerAutomateDefinition(
+  rawDefinition,
+  connectionReferences,
+);
+```
+
+The helper is deterministic and offline. It removes only action-level
+`inputs.authentication`, derives `host.connectionReferenceName` from the
+declared connection-reference map, preserves the connector alias and payload,
+and fails closed when a logical reference is missing or ambiguous. It does not
+authenticate, call a tenant, publish, enable, or run a flow. This keeps the
+same save-boundary behavior on any laptop with Node 22/npm 10.
 
 The public example is a complete, synthetic project. It contains a
 contract-bound frontend, a zero-action flow envelope for package inspection,
@@ -176,6 +230,11 @@ execution, mutation, semantic readback, publication readback, and rule-specific
 `LIVE_SMOKE NOT_RUN` entries are derived from the required rule IDs and their
 shipped catalog metadata; they are not runtime observations.
 
+Use npm run check for a zero-exit local acceptance gate. The offline `verify`
+command is an evidence report, so its non-zero exit is intentional when a
+requested scanner or external gate is unavailable; do not treat that result as
+a broken installation or convert its `NOT_RUN` entries into PASS.
+
 ## AI Skill
 
 Install or copy [`skills/power-automate-flow-engineering-kit/SKILL.md`](skills/power-automate-flow-engineering-kit/SKILL.md) into an AI skill directory. It teaches a clean-context AI to read the project contract, derive contract-bound resources, generate operation-specific endpoint helpers, use typed command queues, enforce SharePoint and Power Automate boundaries, handle ETags/readbacks/schema states/indexes/permissions, run RED before GREEN, preserve privacy, and report residual evidence gates. Its documentation TDD records a pressure scenario that is RED without the skill and GREEN with it.
@@ -229,11 +288,19 @@ intentionally stable.
 - `fixtures/`: synthetic RED, GREEN, positive-control, mutation, and connector fixtures.
 - `tests/`: unit, integration, adapter-boundary, and shipped-CLI verification tests.
 - `docs/specs/`: contracts, connector-profile semantics, and evidence model.
+- `docs/connectors/`: sanitized connector-specific RED/GREEN context packs.
 - `docs/architecture/`: product boundary, architecture, threat model, and source-derived patterns.
 - `docs/plans/`: implementation and remediation plans.
 - `docs/reviews/`: review records and acceptance gates.
 - `knowledge/self-improvement/`: approved global lessons and unresolved sanitized candidates.
 - `skills/`: the core engineering skill and the automatic connector-agnostic self-improvement skill.
+- `skills/power-automate-flow-engineering-kit-dataverse/`: Dataverse save-boundary, schema, approval, idempotency, and payment-handoff reference skill.
+
+For a practical Dataverse-backed flow sequence, read the
+[Dataverse + Power Automate flow runbook](docs/DATAVERSE_FLOW_RUNBOOK.md).
+It explains how an AI should connect through the authorized maker surface,
+bind connection references, prepare and preflight a definition, publish and
+enable narrowly, run a synthetic branch, and prove semantic readback.
 
 ## Engineering Model
 

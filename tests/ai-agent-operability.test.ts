@@ -1,0 +1,170 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { test } from "node:test";
+
+const ROOT = process.cwd();
+
+async function readContract(relativePath: string): Promise<string> {
+  try {
+    return await readFile(join(ROOT, relativePath), "utf8");
+  } catch {
+    return "";
+  }
+}
+
+function assertHasAll(text: string, required: readonly string[], label: string): void {
+  for (const requirement of required) {
+    assert.match(text, new RegExp(requirement.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"), `${label} is missing: ${requirement}`);
+  }
+}
+
+test("clean-context AI contract exposes onboarding, map, and portable gates", async () => {
+  const agents = await readContract("AGENTS.md");
+  const workflow = await readContract("docs/AI_AGENT_WORKFLOW.md");
+  const readme = await readContract("README.md");
+  const contract = `${agents}\n${workflow}`;
+
+  assert.ok(agents.length > 0, "AGENTS.md must exist and be readable");
+  assert.ok(workflow.length > 0, "docs/AI_AGENT_WORKFLOW.md must exist and be readable");
+  assertHasAll(contract, [
+    "AI Agent Operating Contract",
+    "Start Here",
+    "Repository Map",
+    "Portable Commands",
+    "TDD",
+    "RED",
+    "GREEN",
+    "Evidence Classes",
+    "Safety and Privacy Boundaries",
+    "Git/GitHub Safety",
+    "Worker Handoff and Retirement",
+    "Stop Conditions",
+  ], "AI operability contract");
+
+  assertHasAll(contract, [
+    "packages/",
+    "tests/",
+    "fixtures/",
+    "skills/",
+    "docs/",
+    "examples/",
+    "node --version",
+    "npm --version",
+    "npm ci",
+    "npm run build",
+    "node --experimental-strip-types --test tests/ai-agent-operability.test.ts",
+    "npm test",
+    "npm run check",
+    "git diff --check",
+  ], "portable onboarding");
+
+  assertHasAll(readme, [
+    "verify --root examples/minimal-public-app --offline --format text",
+    "expected to return exit `8`",
+    "Use npm run check for a zero-exit local acceptance gate",
+    "npm run check",
+    "NOT_RUN",
+  ], "first-use verification guidance");
+});
+
+test("clean-context AI contract names connector scope and evidence boundaries", async () => {
+  const contract = `${await readContract("AGENTS.md")}\n${await readContract("docs/AI_AGENT_WORKFLOW.md")}`;
+
+  assertHasAll(contract, [
+    "SharePoint",
+    "Excel",
+    "Power Apps",
+    "Dataverse",
+    "Outlook",
+    "Graph",
+    "HTTP",
+    "SQL",
+    "approvals",
+    "LOCAL_SYNTHETIC",
+    "PROVIDER_TENANT",
+    "HOSTED",
+    "UAT",
+    "local evidence",
+    "provider/tenant evidence",
+    "hosted evidence",
+    "UAT evidence",
+  ], "connector and evidence contract");
+
+  assertHasAll(contract, [
+    "synthetic",
+    "no real email",
+    ".invalid",
+    "MFA",
+    "password",
+    "credentials",
+    "tenant",
+    "do not",
+    "pause",
+  ], "privacy and authentication boundary");
+});
+
+test("clean-context AI contract defines safe Git, handoff, retirement, and stops", async () => {
+  const contract = `${await readContract("AGENTS.md")}\n${await readContract("docs/AI_AGENT_WORKFLOW.md")}`;
+
+  assertHasAll(contract, [
+    "git status --short",
+    "git diff",
+    "branch",
+    "pull request",
+    "secret",
+    "force-push",
+    "handoff",
+    "exact work",
+    "retire",
+    "worker",
+    "STOP",
+    "ambiguous",
+    "destructive",
+    "provider gate",
+    "real data",
+    "MFA",
+  ], "safe worker contract");
+});
+
+test("Dataverse runbook gives a clean-context AI an actionable provider-gated sequence", async () => {
+  const runbook = await readContract("docs/DATAVERSE_FLOW_RUNBOOK.md");
+  assert.ok(runbook.length > 0, "docs/DATAVERSE_FLOW_RUNBOOK.md must exist and be readable");
+  assertHasAll(runbook, [
+    "Microsoft Dataverse",
+    "connection reference",
+    "@odata.bind",
+    "npm run check",
+    "validate connector",
+    "LOCAL_SYNTHETIC",
+    "PROVIDER_TENANT",
+    "HOSTED",
+    "UAT",
+    "MFA",
+    "example.invalid",
+    "preflight",
+    "preview",
+    "publish",
+    "enable",
+    "run ID",
+    "semantic readback",
+    "SYNTHETIC_SUPPRESSED",
+    "stop",
+  ], "Dataverse flow runbook");
+});
+
+test("repository license permits internal use but blocks unlicensed commercialization", async () => {
+  const license = await readContract("LICENSE");
+  assert.ok(license.length > 0, "LICENSE must exist and be readable");
+  assert.doesNotMatch(license, /MIT License|sell copies|without restriction/i, "the repository must not silently restore MIT resale rights");
+  assertHasAll(license, [
+    "personal use",
+    "internal business use",
+    "may not sell",
+    "may not redistribute",
+    "commercialize",
+    "written permission",
+    "trademark",
+    "AS IS",
+  ], "repository license boundary");
+});
