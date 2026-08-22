@@ -249,6 +249,13 @@ node packages/cli/dist/bin/spflow.js learn audit knowledge/self-improvement/regi
 
 An open candidate intentionally returns exit `1` until its executable RED/GREEN/positive-control and independent review gates pass.
 
+The approved global lessons include `runtime-binding-authority`: a physical
+`Connected` status is not enough. A future AI must also confirm that the
+current and installed logical/physical references match and that the generated
+data-source alias equals the full alias registered by the host. This lesson is
+connector-neutral, synthetic-public, and consumed through the registry on every
+new laptop; provider, hosted, and UAT evidence remains project-local.
+
 ## Read-Only Plugin
 
 Install the local synthetic read-only plugin skill from the public repository:

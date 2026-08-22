@@ -9,10 +9,11 @@ import { auditLearningRegistry, allowedLearningTransition, captureLearningCandid
 import { learnAuditCommand } from "../../../packages/cli/src/commands/learn.ts";
 
 describe("global self-improvement registry", () => {
-  test("an unresolved candidate is an explicit RED gate", async () => {
+  test("the canonical registry is consumable only after every candidate is promoted", async () => {
     const root = process.cwd();
     const result = await auditLearningRegistry(root, join(root, "knowledge/self-improvement/registry.json"));
-    assert.ok(result.diagnostics.some(({ code }) => code === "SELF_LEARNING_CANDIDATE_OPEN"));
+    assert.equal(result.diagnostics.some(({ code }) => code === "SELF_LEARNING_CANDIDATE_OPEN"), false);
+    assert.ok(result.approvedLessons?.some((lesson) => lesson.id === "runtime-binding-authority"));
   });
 
   test("an approved connector-neutral lesson with independent controls is GREEN", async () => {
@@ -132,14 +133,14 @@ describe("global self-improvement registry", () => {
     }
   });
 
-  test("the CLI exposes the unresolved candidate as a non-successful audit", async () => {
+  test("the CLI exposes the fully promoted registry as a successful audit", async () => {
     const report = await learnAuditCommand.run([
       "learn",
       "audit",
       join(process.cwd(), "knowledge/self-improvement/registry.json"),
     ]);
-    assert.equal(report.exitCode, 1);
-    assert.equal(report.result, "FAIL");
-    assert.ok(report.diagnostics.some(({ code }) => code === "SELF_LEARNING_CANDIDATE_OPEN"));
+    assert.equal(report.exitCode, 0);
+    assert.equal(report.result, "PASS");
+    assert.equal(report.diagnostics.some(({ code }) => code === "SELF_LEARNING_CANDIDATE_OPEN"), false);
   });
 });

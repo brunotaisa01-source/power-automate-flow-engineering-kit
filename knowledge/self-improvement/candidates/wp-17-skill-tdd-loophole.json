@@ -1,7 +1,7 @@
 {
   "id": "skill-tdd-loophole",
   "version": 1,
-  "status": "CANDIDATE",
+  "status": "APPROVED",
   "scope": [
     "skills",
     "evidence"
@@ -24,8 +24,8 @@
     "expectedExitCode": 0
   },
   "positiveControl": {
-    "path": "tests/unit/core/self-improvement.test.ts",
-    "testName": "an approved connector-neutral lesson with independent controls is GREEN",
+    "path": "tests/skills/sharepoint-flow-engineering-kit-positive-control.test.ts",
+    "testName": "independent valid Save positive control performs exact readback",
     "runner": "node-test",
     "expectedExitCode": 0
   },
@@ -35,13 +35,13 @@
     "recordPath": "docs/specs/self-improvement.md"
   },
   "review": {
-    "decision": "BLOCKED",
-    "recordPath": "docs/reviews/wp-17-skill-loophole-review-r01.md",
+    "decision": "APPROVED",
+    "recordPath": "docs/reviews/wp-17-skill-tdd-loophole-independent-review-r04.md",
     "reviewerRole": "independent-luna-max-reviewer"
   },
   "privacy": "synthetic-public",
   "lifecycle": {
-    "current": "CANDIDATE",
+    "current": "APPROVED",
     "history": [
       {
         "status": "CANDIDATE",
@@ -54,6 +54,10 @@
       {
         "status": "CANDIDATE",
         "recordPath": "docs/specs/self-improvement.md"
+      },
+      {
+        "status": "APPROVED",
+        "recordPath": "docs/reviews/wp-17-skill-tdd-loophole-independent-review-r04.md"
       }
     ]
   }

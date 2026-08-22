@@ -1,13 +1,17 @@
 {
   "schemaVersion": "1.0",
   "registryId": "sharepoint-flow-engineering-kit-global",
-  "revision": 1,
+  "revision": 3,
   "lessons": [
     {
       "id": "operation-specific-endpoint-authority",
       "version": 1,
       "status": "APPROVED",
-      "scope": ["frontend", "sharepoint", "evidence"],
+      "scope": [
+        "frontend",
+        "sharepoint",
+        "evidence"
+      ],
       "trigger": {
         "kind": "review-finding",
         "summary": "A generic list-resource prefix accepted a subresource that was not authorized for the operation."
@@ -45,8 +49,139 @@
       "lifecycle": {
         "current": "APPROVED",
         "history": [
-          { "status": "CANDIDATE", "recordPath": "docs/reviews/wp-16-operation-specific-endpoint-authority-remediation-record.md" },
-          { "status": "APPROVED", "recordPath": "docs/reviews/wp-16-operation-specific-endpoint-authority-independent-review-r01.md" }
+          {
+            "status": "CANDIDATE",
+            "recordPath": "docs/reviews/wp-16-operation-specific-endpoint-authority-remediation-record.md"
+          },
+          {
+            "status": "APPROVED",
+            "recordPath": "docs/reviews/wp-16-operation-specific-endpoint-authority-independent-review-r01.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "runtime-binding-authority",
+      "version": 1,
+      "status": "APPROVED",
+      "scope": [
+        "power-automate",
+        "power-platform",
+        "dataverse",
+        "outlook",
+        "approvals",
+        "connectors",
+        "evidence"
+      ],
+      "trigger": {
+        "kind": "runtime-counterexample",
+        "summary": "A physically Connected connector still had a stale installed reference or an unresolvable generated data-source alias."
+      },
+      "invariant": "A live runtime is GREEN only when the physical connection is Connected, current and installed logical and physical references match, and the generated data-source alias equals the full alias registered by the host.",
+      "red": {
+        "path": "tests/unit/core/runtime-binding-red.test.ts",
+        "testName": "RED: a Connected physical connection does not prove the installed logical binding",
+        "runner": "node-test",
+        "expectedExitCode": 0
+      },
+      "green": {
+        "path": "tests/unit/core/runtime-binding-green.test.ts",
+        "testName": "GREEN: matching current and installed references plus the full alias pass",
+        "runner": "node-test",
+        "expectedExitCode": 0
+      },
+      "positiveControl": {
+        "path": "tests/unit/core/runtime-binding-positive-control.test.ts",
+        "testName": "positive control: an independent valid connector binding remains GREEN",
+        "runner": "node-test",
+        "expectedExitCode": 0
+      },
+      "claimBoundary": "RUNTIME_SYNTHETIC",
+      "provenance": {
+        "workPackage": "WP-18",
+        "recordPath": "docs/reviews/wp-18-runtime-binding-authority-source.md"
+      },
+      "review": {
+        "decision": "APPROVED",
+        "recordPath": "docs/reviews/wp-18-runtime-binding-authority-independent-review-r01.md",
+        "reviewerRole": "independent-luna-max-reviewer"
+      },
+      "privacy": "synthetic-public",
+      "lifecycle": {
+        "current": "APPROVED",
+        "history": [
+          {
+            "status": "CANDIDATE",
+            "recordPath": "docs/reviews/wp-18-runtime-binding-authority-source.md"
+          },
+          {
+            "status": "APPROVED",
+            "recordPath": "docs/reviews/wp-18-runtime-binding-authority-independent-review-r01.md"
+          }
+        ]
+      }
+    },
+    {
+      "id": "skill-tdd-loophole",
+      "version": 1,
+      "status": "APPROVED",
+      "scope": [
+        "skills",
+        "evidence"
+      ],
+      "trigger": {
+        "kind": "review-finding",
+        "summary": "A token-only documentation test and canned response did not prove that an AI follows the skill."
+      },
+      "invariant": "Skill TDD must execute adversarial counterexamples with no-fetch assertions, independent positive controls, status/body/readback checks, and evidence-promotion rejection; phrases alone are insufficient.",
+      "red": {
+        "path": "tests/skills/sharepoint-flow-engineering-kit-skill.test.ts",
+        "testName": "pressure scenario without the skill is an executable RED",
+        "runner": "node-test",
+        "expectedExitCode": 0
+      },
+      "green": {
+        "path": "tests/skills/sharepoint-flow-engineering-kit-skill.test.ts",
+        "testName": "skill procedure rejects endpoint attacks before any fetch",
+        "runner": "node-test",
+        "expectedExitCode": 0
+      },
+      "positiveControl": {
+        "path": "tests/skills/sharepoint-flow-engineering-kit-positive-control.test.ts",
+        "testName": "independent valid Save positive control performs exact readback",
+        "runner": "node-test",
+        "expectedExitCode": 0
+      },
+      "claimBoundary": "LOCAL_RUNTIME",
+      "provenance": {
+        "workPackage": "WP-17",
+        "recordPath": "docs/specs/self-improvement.md"
+      },
+      "review": {
+        "decision": "APPROVED",
+        "recordPath": "docs/reviews/wp-17-skill-tdd-loophole-independent-review-r04.md",
+        "reviewerRole": "independent-luna-max-reviewer"
+      },
+      "privacy": "synthetic-public",
+      "lifecycle": {
+        "current": "APPROVED",
+        "history": [
+          {
+            "status": "CANDIDATE",
+            "recordPath": "docs/reviews/wp-17-skill-loophole-review-r01.md"
+          },
+          {
+            "status": "BLOCKED",
+            "recordPath": "docs/plans/wp-17-global-self-improvement-control-plane-plan.md"
+          },
+          {
+            "status": "CANDIDATE",
+            "recordPath": "docs/specs/self-improvement.md"
+          },
+          {
+            "status": "APPROVED",
+            "recordPath": "docs/reviews/wp-17-skill-tdd-loophole-independent-review-r04.md"
+          }
         ]
       }
     }

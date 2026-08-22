@@ -32,10 +32,11 @@ describe("read-only plugin boundary", () => {
     assert.equal((preflight.profiles as Array<Record<string, unknown>>).every((item) => item.valid === true), true);
   });
 
-  test("candidate status is readable and approved lesson consumption fails closed", async () => {
+  test("candidate status is readable and approved lesson consumption is available", async () => {
     const candidates = await runReadonlyPlugin(ROOT, { operation: "listCandidateStatus" }) as Array<Record<string, unknown>>;
-    assert.ok(candidates.some((candidate) => candidate.status === "CANDIDATE"));
-    await assert.rejects(runReadonlyPlugin(ROOT, { operation: "listApprovedLessons" }), /READONLY_PLUGIN_REGISTRY_NOT_CONSUMABLE/);
+    assert.equal(candidates.every((candidate) => candidate.status === "APPROVED"), true);
+    const lessons = await runReadonlyPlugin(ROOT, { operation: "listApprovedLessons" }) as Array<Record<string, unknown>>;
+    assert.ok(lessons.some((lesson) => lesson.id === "runtime-binding-authority"));
   });
 
   test("all forbidden operations are rejected", async () => {

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { access, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -119,11 +120,27 @@ async function copyRepositoryFiles(workspaceRoot: string, paths: readonly string
 
 async function installApprovedRegistry(workspaceRoot: string): Promise<readonly [string, string]> {
   await copyRepositoryFiles(workspaceRoot, APPROVED_REGISTRY_FILES);
-  const registry = JSON.parse(await readFile(join(workspaceRoot, "knowledge/self-improvement/registry.json"), "utf8")) as {
+  const registryPath = join(workspaceRoot, "knowledge/self-improvement/registry.json");
+  const registry = JSON.parse(await readFile(registryPath, "utf8")) as {
+    readonly schemaVersion: "1.0";
+    readonly registryId: string;
+    readonly revision: number;
     readonly lessons: readonly Array<{ readonly id: string; readonly invariant: string }>;
   };
   const lesson = registry.lessons[0];
   if (lesson === undefined) throw new Error("Canonical APPROVED fixture registry must contain one lesson.");
+  const fixtureRegistry = JSON.stringify({
+    schemaVersion: registry.schemaVersion,
+    registryId: registry.registryId,
+    revision: registry.revision,
+    lessons: [lesson],
+  }, null, 2) + "\n";
+  await writeFile(registryPath, fixtureRegistry, "utf8");
+  await writeFile(
+    join(workspaceRoot, "knowledge/self-improvement/registry.sha256"),
+    createHash("sha256").update(fixtureRegistry, "utf8").digest("hex") + "\n",
+    "utf8",
+  );
   return [lesson.id, lesson.invariant];
 }
 
@@ -135,9 +152,19 @@ async function installUnresolvedHistory(workspaceRoot: string, status: "CANDIDAT
     lifecycle: { current: string; history: unknown[] };
   };
   candidate.status = status;
+  candidate.review = {
+    decision: "BLOCKED",
+    recordPath: "docs/reviews/wp-17-skill-loophole-review-r01.md",
+    reviewerRole: "independent-luna-max-reviewer",
+  };
   candidate.lifecycle = {
     current: status,
-    history: status === "BLOCKED" ? candidate.lifecycle.history.slice(0, 2) : candidate.lifecycle.history,
+    history: status === "BLOCKED"
+      ? [
+        { status: "CANDIDATE", recordPath: "docs/specs/self-improvement.md" },
+        { status: "BLOCKED", recordPath: "docs/plans/wp-17-global-self-improvement-control-plane-plan.md" },
+      ]
+      : [{ status: "CANDIDATE", recordPath: "docs/specs/self-improvement.md" }],
   };
   const destination = join(workspaceRoot, CANDIDATE_SOURCE);
   await mkdir(dirname(destination), { recursive: true });

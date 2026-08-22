@@ -22,12 +22,13 @@ test("self-improvement skill is global and connector-agnostic", async () => {
   assert.doesNotMatch(skill, /C:\\Users\\[^`\s]+|OneDrive\s+-|private-project-marker|Você/i);
 });
 
-test("global registry consumption is schema/digest checked and blocks open candidates", async () => {
+test("global registry consumption is schema/digest checked and exposes approved lessons", async () => {
   const result = await auditLearningRegistry(ROOT, REGISTRY_PATH, { executeBindings: false });
   assert.equal(result.registryId, "sharepoint-flow-engineering-kit-global");
   assert.equal(typeof result.revision, "number");
   assert.match(result.digest ?? "", /^[a-f0-9]{64}$/);
-  assert.ok(result.diagnostics.some(({ code }) => code === "SELF_LEARNING_CANDIDATE_OPEN"));
+  assert.equal(result.diagnostics.some(({ code }) => code === "SELF_LEARNING_CANDIDATE_OPEN"), false);
+  assert.ok(result.approvedLessons?.some((lesson) => lesson.id === "runtime-binding-authority"));
   assert.equal(result.diagnostics.some(({ code }) => code === "SELF_LEARNING_SCHEMA_INVALID"), false);
   assert.equal(result.diagnostics.some(({ code }) => code === "SELF_LEARNING_DIGEST_MISMATCH"), false);
 });
